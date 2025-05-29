@@ -3,21 +3,17 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function Home() {
+export default function RootPage() {
   const router = useRouter();
-  
+
   useEffect(() => {
     // Redirect to the loading page when the site is first loaded
-    const redirectTimer = setTimeout(() => {
-      router.push('/loading');
-    }, 100);
-    
-    return () => clearTimeout(redirectTimer);
+    router.replace('/loading');
   }, [router]);
-  
+
   return (
     // This is just a placeholder while the redirect happens
-    <div className="flex h-screen w-screen items-center justify-center bg-white">
+    <div className="flex h-screen w-screen items-center justify-center">
       <div className="animate-pulse">Loading...</div>
     </div>
   );

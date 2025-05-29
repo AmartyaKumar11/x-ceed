@@ -1,0 +1,11 @@
+/* Tech font import for the splash screen */
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@100;300;400;500;600;700&display=swap');
+
+.tech-font {
+  font-family: 'Orbitron', sans-serif;
+}
+
+.mono-font {
+  font-family: 'Roboto Mono', monospace;
+}
