@@ -1,0 +1,134 @@
+/* Animations for Dialog and Sheet components */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes slide-in-from-top {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-out-to-top {
+  from { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+@keyframes slide-in-from-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-to-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes slide-in-from-bottom {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes slide-out-to-bottom {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-to-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes zoom-in {
+  from { transform: scale(0.95); }
+  to { transform: scale(1); }
+}
+
+@keyframes zoom-out {
+  from { transform: scale(1); }
+  to { transform: scale(0.95); }
+}
+
+@keyframes accordion-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes accordion-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+.data-[state=open]:animate-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+.data-[state=closed]:animate-out {
+  animation: fade-out 0.2s ease-in;
+}
+
+.data-[state=open]:fade-in-0 {
+  animation: fade-in 0.2s ease-out;
+}
+
+.data-[state=closed]:fade-out-0 {
+  animation: fade-out 0.2s ease-in;
+}
+
+.data-[state=closed]:slide-out-to-top {
+  animation: slide-out-to-top 0.2s ease-in;
+}
+
+.data-[state=open]:slide-in-from-top {
+  animation: slide-in-from-top 0.2s ease-out;
+}
+
+.data-[state=closed]:slide-out-to-right {
+  animation: slide-out-to-right 0.2s ease-in;
+}
+
+.data-[state=open]:slide-in-from-right {
+  animation: slide-in-from-right 0.2s ease-out;
+}
+
+.data-[state=closed]:slide-out-to-bottom {
+  animation: slide-out-to-bottom 0.2s ease-in;
+}
+
+.data-[state=open]:slide-in-from-bottom {
+  animation: slide-in-from-bottom 0.2s ease-out;
+}
+
+.data-[state=closed]:slide-out-to-left {
+  animation: slide-out-to-left 0.2s ease-in;
+}
+
+.data-[state=open]:slide-in-from-left {
+  animation: slide-in-from-left 0.2s ease-out;
+}
+
+.data-[state=closed]:zoom-out-95 {
+  animation: zoom-out 0.2s ease-in;
+}
+
+.data-[state=open]:zoom-in-95 {
+  animation: zoom-in 0.2s ease-out;
+}
+
+.data-[state=open]:animate-accordion-down {
+  animation: accordion-down 0.2s ease-out;
+}
+
+.data-[state=closed]:animate-accordion-up {
+  animation: accordion-up 0.2s ease-in;
+}

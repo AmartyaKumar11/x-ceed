@@ -1,0 +1,75 @@
+/* Jobs page specific styling */
+
+/* Scrollable job card list with custom scrollbar */
+.job-cards-container {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.job-cards-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.job-cards-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.job-cards-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+}
+
+/* Job card hover effect */
+.job-card {
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+}
+
+.job-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  border-color: #d1d5db;
+}
+
+/* Dialog content styling */
+.job-dialog-content {
+  max-width: 800px;
+  width: 95%;
+  max-height: 90vh;
+}
+
+/* Resume upload area styling */
+.resume-upload-area {
+  transition: all 0.2s ease;
+}
+
+.resume-upload-area:hover {
+  border-color: #000;
+}
+
+/* Match resume button hover effect */
+.match-button {
+  transition: all 0.2s ease;
+}
+
+.match-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Filter tags styling */
+.filter-tag {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.filter-tag:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.filter-tag.active {
+  background-color: #000;
+  color: #fff;
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from "next/link";
 import styles from './auth.module.css';
 
@@ -10,26 +11,51 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function AuthPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("login");
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  
-  const handleSubmit = (e) => {
+  const [role, setRole] = useState('');    const handleSubmit = (e) => {
     e.preventDefault();
-    // Here you would typically handle authentication
-    console.log(activeTab === "login" ? 'Logging in' : 'Signing up', { email, password, name });
+    
+    if (activeTab === "login") {
+      // Login logic
+      console.log('Logging in', { email, password });
+      // Redirect to dashboard based on stored role
+      // For demo purposes, redirect to a default dashboard
+      router.push('/dashboard');
+    } else {
+      // Registration logic
+      console.log('Signing up', { email, password, name, role });
+        // Store the user role in localStorage for demo purposes
+      // In a real app, this would be stored in a database and retrieved via an API
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userRole', role);
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userName', name);
+      }
+      
+      // Redirect based on role
+      if (role === "applicant") {
+        // For applicants, redirect to registration form for profile completion
+        router.push('/register');
+      } else if (role === "recruiter") {
+        // For recruiters, go directly to the dashboard
+        router.push('/dashboard/recruiter');
+      }
+    }
   };
   return (
     <div className={styles.authContainer}>
       <div className="flex w-full items-center justify-center">
         <div className="w-full max-w-md p-4">
           <div className="mb-4 flex justify-between items-center">
-            <div className="text-2xl font-bold">X-CEED</div>
-            <div className="text-sm text-muted-foreground">
-              <Link href="#" className="underline underline-offset-4 hover:text-primary">
+            <div className="text-2xl font-bold">X-CEED</div>            <div className="text-sm text-muted-foreground">
+              <Link href="#" className="underline underline-offset-4 hover:text-primary cursor-pointer">
                 Need help?
               </Link>
             </div>
@@ -42,11 +68,10 @@ export default function AuthPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="py-2">
-              <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-3">
-                  <TabsTrigger value="login">Login</TabsTrigger>
-                  <TabsTrigger value="register">Register</TabsTrigger>
-                </TabsList>                <TabsContent value="login">
+              <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">                <TabsList className="grid w-full grid-cols-2 mb-3">
+                  <TabsTrigger value="login" className="cursor-pointer">Login</TabsTrigger>
+                  <TabsTrigger value="register" className="cursor-pointer">Register</TabsTrigger>
+                </TabsList><TabsContent value="login">
                   <form onSubmit={handleSubmit} className="space-y-3">
                     <div>
                       <div className="space-y-0.5">
@@ -77,8 +102,7 @@ export default function AuthPage() {
                     </div>
                     <Button type="submit" className="w-full h-9">Sign In</Button>
                   </form>
-                </TabsContent>
-                <TabsContent value="register">
+                </TabsContent>                <TabsContent value="register">
                   <form onSubmit={handleSubmit} className="space-y-3">
                     <div>
                       <div className="space-y-0.5">
@@ -120,19 +144,36 @@ export default function AuthPage() {
                           className="h-9"
                         />
                       </div>
+                    </div>                    <div>
+                      <div className="space-y-0.5">
+                        <Label htmlFor="role">Select Role</Label>
+                        <div className={styles.selectWrapper}>
+                          <select
+                            id="role"
+                            name="role"
+                            required
+                            value={role}
+                            onChange={(e) => setRole(e.target.value)}
+                            className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+                          >
+                            <option value="" disabled>Select your role</option>
+                            <option value="applicant">Applicant</option>
+                            <option value="recruiter">Recruiter</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <Button type="submit" className="w-full h-9">Create Account</Button>
+                    <Button type="submit" className="w-full h-9" disabled={!role}>Create Account</Button>
                   </form>
                 </TabsContent>
               </Tabs>
-            </CardContent>            <CardFooter className="py-3">
-              <div className="text-xs text-muted-foreground text-center w-full">
+            </CardContent>            <CardFooter className="py-3">              <div className="text-xs text-muted-foreground text-center w-full">
                 By continuing, you agree to our{" "}
-                <Link href="#" className="underline underline-offset-4 hover:text-primary">
+                <Link href="#" className="underline underline-offset-4 hover:text-primary cursor-pointer">
                   Terms
                 </Link>{" "}
                 and{" "}
-                <Link href="#" className="underline underline-offset-4 hover:text-primary">
+                <Link href="#" className="underline underline-offset-4 hover:text-primary cursor-pointer">
                   Privacy Policy
                 </Link>
               </div>

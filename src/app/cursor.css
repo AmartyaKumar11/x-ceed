@@ -1,0 +1,63 @@
+/* Cursor pointer styles for clickable elements */
+
+/* Buttons and interactive elements */
+button,
+[role="button"],
+a,
+.btn,
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+select,
+.cursor-pointer,
+.clickable {
+  cursor: pointer !important;
+}
+
+/* ShadCN UI specific elements */
+[data-radix-collection-item]:not([disabled]),
+[cmdk-item]:not([disabled]), 
+[data-state],
+[role="tab"],
+[role="menuitem"],
+[role="option"],
+.select-trigger,
+.tabs-trigger,
+.card-clickable,
+.link {
+  cursor: pointer !important;
+}
+
+/* For disabled elements, show not-allowed cursor */
+button:disabled,
+[role="button"][aria-disabled="true"],
+input[type="submit"]:disabled,
+input[type="button"]:disabled,
+input[type="reset"]:disabled,
+a[aria-disabled="true"],
+[data-disabled="true"],
+[data-radix-collection-item][disabled],
+[cmdk-item][disabled],
+[role="tab"][aria-disabled="true"],
+[role="menuitem"][aria-disabled="true"],
+[role="option"][aria-disabled="true"] {
+  cursor: not-allowed !important;
+}
+
+/* Input fields should show text cursor */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+textarea {
+  cursor: text !important;
+}
+
+/* For checkboxes and radio buttons */
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer !important;
+}
