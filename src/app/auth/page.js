@@ -38,14 +38,13 @@ export default function AuthPage() {
         localStorage.setItem('userEmail', email);
         localStorage.setItem('userName', name);
       }
-      
-      // Redirect based on role
+        // Redirect based on role
       if (role === "applicant") {
         // For applicants, redirect to registration form for profile completion
         router.push('/register');
       } else if (role === "recruiter") {
-        // For recruiters, go directly to the dashboard
-        router.push('/dashboard/recruiter');
+        // For recruiters, redirect to recruiter registration form
+        router.push('/register/recruiter');
       }
     }
   };

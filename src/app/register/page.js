@@ -68,7 +68,7 @@ const workExperienceSchema = z.object({
 });
 
 const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const genders = ["Male", "Female", "Prefer not to say"];
+const genders = ["Male", "Female", "Prefer not to say", "Other"];
 
 export default function RegistrationPage() {
   const router = useRouter();
