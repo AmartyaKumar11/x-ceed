@@ -1,23 +1,22 @@
-import { connectToDatabase } from '../../../lib/mongodb';
-import { verifyToken } from '../../../lib/auth';
+import clientPromise from '../../../lib/mongodb';
+import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
   try {
+    // Connect to the database
+    const client = await clientPromise;
+    const db = client.db();
+    
     if (req.method === 'POST') {
       // Verify authentication
-      const token = req.headers.authorization?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(401).json({ success: false, message: 'No token provided' });
+      const auth = await authMiddleware(req);
+      if (!auth.isAuthenticated) {
+        return res.status(auth.status).json({ success: false, message: auth.error });
       }
-
-      const decoded = verifyToken(token);
-      if (!decoded) {
-        return res.status(401).json({ success: false, message: 'Invalid token' });
-      }
-
+      
       // Verify user is a recruiter
-      if (decoded.role !== 'recruiter') {
+      if (auth.user.userType !== 'recruiter') {
         return res.status(403).json({ success: false, message: 'Only recruiters can create jobs' });
       }
 
@@ -66,12 +65,8 @@ export default async function handler(req, res) {
           success: false, 
           message: 'Application end date must be after start date' 
         });
-      }
-
-      const { db } = await connectToDatabase();
-
-      const job = {
-        recruiterId: decoded.userId,
+      }      const job = {
+        recruiterId: auth.user.userId,
         title,
         department,
         level,
@@ -101,21 +96,16 @@ export default async function handler(req, res) {
         success: true,
         data: { ...job, _id: result.insertedId },
         message: 'Job created successfully'
-      });
-
-    } else if (req.method === 'GET') {
-      // Get jobs for recruiter
-      const token = req.headers.authorization?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(401).json({ success: false, message: 'No token provided' });
-      }
-
-      const decoded = verifyToken(token);
-      if (!decoded) {
-        return res.status(401).json({ success: false, message: 'Invalid token' });
-      }
-
-      const { db } = await connectToDatabase();
+      });    } else if (req.method === 'GET') {
+      // Handle public job listings vs. recruiter-specific job listings
+      const isPublic = req.query.public === 'true';
+      
+      if (!isPublic) {
+        // If not public, verify authentication for recruiter-specific listings
+        const auth = await authMiddleware(req);
+        if (!auth.isAuthenticated) {
+          return res.status(auth.status).json({ success: false, message: auth.error });
+        }
 
       const jobs = await db.collection('jobs')
         .find({ 

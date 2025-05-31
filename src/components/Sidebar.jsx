@@ -30,17 +30,15 @@ export default function Sidebar({ role }) {
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
     { icon: <Bell size={18} />, label: 'Notifications', href: '#', onClick: () => setIsNotificationPanelOpen(true) },
-    { icon: <Settings size={18} />, label: 'Settings', href: '#' },
-  ] : [
+    { icon: <Settings size={18} />, label: 'Settings', href: '#' },  ] : [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/recruiter' },
     { icon: <Briefcase size={18} />, label: 'Job Postings', href: '#' },
-    { icon: <User size={18} />, label: 'Candidates', href: '#' },
+    { icon: <User size={18} />, label: 'Candidates', href: '/candidates' },
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
     { icon: <Settings size={18} />, label: 'Settings', href: '#' },
   ];
-  
-  useEffect(() => {
+    useEffect(() => {
     // Function to handle mouse enter
     const handleMouseEnter = () => {
       setIsOpen(true);
@@ -58,13 +56,23 @@ export default function Sidebar({ role }) {
     };
     
     // Create a trigger area on the left side of the screen
-    const trigger = document.createElement('div');
+    let trigger = document.createElement('div');
     trigger.style.position = 'fixed';
     trigger.style.top = '0';
     trigger.style.left = '0';
     trigger.style.width = '20px';
     trigger.style.height = '100%';
     trigger.style.zIndex = '48';
+    
+    // Check if the trigger already exists and remove it before adding a new one
+    const existingTrigger = document.querySelector('.sidebar-trigger-area');
+    if (existingTrigger) {
+      existingTrigger.remove();
+    }
+    
+    // Add a class for identification
+    trigger.classList.add('sidebar-trigger-area');
+    
     triggerRef.current = trigger;
     document.body.appendChild(trigger);
     
@@ -76,23 +84,34 @@ export default function Sidebar({ role }) {
     return () => {
       trigger.removeEventListener('mouseenter', handleMouseEnter);
       sidebarRef.current?.removeEventListener('mouseleave', handleMouseLeave);
-      document.body.removeChild(trigger);
-    };
-  }, []);
-  return (
+      
+      // Safe removal of the trigger
+      if (document.body.contains(trigger)) {
+        document.body.removeChild(trigger);
+      }
+    };  }, []);  return (
     <>
       {/* Trigger area */}
       <div ref={triggerRef} className="sidebar-trigger"></div>
       
-      {/* Sidebar */}
-      <div 
+      {/* Sidebar */}      <div
         ref={sidebarRef}
         className={`sidebar fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out z-50 ${
           isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
         }`}
       >
-        <div className="h-16 border-b border-gray-200 flex items-center justify-center px-6">
+        <div className="h-16 border-b border-gray-200 flex items-center justify-between px-6">
           <h2 className="text-xl font-bold">X-CEED</h2>
+          <button 
+            onClick={() => setIsOpen(false)}
+            className="text-gray-500 hover:text-gray-800 transition-colors"
+            aria-label="Close menu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
         
         <div className="py-4">

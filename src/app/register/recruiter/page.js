@@ -32,21 +32,62 @@ export default function RecruiterRegistrationPage() {
       address: "",
     },
   });
-
-  const onSubmit = (data) => {
-    console.log('Recruiter registration data:', data);
-    
-    // Store recruiter data in localStorage for demo purposes
-    if (typeof window !== 'undefined') {
+  const onSubmit = async (data) => {
+    try {
+      console.log('Recruiter registration data:', data);
+      
+      // Create a password from the recruiter ID
+      const tempPassword = data.recruiterId + '123';
+      
+      // For now let's use a default email pattern
+      const email = `${data.recruiterId.toLowerCase().replace(/\s+/g, '.')}@${data.institutionName.toLowerCase().replace(/\s+/g, '')}.com`;
+      
+      // Prepare the data for the API
+      const registrationData = {
+        email,
+        password: tempPassword, // In production, you'd want a proper password flow
+        userType: 'recruiter',
+        userData: {
+          name: data.name,
+          recruiterId: data.recruiterId,
+          institutionName: data.institutionName,
+          address: data.address,
+        }
+      };
+      
+      // Submit to the registration API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationData),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Registration failed');
+      }
+      
+      // For compatibility, still store in localStorage
       localStorage.setItem('recruiterProfile', JSON.stringify({
         ...data,
+        id: result.user.id,
         registrationComplete: true,
-        userRole: 'recruiter'
+        userRole: 'recruiter',
+        email // Store the generated email for reference
       }));
+      
+      console.log("Registration successful:", result);
+      
+      // Redirect to recruiter dashboard
+      router.push('/dashboard/recruiter');
+    } catch (error) {
+      console.error("Registration error:", error);
+      // Here you would show an error message to the user
+      alert("Registration failed: " + error.message);
     }
-    
-    // Redirect to recruiter dashboard
-    router.push('/dashboard/recruiter');
   };
 
   return (
@@ -64,8 +105,7 @@ export default function RecruiterRegistrationPage() {
           </div>
         </div>
 
-        {/* Right side - Registration fo
-        rm */}
+        {/* Right side - Registration form */}
         <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-gray-50">
           <Card className={styles['registration-card']}>
             <CardHeader>

@@ -11,9 +11,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+// Import the old SimpleDatePicker in case it's used elsewhere
 import { SimpleDatePicker } from "@/components/ui/simple-date-picker";
 import { SelectDirect } from "@/components/ui/select-direct";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { TextDateInput } from "@/components/ui/text-date-input";
 
 // Define schemas for each step
 const personalInfoSchema = z.object({
@@ -21,11 +23,11 @@ const personalInfoSchema = z.object({
   address: z.string().min(5, { message: "Address must be at least 5 characters" }),
   dob: z.date({
     required_error: "Date of birth is required",
-    invalid_type_error: "Please select a valid date",
+    invalid_type_error: "Please enter a valid date in DD-MM-YY format",
   }).refine(date => {
     return date instanceof Date && !isNaN(date.getTime());
   }, {
-    message: "Please select a valid date",
+    message: "Please enter a valid date in DD-MM-YY format",
   }),
   sex: z.string({
     required_error: "Please select your gender",
@@ -247,24 +249,61 @@ export default function RegistrationPage() {
       const file = e.target.files[0];
       setResumeFile(file);
     }
-  };
-  const handleFinish = () => {
-    console.log("Registration complete:", { ...formData, profileImage, resumeFile });
-    
-    // Show success message before redirecting
-    const data = { ...formData };
-    
-    // Save to localStorage for persistence
-    localStorage.setItem('applicantProfile', JSON.stringify({
-      name: data.personal?.name,
-      email: data.contact?.email,
-      registrationComplete: true
-    }));
-    
-    // For now, we'll just navigate to dashboard after a short delay
-    setTimeout(() => {
-      router.push('/dashboard/applicant');
-    }, 1000);
+  };  const handleFinish = async () => {
+    try {
+      console.log("Submitting registration data:", { ...formData, profileImage, resumeFile });
+      
+      // Create a password from the first part of the email
+      const tempPassword = formData.contact?.email?.split('@')[0] + '123';
+      
+      // Prepare the data for the API
+      const registrationData = {
+        email: formData.contact?.email,
+        password: tempPassword, // In production, you'd want a proper password flow
+        userType: 'applicant',
+        userData: {
+          personal: formData.personal,
+          education: [formData.education], // Convert to array for the schema
+          contact: formData.contact,
+          workExperience: [formData.workExperience], // Convert to array for the schema
+        }
+      };
+      
+      // Submit to the registration API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registrationData),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Registration failed');
+      }
+      
+      // For now, still store in localStorage for compatibility
+      localStorage.setItem('applicantProfile', JSON.stringify({
+        name: formData.personal?.name,
+        email: formData.contact?.email,
+        id: result.user.id,
+        registrationComplete: true,
+        userType: 'applicant'
+      }));
+      
+      console.log("Registration successful:", result);
+      
+      // Navigate to dashboard after a short delay
+      setTimeout(() => {
+        router.push('/dashboard/applicant');
+      }, 1000);
+    } catch (error) {
+      console.error("Registration error:", error);
+      // Here you would show an error message to the user
+      alert("Registration failed: " + error.message);
+    }
   };
 
   // Handle form navigation
@@ -364,15 +403,20 @@ export default function RegistrationPage() {
                     <FormMessage />
                   </FormItem>
                 )}
-              />                <FormField
+              />              <FormField
                 control={personalForm.control}
                 name="dob"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Date of Birth*</FormLabel>                    <SimpleDatePicker 
-                      selected={field.value} 
-                      onSelect={(date) => field.onChange(date)}
+                    <FormLabel>Date of Birth* (DD-MM-YY)</FormLabel>
+                    <TextDateInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="DD-MM-YY"
                     />
+                    <FormDescription>
+                      Enter your birth date in DD-MM-YY format (e.g., 25-06-95)
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -457,14 +501,13 @@ export default function RegistrationPage() {
                   </p>
                 )}
               </div>
-              
-              <div>
+                <div>
                 <label htmlFor="startDate" className="text-sm font-medium block mb-1">
-                  Start Date*
+                  Start Date* (DD-MM-YY)
                 </label>
-                <SimpleDatePicker
-                  selected={educationForm.getValues("startDate")}
-                  onSelect={(date) => {
+                <TextDateInput
+                  value={educationForm.getValues("startDate")}
+                  onChange={(date) => {
                     educationForm.setValue("startDate", date);
                     // Clear end date if it's before new start date
                     const endDate = educationForm.getValues('endDate');
@@ -472,8 +515,11 @@ export default function RegistrationPage() {
                       educationForm.setValue('endDate', null);
                     }
                   }}
-                  placeholder="Select start date"
+                  placeholder="DD-MM-YY"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter start date in DD-MM-YY format (e.g., 01-09-19)
+                </p>
                 {educationForm.formState.errors.startDate && (
                   <p className="text-sm text-destructive mt-1">
                     {educationForm.formState.errors.startDate.message}
@@ -483,15 +529,18 @@ export default function RegistrationPage() {
               
               <div>
                 <label htmlFor="endDate" className="text-sm font-medium block mb-1">
-                  End Date (Leave empty if ongoing)
+                  End Date (DD-MM-YY) - Leave empty if ongoing
                 </label>
-                <SimpleDatePicker
-                  selected={educationForm.getValues("endDate")}
-                  onSelect={(date) => {
+                <TextDateInput
+                  value={educationForm.getValues("endDate")}
+                  onChange={(date) => {
                     educationForm.setValue("endDate", date);
                   }}
-                  placeholder="Select end date"
+                  placeholder="DD-MM-YY"
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter end date in DD-MM-YY format (e.g., 30-05-23)
+                </p>
                 {educationForm.formState.errors.endDate && (
                   <p className="text-sm text-destructive mt-1">
                     {educationForm.formState.errors.endDate.message}
@@ -620,10 +669,15 @@ export default function RegistrationPage() {
                 name="startDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>Start Date</FormLabel>                    <SimpleDatePicker 
-                      selected={field.value} 
-                      onSelect={(date) => field.onChange(date)}
+                    <FormLabel>Start Date (DD-MM-YY)</FormLabel>
+                    <TextDateInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="DD-MM-YY"
                     />
+                    <FormDescription>
+                      Enter start date in DD-MM-YY format (e.g., 15-03-21)
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -634,11 +688,15 @@ export default function RegistrationPage() {
                 name="endDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
-                    <FormLabel>End Date</FormLabel>
-                    <SimpleDatePicker 
-                      selected={field.value} 
-                      onSelect={(date) => field.onChange(date)}
+                    <FormLabel>End Date (DD-MM-YY) - Leave empty if current job</FormLabel>
+                    <TextDateInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      placeholder="DD-MM-YY"
                     />
+                    <FormDescription>
+                      Enter end date in DD-MM-YY format (e.g., 20-01-23)
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
