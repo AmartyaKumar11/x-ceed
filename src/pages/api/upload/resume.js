@@ -17,34 +17,94 @@ export const config = {
  */
 export default async function handler(req, res) {
   try {
+    console.log("Resume upload API called");
+    
     // Only allow POST requests
     if (req.method !== 'POST') {
       return res.status(405).json({ message: 'Method not allowed' });
     }
     
+    // Log headers for debugging
+    console.log("Request headers:", {
+      contentType: req.headers['content-type'],
+      authorization: req.headers['authorization'] ? 'Bearer token present' : 'No Bearer token',
+      cookie: req.headers['cookie'] ? 'Cookies present' : 'No cookies'
+    });
+    
     // Check authentication
     const auth = await authMiddleware(req);
     if (!auth.isAuthenticated) {
+      console.error("Authentication failed:", auth.error, "Status:", auth.status);
       return res.status(auth.status).json({ message: auth.error });
     }
     
+    console.log("Authentication successful for user:", auth.user.userId);
+    
     // Ensure the user is an applicant
     if (auth.user.userType !== 'applicant') {
+      console.error("User is not an applicant:", auth.user.userType);
       return res.status(403).json({ message: 'Only applicants can upload resumes' });
     }
     
-    // Parse the multipart form data
-    const form = new formidable.IncomingForm();
-    form.keepExtensions = true;
+    console.log("User is an applicant, proceeding with file upload");    // Parse the multipart form data
+    const options = {
+      keepExtensions: true,
+      maxFileSize: 10 * 1024 * 1024, // 10MB
+      allowEmptyFiles: true, // Allow empty files to be processed
+      multiples: true, // Allow multiple files with the same name
+    };
     
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
+    console.log("Starting to parse form data...");
+    
+    // Use a custom promisified version of formidable.parse to catch errors better
+    const parseFormData = () => {
+      return new Promise((resolve, reject) => {
+        const form = formidable(options);
+        
+        form.parse(req, (err, fields, files) => {
+          if (err) {
+            console.error("Error parsing form data:", err);
+            return reject(err);
+          }
+          resolve({ fields, files });
+        });
       });
-    });
+    };
     
-    const file = files.file[0];
+    // Parse the form data
+    const { fields, files } = await parseFormData();
+    
+    console.log("Form data parsed:", { 
+      fieldKeys: Object.keys(fields),
+      fileKeys: Object.keys(files),
+      filesData: files.file ? `Found ${files.file.length} files` : "No files found"
+    });
+      // Log the actual file keys received to help debug
+    console.log("Received files with keys:", Object.keys(files));
+    
+    // Check if file was uploaded - try both 'file' and possibly other key names
+    let file;
+    if (files.file && files.file.length > 0) {
+      file = files.file[0];
+    } else if (files.resume && files.resume.length > 0) {
+      file = files.resume[0]; 
+    } else {
+      // Check if there's any file at all by examining all keys
+      for (const key in files) {
+        if (files[key] && files[key].length > 0) {
+          file = files[key][0];
+          console.log(`Found file using key: ${key}`);
+          break;
+        }
+      }
+      
+      if (!file) {
+        console.error("No file was uploaded or file field name was incorrect");
+        return res.status(400).json({ message: 'No resume file uploaded' });
+      }
+    }
+    
+    console.log("Processing file:", file.originalFilename, "Type:", file.mimetype);
     
     // Validate file
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
@@ -80,9 +140,13 @@ export default async function handler(req, res) {
         size: file.size
       } 
     });
-    
-  } catch (error) {
+      } catch (error) {
     console.error('Resume upload error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    // Provide more specific error details to help debug
+    return res.status(500).json({ 
+      message: 'Internal server error during resume upload',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

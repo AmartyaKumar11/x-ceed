@@ -46,8 +46,9 @@ const educationSchema = z.object({
   endDate: z.date().nullable().refine((date, ctx) => {
     if (!date) return true;
     if (!(date instanceof Date) || isNaN(date.getTime())) return false;
+    // Safely access parent property - check if it exists first
+    if (!ctx.parent || !ctx.parent.startDate) return true;
     const startDate = ctx.parent.startDate;
-    if (!startDate) return true;
     return date >= startDate;
   }, {
     message: "End date must be after start date",
@@ -65,11 +66,20 @@ const contactSchema = z.object({
 });
 
 const workExperienceSchema = z.object({
-  company: z.string().optional(),
-  position: z.string().optional(),
-  startDate: z.date().optional(),
-  endDate: z.date().optional(),
-  description: z.string().optional(),
+  company: z.string().optional().default(""),
+  position: z.string().optional().default(""),
+  startDate: z.date().nullable().optional(),
+  endDate: z.date().nullable().optional().refine((date, ctx) => {
+    if (!date) return true;
+    if (!(date instanceof Date) || isNaN(date.getTime())) return false;
+    // Safely access parent property - check if it exists first
+    if (!ctx.parent || !ctx.parent.startDate) return true;
+    const startDate = ctx.parent.startDate;
+    return date >= startDate;
+  }, {
+    message: "End date must be after start date",
+  }),
+  description: z.string().optional().default(""),
 });
 
 const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -85,8 +95,7 @@ export default function RegistrationPage() {
     education: null,
     contact: null,
     workExperience: null,
-  });
-  // Configure form states
+  });  // Configure form states
   const formDefaultValues = {
     personal: {
       name: "",
@@ -120,6 +129,7 @@ export default function RegistrationPage() {
   const personalForm = useForm({
     resolver: zodResolver(personalInfoSchema),
     defaultValues: formData.personal || formDefaultValues.personal,
+    mode: "onChange", // Add immediate validation
   });
 
   const educationForm = useForm({
@@ -131,11 +141,13 @@ export default function RegistrationPage() {
   const contactForm = useForm({
     resolver: zodResolver(contactSchema),
     defaultValues: formData.contact || formDefaultValues.contact,
+    mode: "onChange", // Add immediate validation
   });
 
   const workExperienceForm = useForm({
     resolver: zodResolver(workExperienceSchema),
     defaultValues: formData.workExperience || formDefaultValues.workExperience,
+    mode: "onChange", // Add immediate validation
   });
 
   // Effect to reset the forms on step change
@@ -364,6 +376,82 @@ export default function RegistrationPage() {
         throw new Error(errorMessage);
       }
       
+      // Registration successful, now login to get auth token
+      console.log("Registration successful, logging in to get auth token");
+      const loginResponse = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email,
+          password: tempPassword
+        }),
+      });
+      
+      const loginResult = await loginResponse.json();
+      
+      if (!loginResponse.ok) {
+        console.error("Auto-login after registration failed:", loginResult.message);
+        // Continue even if auto-login fails
+      } else {
+        // Store token in localStorage
+        localStorage.setItem('token', loginResult.token);        // If resume file was uploaded, send it to the backend
+        if (resumeFile) {          try {
+            console.log("Uploading resume file:", resumeFile.name, "Type:", resumeFile.type, "Size:", resumeFile.size);
+            
+            // Create FormData object for file upload
+            const formData = new FormData();
+            formData.append('file', resumeFile, resumeFile.name); // Append with filename
+
+            // Log what's in the FormData to confirm it contains the file
+            console.log("FormData created with file:", {
+              fileName: resumeFile.name,
+              fileType: resumeFile.type,
+              fileSize: resumeFile.size,
+              formDataEntries: [...formData.entries()].map(e => ({ key: e[0], value: e[1].name || e[1] }))
+            });
+            
+            console.log("Token for upload:", loginResult.token);
+            
+            // Upload the resume file to the resume upload endpoint
+            const uploadResponse = await fetch('/api/upload/resume', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${loginResult.token}`,
+                // Don't manually set Content-Type for FormData
+                // The browser will set it automatically with the correct boundary
+              },
+              body: formData,
+              // Ensure credentials are included
+              credentials: 'include',
+            });
+              if (!uploadResponse.ok) {
+              console.error("Resume upload failed:", uploadResponse.status);
+              // Try to get more details from the error response
+              try {
+                const errorData = await uploadResponse.json();
+                console.error("Resume upload error details:", errorData);
+                
+                // Show a notification to the user but continue registration
+                alert(`Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard. (Error: ${errorData.message || 'Unknown error'})`);
+              } catch (parseError) {
+                console.error("Couldn't parse error response:", parseError);
+                alert("Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard.");
+              }
+              // Continue with registration even if resume upload fails
+            } else {
+              const uploadResult = await uploadResponse.json();
+              console.log("Resume upload successful:", uploadResult);
+            }
+          } catch (uploadError) {
+            console.error("Resume upload error:", uploadError);
+            alert("Your profile was created successfully, but we couldn't upload your resume. You can upload it later from your dashboard.");
+            // Continue with registration even if resume upload fails
+          }
+        }
+      }
+      
       setIsLoading(false);
       
       // For now, still store in localStorage for compatibility
@@ -375,7 +463,7 @@ export default function RegistrationPage() {
         userType: 'applicant'
       }));
       
-      console.log("Registration successful:", result);
+      console.log("Registration process completed successfully");
       
       // Navigate to dashboard after a short delay
       setTimeout(() => {
@@ -385,6 +473,7 @@ export default function RegistrationPage() {
       console.error("Registration error:", error);
       // Here you would show an error message to the user
       alert("Registration failed: " + error.message);
+      setIsLoading(false);
     }
   };
 
@@ -582,20 +671,21 @@ export default function RegistrationPage() {
                     {educationForm.formState.errors.address.message}
                   </p>
                 )}
-              </div>
-                <div>
+              </div>                <div>
                 <label htmlFor="startDate" className="text-sm font-medium block mb-1">
                   Start Date* (DD-MM-YY)
                 </label>
                 <TextDateInput
-                  value={educationForm.getValues("startDate")}
+                  value={educationForm.watch("startDate")}
                   onChange={(date) => {
-                    educationForm.setValue("startDate", date);
+                    educationForm.setValue("startDate", date, { shouldValidate: true });
                     // Clear end date if it's before new start date
                     const endDate = educationForm.getValues('endDate');
                     if (endDate && date && endDate < date) {
-                      educationForm.setValue('endDate', null);
+                      educationForm.setValue('endDate', null, { shouldValidate: true });
                     }
+                    // Trigger validation of both fields
+                    educationForm.trigger(["startDate", "endDate"]);
                   }}
                   placeholder="DD-MM-YY"
                 />
@@ -614,9 +704,11 @@ export default function RegistrationPage() {
                   End Date (DD-MM-YY) - Leave empty if ongoing
                 </label>
                 <TextDateInput
-                  value={educationForm.getValues("endDate")}
+                  value={educationForm.watch("endDate")}
                   onChange={(date) => {
-                    educationForm.setValue("endDate", date);
+                    educationForm.setValue("endDate", date, { shouldValidate: true });
+                    // Trigger validation
+                    educationForm.trigger("endDate");
                   }}
                   placeholder="DD-MM-YY"
                 />
@@ -740,47 +832,66 @@ export default function RegistrationPage() {
               </div>
             </form>
           </Form>
-        );
-      
-      case 3:
+        );      case 3:
         return (
           <Form {...workExperienceForm}>
-            <form onSubmit={workExperienceForm.handleSubmit(onSubmitWorkExperience)} className="space-y-4">
-              <FormField
-                control={workExperienceForm.control}
-                name="company"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Company Name" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+            <form onSubmit={workExperienceForm.handleSubmit(onSubmitWorkExperience)} className="space-y-4">              
+              <div>
+                <label htmlFor="company" className="text-sm font-medium block mb-1">
+                  Company
+                </label>
+                <input
+                  id="company"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Company Name"
+                  value={workExperienceForm.watch("company") || ""}
+                  onChange={(e) => workExperienceForm.setValue("company", e.target.value)}
+                />
+                {workExperienceForm.formState.errors.company && (
+                  <p className="text-sm text-destructive mt-1">
+                    {workExperienceForm.formState.errors.company.message}
+                  </p>
                 )}
-              />
+              </div>
+              
+              <div>
+                <label htmlFor="position" className="text-sm font-medium block mb-1">
+                  Position
+                </label>
+                <input
+                  id="position"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="e.g. Software Developer"
+                  value={workExperienceForm.watch("position") || ""}
+                  onChange={(e) => workExperienceForm.setValue("position", e.target.value)}
+                />
+                {workExperienceForm.formState.errors.position && (
+                  <p className="text-sm text-destructive mt-1">
+                    {workExperienceForm.formState.errors.position.message}
+                  </p>
+                )}
+              </div>
               
               <FormField
-                control={workExperienceForm.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Position</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Software Developer" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />                <FormField
                 control={workExperienceForm.control}
                 name="startDate"
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Start Date (DD-MM-YY)</FormLabel>
                     <TextDateInput
-                      value={field.value}
-                      onChange={field.onChange}
+                      value={workExperienceForm.watch("startDate")}
+                      onChange={(date) => {
+                        workExperienceForm.setValue("startDate", date, { shouldValidate: true });
+                        // Clear end date if it's before new start date
+                        const endDate = workExperienceForm.getValues('endDate');
+                        if (endDate && date && endDate < date) {
+                          workExperienceForm.setValue('endDate', null, { shouldValidate: true });
+                        }
+                        // Trigger validation of both fields
+                        workExperienceForm.trigger(["startDate", "endDate"]);
+                      }}
                       placeholder="DD-MM-YY"
                     />
                     <FormDescription>
@@ -798,8 +909,12 @@ export default function RegistrationPage() {
                   <FormItem className="flex flex-col">
                     <FormLabel>End Date (DD-MM-YY) - Leave empty if current job</FormLabel>
                     <TextDateInput
-                      value={field.value}
-                      onChange={field.onChange}
+                      value={workExperienceForm.watch("endDate")}
+                      onChange={(date) => {
+                        workExperienceForm.setValue("endDate", date, { shouldValidate: true });
+                        // Trigger validation
+                        workExperienceForm.trigger("endDate");
+                      }}
                       placeholder="DD-MM-YY"
                     />
                     <FormDescription>
@@ -810,19 +925,24 @@ export default function RegistrationPage() {
                 )}
               />
               
-              <FormField
-                control={workExperienceForm.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Brief description of your role" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <div>
+                <label htmlFor="description" className="text-sm font-medium block mb-1">
+                  Description
+                </label>
+                <input
+                  id="description"
+                  type="text"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                  placeholder="Brief description of your role"
+                  value={workExperienceForm.watch("description") || ""}
+                  onChange={(e) => workExperienceForm.setValue("description", e.target.value)}
+                />
+                {workExperienceForm.formState.errors.description && (
+                  <p className="text-sm text-destructive mt-1">
+                    {workExperienceForm.formState.errors.description.message}
+                  </p>
                 )}
-              />
+              </div>
               
               <div className="flex gap-3">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(2)}>Back</Button>
