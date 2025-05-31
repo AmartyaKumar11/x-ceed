@@ -107,8 +107,7 @@ export default function ApplicantDashboardPage() {
             <div className="flex items-center opacity-50">
               <Bell className="h-4 w-4 text-gray-400 mr-2" />
               <span className="text-sm">Add your skills</span>
-            </div>
-            <div className="flex items-center opacity-50">
+            </div>            <div className="flex items-center opacity-50">
               <Bell className="h-4 w-4 text-gray-400 mr-2" />
               <span className="text-sm">Upload your resume</span>
             </div>

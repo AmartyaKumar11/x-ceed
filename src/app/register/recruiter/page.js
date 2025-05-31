@@ -64,7 +64,8 @@ export default function RecruiterRegistrationPage() {
           </div>
         </div>
 
-        {/* Right side - Registration form */}
+        {/* Right side - Registration fo
+        rm */}
         <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-gray-50">
           <Card className={styles['registration-card']}>
             <CardHeader>

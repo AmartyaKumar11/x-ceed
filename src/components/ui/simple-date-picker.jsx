@@ -8,7 +8,7 @@ import { DayPicker } from "react-day-picker"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
-export function SimpleDatePicker({ className, selected, onSelect, placeholder = "Pick a date" }) {
+export function SimpleDatePicker({ className, selected, onSelect, placeholder = "Pick a date", minDate, maxDate, disabled }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const containerRef = React.useRef(null)
 
@@ -25,8 +25,8 @@ export function SimpleDatePicker({ className, selected, onSelect, placeholder = 
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
   }, [isOpen])
-
   const handleSelect = React.useCallback((newDate) => {
+    console.log('Date selected:', newDate); // Debug log
     // Ensure the date is valid before calling onSelect
     if (newDate && newDate instanceof Date && !isNaN(newDate.getTime())) {
       onSelect?.(newDate)
@@ -56,13 +56,24 @@ export function SimpleDatePicker({ className, selected, onSelect, placeholder = 
           : <span>{placeholder}</span>}
       </Button>
       {isOpen && (
-        <div className="absolute top-full left-0 z-[9999] mt-1 rounded-md border bg-white p-3 shadow-lg">
-          <DayPicker
+        <div className="absolute top-full left-0 z-[9999] mt-1 rounded-md border bg-white p-3 shadow-lg pointer-events-auto">          <DayPicker
             mode="single"
             selected={selected}
             onSelect={handleSelect}
             showOutsideDays={true}
             className="bg-white"
+            disabled={(date) => {
+              if (disabled && typeof disabled === 'function') {
+                return disabled(date);
+              }
+              if (minDate && date < minDate) {
+                return true;
+              }
+              if (maxDate && date > maxDate) {
+                return true;
+              }
+              return false;
+            }}
             classNames={{
               months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
               month: "space-y-4",
@@ -78,9 +89,8 @@ export function SimpleDatePicker({ className, selected, onSelect, placeholder = 
               head_row: "flex",
               head_cell: "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
               row: "flex w-full mt-2",
-              cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-              day: cn(
-                "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md"
+              cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",              day: cn(
+                "h-9 w-9 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer"
               ),
               day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
               day_today: "bg-accent text-accent-foreground",

@@ -13,21 +13,23 @@ import {
   Settings, 
   LogOut
 } from 'lucide-react';
+import ProfileSettingsDialog from './ProfileSettingsDialog';
+import NotificationPanel from './NotificationPanel';
 
 export default function Sidebar({ role }) {
-  const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();  const [isOpen, setIsOpen] = useState(false);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const sidebarRef = useRef(null);
   const triggerRef = useRef(null);
-  
-  // Define menu items based on role
+    // Define menu items based on role
   const menuItems = role === 'applicant' ? [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/applicant' },
-    { icon: <User size={18} />, label: 'Profile', href: '#' },
+    { icon: <User size={18} />, label: 'Profile', href: '#', onClick: () => setIsProfileDialogOpen(true) },
     { icon: <Briefcase size={18} />, label: 'Jobs', href: '/dashboard/applicant/jobs' },
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
-    { icon: <Bell size={18} />, label: 'Notifications', href: '#' },
+    { icon: <Bell size={18} />, label: 'Notifications', href: '#', onClick: () => setIsNotificationPanelOpen(true) },
     { icon: <Settings size={18} />, label: 'Settings', href: '#' },
   ] : [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/recruiter' },
@@ -77,40 +79,73 @@ export default function Sidebar({ role }) {
       document.body.removeChild(trigger);
     };
   }, []);
-    return (
-    <div 
-      ref={sidebarRef}
-      className={`sidebar fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out z-50 ${
-        isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
-      }`}
-    >
-      <div className="h-16 border-b border-gray-200 flex items-center justify-center px-6">
-        <h2 className="text-xl font-bold">X-CEED</h2>
-      </div>
+  return (
+    <>
+      {/* Trigger area */}
+      <div ref={triggerRef} className="sidebar-trigger"></div>
       
-      <div className="py-4">
-        <ul className="space-y-1">
-          {menuItems.map((item, index) => (
-            <li key={index}>              <Link 
-                href={item.href} 
-                className={`sidebar-item flex items-center px-6 py-3 text-gray-700 cursor-pointer ${
-                  pathname === item.href ? 'active' : ''
-                }`}
-              >                <span className="sidebar-icon mr-4 text-black">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* Sidebar */}
+      <div 
+        ref={sidebarRef}
+        className={`sidebar fixed top-0 left-0 h-screen bg-white border-r border-gray-200 transition-all duration-300 ease-in-out z-50 ${
+          isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
+        }`}
+      >
+        <div className="h-16 border-b border-gray-200 flex items-center justify-center px-6">
+          <h2 className="text-xl font-bold">X-CEED</h2>
+        </div>
+        
+        <div className="py-4">
+          <ul className="space-y-1">
+            {menuItems.map((item, index) => (
+              <li key={index}>
+                {item.onClick ? (
+                  <button 
+                    onClick={item.onClick}
+                    className={`sidebar-item flex items-center px-6 py-3 text-gray-700 cursor-pointer w-full text-left ${
+                      pathname === item.href ? 'active' : ''
+                    }`}
+                  >
+                    <span className="sidebar-icon mr-4 text-black">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ) : (
+                  <Link 
+                    href={item.href} 
+                    className={`sidebar-item flex items-center px-6 py-3 text-gray-700 cursor-pointer ${
+                      pathname === item.href ? 'active' : ''
+                    }`}
+                  >
+                    <span className="sidebar-icon mr-4 text-black">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+        
         <div className="absolute bottom-0 w-full border-t border-gray-200 py-4">
-        <Link 
-          href="/auth" 
-          className="sidebar-item flex items-center px-6 py-3 text-gray-700 cursor-pointer"
-        >          <span className="sidebar-icon mr-4 text-black"><LogOut size={18} /></span>
-          <span>Sign out</span>
-        </Link>
-      </div>
-    </div>
+          <Link 
+            href="/auth" 
+            className="sidebar-item flex items-center px-6 py-3 text-gray-700 cursor-pointer"
+          >
+            <span className="sidebar-icon mr-4 text-black"><LogOut size={18} /></span>
+            <span>Sign out</span>
+          </Link>
+        </div>
+      </div>      {/* Profile Settings Dialog - Outside sidebar container */}
+      <ProfileSettingsDialog 
+        isOpen={isProfileDialogOpen}
+        onClose={() => setIsProfileDialogOpen(false)}
+        userRole={role}
+      />
+
+      {/* Notification Panel - Outside sidebar container */}
+      <NotificationPanel 
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+      />
+    </>
   );
 }
