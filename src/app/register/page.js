@@ -58,7 +58,10 @@ const educationSchema = z.object({
 const contactSchema = z.object({
   phone: z.string().min(10, { message: "Phone number must be at least 10 digits" }),
   alternatePhone: z.string().optional(),
-  email: z.string().email({ message: "Invalid email address" }),
+  email: z.string().email({ message: "Invalid email address" }).refine(
+    (email) => email.trim().length > 0,
+    { message: "Email cannot be empty" }
+  ),
 });
 
 const workExperienceSchema = z.object({
@@ -73,10 +76,10 @@ const bloodGroups = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 const genders = ["Male", "Female", "Prefer not to say", "Other"];
 
 export default function RegistrationPage() {
-  const router = useRouter();
-  const [step, setStep] = useState(0);
+  const router = useRouter();  const [step, setStep] = useState(0);
   const [profileImage, setProfileImage] = useState(null);
   const [resumeFile, setResumeFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     personal: null,
     education: null,
@@ -226,10 +229,45 @@ export default function RegistrationPage() {
       email: "",
     });
   };
-
-  const onSubmitContact = (data) => {
-    setFormData(prev => ({ ...prev, contact: data }));
-    setStep(3);
+  const onSubmitContact = async (data) => {
+    try {
+      // Check if email is already registered before proceeding
+      const emailToCheck = data.email.trim().toLowerCase();
+      setIsLoading(true);
+      
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: emailToCheck }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.available) {
+        // Email is already registered - show error
+        contactForm.setError("email", { 
+          type: "manual", 
+          message: "This email is already registered. Please use a different email address." 
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // If email is available, proceed
+      console.log("Email is available, proceeding with registration");
+      setFormData(prev => ({ ...prev, contact: { ...data, email: emailToCheck } }));
+      setStep(3);
+    } catch (error) {
+      console.error("Error checking email availability:", error);
+      contactForm.setError("email", { 
+        type: "manual", 
+        message: "Unable to verify email. Please try again." 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const onSubmitWorkExperience = (data) => {
@@ -251,25 +289,55 @@ export default function RegistrationPage() {
     }
   };  const handleFinish = async () => {
     try {
-      console.log("Submitting registration data:", { ...formData, profileImage, resumeFile });
+      // Set loading state
+      setIsLoading(true);
+      
+      console.log("Preparing registration data with form data:", formData);
+      
+      // Ensure we have a valid email
+      if (!formData.contact?.email || formData.contact.email.trim() === '') {
+        alert("Email is required. Please go back to the contact step and provide an email address.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Normalize the email address
+      const email = formData.contact.email.trim().toLowerCase();
+      
+      // Verify one more time that the email is still available before final submission
+      const emailCheckResponse = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      const emailCheckResult = await emailCheckResponse.json();
+      if (!emailCheckResult.available) {
+        alert(`The email address ${email} is already registered. Please go back to the contact step and use a different email address.`);
+        setIsLoading(false);
+        return;
+      }
       
       // Create a password from the first part of the email
-      const tempPassword = formData.contact?.email?.split('@')[0] + '123';
+      const tempPassword = email.split('@')[0] + '123';
+      
+      console.log("Using email for registration:", email);
       
       // Prepare the data for the API
       const registrationData = {
-        email: formData.contact?.email,
+        email: email,
         password: tempPassword, // In production, you'd want a proper password flow
         userType: 'applicant',
         userData: {
           personal: formData.personal,
           education: [formData.education], // Convert to array for the schema
-          contact: formData.contact,
+          contact: { ...formData.contact, email: email }, // Ensure email consistency
           workExperience: [formData.workExperience], // Convert to array for the schema
         }
       };
+        // Submit to the registration API
+      console.log("Sending registration request with data:", JSON.stringify(registrationData));
       
-      // Submit to the registration API
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -279,10 +347,24 @@ export default function RegistrationPage() {
       });
       
       const result = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
+      console.log("Registration API response:", response.status, result);
+        if (!response.ok) {
+        // Show a user-friendly error message
+        const errorMessage = result.message || 'Registration failed';
+        console.error("Registration error:", errorMessage);
+        
+        if (errorMessage.includes('email already exists')) {
+          alert(`The email address ${registrationData.email} is already registered. Please use a different email.`);
+          // Go back to contact step to change email
+          setStep(2);
+        } else {
+          alert(`Registration failed: ${errorMessage}`);
+        }
+        
+        throw new Error(errorMessage);
       }
+      
+      setIsLoading(false);
       
       // For now, still store in localStorage for compatibility
       localStorage.setItem('applicantProfile', JSON.stringify({
@@ -610,24 +692,50 @@ export default function RegistrationPage() {
                   </FormItem>
                 )}
               />
-              
-              <FormField
+                <FormField
                 control={contactForm.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Email Address*</FormLabel>
                     <FormControl>
-                      <Input placeholder="example@email.com" {...field} />
+                      <div className="relative">
+                        <Input 
+                          placeholder="example@email.com" 
+                          {...field} 
+                          disabled={isLoading}
+                          onChange={(e) => {
+                            field.onChange(e);
+                            // Clear any manual errors when the user types
+                            if (contactForm.formState.errors.email?.type === "manual") {
+                              contactForm.clearErrors("email");
+                            }
+                          }}
+                        />
+                        {isLoading && (
+                          <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                            <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
                     </FormControl>
+                    <FormDescription>
+                      This email will be used for your account login
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(1)}>Back</Button>
-                <Button type="submit" className="flex-1">Continue</Button>
+                <div className="flex gap-3">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(1)} disabled={isLoading}>Back</Button>
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      Checking...
+                    </>
+                  ) : "Continue"}
+                </Button>
                 <Button type="button" variant="secondary" onClick={handleSkip}>Skip</Button>
               </div>
             </form>
@@ -777,10 +885,16 @@ export default function RegistrationPage() {
                 </p>
               )}
             </div>
-            
-            <div className="flex gap-3">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(3)}>Back</Button>
-              <Button type="button" className="flex-1" onClick={handleFinish}>Complete Registration</Button>
+              <div className="flex gap-3">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(3)} disabled={isLoading}>Back</Button>
+              <Button type="button" className="flex-1" onClick={handleFinish} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                    Processing...
+                  </>
+                ) : "Complete Registration"}
+              </Button>
             </div>
           </div>
         );

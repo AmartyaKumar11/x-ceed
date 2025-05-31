@@ -1,4 +1,3 @@
-// filepath: c:\Users\AMARTYA KUMAR\Desktop\x-ceed\src\pages\api\jobs\index.js
 import clientPromise from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
@@ -85,9 +84,7 @@ export default async function handler(req, res) {
           success: false, 
           message: 'Application end date must be after start date' 
         });
-      }
-      
-      const job = {
+      }      const job = {
         recruiterId: auth.user.userId,
         title,
         department,
@@ -118,19 +115,16 @@ export default async function handler(req, res) {
         success: true,
         data: { ...job, _id: result.insertedId },
         message: 'Job created successfully'
-      });
-    } else if (req.method === 'GET') {
+      });    } else if (req.method === 'GET') {
       // Handle public job listings vs. recruiter-specific job listings
       const isPublic = req.query.public === 'true';
-      
-      if (!isPublic) {
+        if (!isPublic) {
         // If not public, verify authentication for recruiter-specific listings
         const auth = await authMiddleware(req);
         if (!auth.isAuthenticated) {
           return res.status(auth.status).json({ success: false, message: auth.error });
         }
-        
-        // Use auth.user.userId instead of decoded.userId
+
         const jobs = await db.collection('jobs')
           .find({ 
             recruiterId: auth.user.userId,
@@ -139,31 +133,24 @@ export default async function handler(req, res) {
           .sort({ createdAt: -1 })
           .toArray();
 
-        return res.status(200).json({
-          success: true,
-          data: jobs
-        });
-      } else {
-        // Public jobs listing - show only active jobs
-        const jobs = await db.collection('jobs')
-          .find({ status: 'active' })
-          .sort({ createdAt: -1 })
-          .toArray();
+      return res.status(200).json({
+        success: true,
+        data: jobs
+      });
 
-        return res.status(200).json({
-          success: true,
-          data: jobs
-        });
-      }
     } else if (req.method === 'PUT') {
-      // Update job - use authMiddleware instead of manual token verification
-      const auth = await authMiddleware(req);
-      if (!auth.isAuthenticated) {
-        return res.status(auth.status).json({ success: false, message: auth.error });
+      // Update job
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      if (!token) {
+        return res.status(401).json({ success: false, message: 'No token provided' });
       }
-      
-      // Verify user is a recruiter
-      if (auth.user.userType !== 'recruiter') {
+
+      const decoded = verifyToken(token);
+      if (!decoded) {
+        return res.status(401).json({ success: false, message: 'Invalid token' });
+      }
+
+      if (decoded.role !== 'recruiter') {
         return res.status(403).json({ success: false, message: 'Only recruiters can update jobs' });
       }
 
@@ -173,11 +160,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Job ID is required' });
       }
 
-      // Use the existing db connection instead of connectToDatabase
+      const { db } = await connectToDatabase();
+
       const result = await db.collection('jobs').updateOne(
         { 
           _id: new ObjectId(jobId), 
-          recruiterId: auth.user.userId 
+          recruiterId: decoded.userId 
         },
         { 
           $set: { 
@@ -195,10 +183,12 @@ export default async function handler(req, res) {
         success: true,
         message: 'Job updated successfully'
       });
+
     } else {
       res.setHeader('Allow', ['GET', 'POST', 'PUT']);
       return res.status(405).json({ success: false, message: 'Method not allowed' });
     }
+
   } catch (error) {
     console.error('Jobs API Error:', error);
     return res.status(500).json({ 

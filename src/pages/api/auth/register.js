@@ -5,12 +5,16 @@ export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
-  }
-  try {
+  }  try {
     console.log("Starting registration process...");
     
+    // Log all request data for debugging
+    console.log("Request headers:", req.headers);
+    console.log("Request method:", req.method);
+    
     // Connect to the database
-    console.log("Connecting to MongoDB...");    const client = await clientPromise.catch(err => {
+    console.log("Connecting to MongoDB...");    
+    const client = await clientPromise.catch(err => {
       console.error("Failed to get MongoDB client:", err);
       throw new Error(`MongoDB connection error: ${err.message}`);
     });
@@ -44,20 +48,42 @@ export default async function handler(req, res) {
     if (!email || !password || !userType) {
       console.log("Missing required fields:", { email: !!email, password: !!password, userType });
       return res.status(400).json({ message: 'Missing required fields' });
-    }
-
-    // Check if user with email already exists
-    const existingUser = await db.collection('users').findOne({ email });
-    if (existingUser) {
+    }    // Check if user with email already exists - make it case insensitive and check both fields
+    console.log("Checking for existing user with email:", email);
+    
+    // Escape special regex characters in email
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // Check main email field
+    const existingUserByEmail = await db.collection('users').findOne({ 
+      email: { $regex: new RegExp('^' + escapedEmail + '$', 'i') } 
+    });
+    
+    // Check contact email field
+    const existingUserByContactEmail = await db.collection('users').findOne({ 
+      'contact.email': { $regex: new RegExp('^' + escapedEmail + '$', 'i') } 
+    });
+    
+    if (existingUserByEmail) {
+      console.log("User with this email already exists in main email field:", existingUserByEmail.email);
       return res.status(409).json({ message: 'User with this email already exists' });
     }
+    
+    if (existingUserByContactEmail) {
+      console.log("User with this email already exists in contact email field:", existingUserByContactEmail.contact?.email);
+      return res.status(409).json({ message: 'User with this email already exists in another account' });
+    }
+    
+    console.log("No existing user found with email:", email);
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
+      // Prepare user object based on user type
+    // Make email lowercase for consistency
+    const normalizedEmail = email.toLowerCase();
     
-    // Prepare user object based on user type
     let userObj = {
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       userType,
       createdAt: new Date(),
@@ -68,12 +94,21 @@ export default async function handler(req, res) {
       // For applicants, add personal data
       userObj.personal = userData.personal || {};
       userObj.education = userData.education || [];
+      
+      // Ensure contact email matches the main email for consistency
       userObj.contact = userData.contact || {};
+      userObj.contact.email = normalizedEmail;
+      
       userObj.workExperience = userData.workExperience || [];
     } else if (userType === 'recruiter') {
       // For recruiters, add recruiter data
       userObj.recruiter = userData || {};
-    }    console.log("Inserting user into database:", { email: userObj.email, userType: userObj.userType });
+      
+      // If recruiter data has contact info, ensure email matches
+      if (userObj.recruiter.contact) {
+        userObj.recruiter.contact.email = normalizedEmail;
+      }
+    }console.log("Inserting user into database:", { email: userObj.email, userType: userObj.userType });
     
     // Check if the 'users' collection exists, create it if not
     const collections = await db.listCollections({name: 'users'}).toArray();
