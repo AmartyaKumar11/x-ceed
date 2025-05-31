@@ -15,37 +15,58 @@ import { Input } from "@/components/ui/input";
 // Define schema for recruiter registration
 const recruiterSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
+  email: z.string().email({ message: "Please enter a valid email address" }),
+  password: z.string().min(6, { message: "Password must be at least 6 characters" }),
+  confirmPassword: z.string().min(6, { message: "Please confirm your password" }),
   recruiterId: z.string().min(3, { message: "Recruiter ID must be at least 3 characters" }),
   institutionName: z.string().min(2, { message: "Institution name is required" }),
   address: z.string().min(5, { message: "Address must be at least 5 characters" }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
 export default function RecruiterRegistrationPage() {
   const router = useRouter();
-
   const form = useForm({
     resolver: zodResolver(recruiterSchema),
     defaultValues: {
       name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
       recruiterId: "",
       institutionName: "",
       address: "",
     },
-  });
-  const onSubmit = async (data) => {
+  });  const onSubmit = async (data) => {
     try {
       console.log('Recruiter registration data:', data);
       
-      // Create a password from the recruiter ID
-      const tempPassword = data.recruiterId + '123';
+      // Use the email and password provided by the user
+      const email = data.email.trim().toLowerCase();
+      const password = data.password;
       
-      // For now let's use a default email pattern
-      const email = `${data.recruiterId.toLowerCase().replace(/\s+/g, '.')}@${data.institutionName.toLowerCase().replace(/\s+/g, '')}.com`;
+      // Check if email is already registered
+      const emailCheckResponse = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      const emailCheckResult = await emailCheckResponse.json();
+      if (!emailCheckResult.available) {
+        form.setError("email", { 
+          type: "manual", 
+          message: "This email is already registered. Please use a different email address." 
+        });
+        return;
+      }
       
       // Prepare the data for the API
       const registrationData = {
         email,
-        password: tempPassword, // In production, you'd want a proper password flow
+        password,
         userType: 'recruiter',
         userData: {
           name: data.name,
@@ -69,14 +90,13 @@ export default function RecruiterRegistrationPage() {
       if (!response.ok) {
         throw new Error(result.message || 'Registration failed');
       }
-      
-      // For compatibility, still store in localStorage
+        // For compatibility, still store in localStorage
       localStorage.setItem('recruiterProfile', JSON.stringify({
         ...data,
         id: result.user.id,
         registrationComplete: true,
         userRole: 'recruiter',
-        email // Store the generated email for reference
+        email: data.email // Store the user-entered email
       }));
       
       console.log("Registration successful:", result);
@@ -117,8 +137,7 @@ export default function RecruiterRegistrationPage() {
             
             <CardContent>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">                  <FormField
                     control={form.control}
                     name="name"
                     render={({ field }) => (
@@ -126,6 +145,48 @@ export default function RecruiterRegistrationPage() {
                         <FormLabel>Full Name*</FormLabel>
                         <FormControl>
                           <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address*</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="john.doe@company.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password*</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Enter your password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password*</FormLabel>
+                        <FormControl>
+                          <Input type="password" placeholder="Confirm your password" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

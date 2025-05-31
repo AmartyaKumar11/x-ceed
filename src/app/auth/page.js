@@ -19,15 +19,57 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [role, setRole] = useState('');    const handleSubmit = (e) => {
+  const [role, setRole] = useState('');
+  const [isLoading, setIsLoading] = useState(false);  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     
     if (activeTab === "login") {
-      // Login logic
-      console.log('Logging in', { email, password });
-      // Redirect to dashboard based on stored role
-      // For demo purposes, redirect to a default dashboard
-      router.push('/dashboard');
+      try {
+        // Login logic - make API call
+        console.log('Logging in', { email, password });
+        
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          alert(result.message || 'Login failed');
+          return;
+        }
+
+        // Store authentication data in localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', result.token);
+          localStorage.setItem('userRole', result.user.userType);
+          localStorage.setItem('userId', result.user._id);
+          localStorage.setItem('userName', result.user.userType === 'applicant' ? result.user.personal?.name : result.user.recruiter?.name);
+          localStorage.setItem('userEmail', result.user.email);
+        }
+
+        // Redirect to dashboard based on user role
+        if (result.user.userType === 'applicant') {
+          router.push('/dashboard/applicant');
+        } else if (result.user.userType === 'recruiter') {
+          router.push('/dashboard/recruiter');
+        } else {
+          router.push('/dashboard');
+        }
+      } catch (error) {
+        console.error('Login error:', error);
+        alert('Login failed. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
     } else {
       // Registration logic
       console.log('Signing up', { email, password, name, role });
@@ -99,7 +141,9 @@ export default function AuthPage() {
                         />
                       </div>
                     </div>
-                    <Button type="submit" className="w-full h-9">Sign In</Button>
+                    <Button type="submit" className="w-full h-9" disabled={isLoading}>
+                      {isLoading ? 'Signing In...' : 'Sign In'}
+                    </Button>
                   </form>
                 </TabsContent>                <TabsContent value="register">
                   <form onSubmit={handleSubmit} className="space-y-3">

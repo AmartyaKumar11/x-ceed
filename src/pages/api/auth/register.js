@@ -116,10 +116,10 @@ export default async function handler(req, res) {
       console.log("Users collection doesn't exist, creating it now");
       await db.createCollection('users');
     }
-    
-    // Insert user into database
+      // Insert user into database
+    let result;
     try {
-      const result = await db.collection('users').insertOne(userObj);
+      result = await db.collection('users').insertOne(userObj);
       console.log("User inserted with ID:", result.insertedId);
       
       // Verify the user was inserted
@@ -129,7 +129,6 @@ export default async function handler(req, res) {
       } else {
         console.warn("User insertion verification failed - couldn't find the user after insert");
       }
-      return result;
     } catch (insertErr) {
       console.error("Error during user insertion:", insertErr);
       throw new Error(`Failed to insert user: ${insertErr.message}`);

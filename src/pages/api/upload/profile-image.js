@@ -17,29 +17,88 @@ export const config = {
  */
 export default async function handler(req, res) {
   try {
+    console.log("Profile image upload API called");
+    
     // Only allow POST requests
     if (req.method !== 'POST') {
       return res.status(405).json({ message: 'Method not allowed' });
     }
     
+    // Log headers for debugging
+    console.log("Request headers:", {
+      contentType: req.headers['content-type'],
+      authorization: req.headers['authorization'] ? 'Bearer token present' : 'No Bearer token',
+      cookie: req.headers['cookie'] ? 'Cookies present' : 'No cookies'
+    });
+    
     // Check authentication
     const auth = await authMiddleware(req);
     if (!auth.isAuthenticated) {
+      console.error("Authentication failed:", auth.error, "Status:", auth.status);
       return res.status(auth.status).json({ message: auth.error });
     }
     
-    // Parse the multipart form data
-    const form = new formidable.IncomingForm();
-    form.keepExtensions = true;
+    console.log("Authentication successful for user:", auth.user.userId);
     
-    const [fields, files] = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
-        if (err) reject(err);
-        resolve([fields, files]);
+    // Parse the multipart form data
+    const options = {
+      keepExtensions: true,
+      maxFileSize: 5 * 1024 * 1024, // 5MB for images
+      allowEmptyFiles: true,
+      multiples: true,
+    };
+    
+    console.log("Starting to parse form data...");
+    
+    // Use a custom promisified version of formidable.parse to catch errors better
+    const parseFormData = () => {
+      return new Promise((resolve, reject) => {
+        const form = formidable(options);
+        
+        form.parse(req, (err, fields, files) => {
+          if (err) {
+            console.error("Error parsing form data:", err);
+            return reject(err);
+          }
+          resolve({ fields, files });
+        });
       });
+    };
+    
+    // Parse the form data
+    const { fields, files } = await parseFormData();
+    
+    console.log("Form data parsed:", { 
+      fieldKeys: Object.keys(fields),
+      fileKeys: Object.keys(files),
     });
     
-    const file = files.file[0];
+    // Log the actual file keys received to help debug
+    console.log("Received files with keys:", Object.keys(files));
+    
+    // Check if file was uploaded - try different key names
+    let file;
+    if (files.file && files.file.length > 0) {
+      file = files.file[0];
+    } else if (files.profileImage && files.profileImage.length > 0) {
+      file = files.profileImage[0]; 
+    } else {
+      // Check if there's any file at all by examining all keys
+      for (const key in files) {
+        if (files[key] && files[key].length > 0) {
+          file = files[key][0];
+          console.log(`Found file using key: ${key}`);
+          break;
+        }
+      }
+      
+      if (!file) {
+        console.error("No file was uploaded or file field name was incorrect");
+        return res.status(400).json({ message: 'No profile image file uploaded' });
+      }
+    }
+    
+    console.log("Processing file:", file.originalFilename, "Type:", file.mimetype);
     
     // Validate file
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -93,9 +152,13 @@ export default async function handler(req, res) {
         size: file.size
       } 
     });
-    
-  } catch (error) {
+      } catch (error) {
     console.error('Profile image upload error:', error);
-    return res.status(500).json({ message: 'Internal server error' });
+    // Provide more specific error details to help debug
+    return res.status(500).json({ 
+      message: 'Internal server error during profile image upload',
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 }

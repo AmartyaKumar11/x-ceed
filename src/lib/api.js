@@ -1,6 +1,6 @@
 // API client utility for frontend-backend communication
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 // API client with basic methods
 export const apiClient = {  // GET request

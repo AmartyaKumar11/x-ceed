@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Briefcase, 
   Users, 
@@ -14,11 +15,13 @@ import {
   Calendar,
   Eye
 } from 'lucide-react';
-import { apiClient } from '@/lib/api';
+import { apiClient, authAPI } from '@/lib/api';
 
 export default function RecruiterDashboardPage() {
+  const router = useRouter();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(true);
   const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplications: 0,
@@ -27,8 +30,37 @@ export default function RecruiterDashboardPage() {
   });
 
   useEffect(() => {
-    fetchJobs();
+    checkAuthAndFetchData();
   }, []);
+
+  const checkAuthAndFetchData = async () => {
+    try {
+      // Check if user is authenticated
+      if (!authAPI.isAuthenticated()) {
+        console.log('User not authenticated, redirecting to login');
+        router.push('/auth');
+        return;
+      }
+
+      // Check if user is a recruiter
+      const userRole = authAPI.getUserRole();
+      if (userRole !== 'recruiter') {
+        console.log('User is not a recruiter, redirecting to appropriate dashboard');
+        if (userRole === 'applicant') {
+          router.push('/dashboard/applicant');
+        } else {
+          router.push('/auth');
+        }
+        return;
+      }
+
+      setAuthLoading(false);
+      await fetchJobs();
+    } catch (error) {
+      console.error('Error during auth check:', error);
+      router.push('/auth');
+    }
+  };
 
   const fetchJobs = async () => {
     try {

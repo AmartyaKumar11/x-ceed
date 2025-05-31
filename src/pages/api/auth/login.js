@@ -3,37 +3,77 @@ import bcrypt from 'bcryptjs';
 import { createToken, setAuthCookie } from '../../../lib/auth';
 
 export default async function handler(req, res) {
+  console.log('🔍 LOGIN API CALLED:', {
+    method: req.method,
+    timestamp: new Date().toISOString(),
+    headers: req.headers,
+    body: req.body
+  });
+
   // Only allow POST requests
   if (req.method !== 'POST') {
+    console.log('❌ Method not allowed:', req.method);
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
+  try {    console.log('🔗 Connecting to MongoDB...');
     // Connect to the database
     const client = await clientPromise;
-    const db = client.db();
+    
+    // Extract database name from URI or use default
+    const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/x-ceed-db';
+    const dbName = uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
+    
+    const db = client.db(dbName);
+    
+    // Debug database info
+    const actualDbName = db.databaseName;
+    const collections = await db.listCollections().toArray();
+    console.log('📊 Database info:', { 
+      intendedDbName: dbName,
+      actualDbName, 
+      collectionsCount: collections.length,
+      collections: collections.map(c => c.name)
+    });
+    
+    console.log('✅ MongoDB connected successfully');
     
     // Extract data from request body
     const { email, password } = req.body;
-
-    // Validate required fields
+    console.log('📨 Request data:', { email, passwordLength: password?.length });    // Validate required fields
     if (!email || !password) {
+      console.log('❌ Missing required fields:', { email: !!email, password: !!password });
       return res.status(400).json({ message: 'Missing email or password' });
     }
 
+    console.log('🔍 Looking for user with email:', email);
     // Find user by email
     const user = await db.collection('users').findOne({ email });
+    console.log('👤 User lookup result:', { 
+      found: !!user, 
+      actualEmail: user?.email,
+      userType: user?.userType,
+      hasPassword: !!user?.password 
+    });
     
     // Check if user exists
     if (!user) {
+      console.log('❌ User not found for email:', email);
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+      // Verify password
+    console.log('🔐 Testing password for user:', user.email);
+    console.log('🔐 Password hash preview:', user.password?.substring(0, 20) + '...');
+    
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log('🔐 Password validation result:', isPasswordValid);
+    
+    if (!isPasswordValid) {
+      console.log('❌ Password invalid for user:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
     
-    // Verify password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
+    console.log('✅ Login successful for:', email);
     
     // Generate JWT token with user information
     const token = await createToken({ 
