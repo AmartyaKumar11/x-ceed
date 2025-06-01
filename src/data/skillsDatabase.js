@@ -1,126 +1,192 @@
-// Comprehensive technology skills database for the profile editor
-export const SKILLS_DATABASE = {
-  // Programming Languages
-  'Programming Languages': [
-    'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust', 'PHP', 'Ruby', 'Swift', 'Kotlin', 'Scala', 'R', 'MATLAB', 'Perl', 'Bash', 'PowerShell', 'SQL', 'HTML', 'CSS', 'Dart', 'Objective-C', 'VB.NET', 'Assembly', 'Haskell', 'Clojure', 'Elixir', 'F#', 'Lua'
-  ],
+/**
+ * Comprehensive technology skills database with categories
+ * Used for the LinkedIn-style skills editor
+ */
 
-  // Frontend Technologies
-  'Frontend Development': [
-    'React', 'Angular', 'Vue.js', 'Next.js', 'Nuxt.js', 'Svelte', 'jQuery', 'Bootstrap', 'Tailwind CSS', 'Material-UI', 'Ant Design', 'Chakra UI', 'Styled Components', 'SASS', 'LESS', 'Webpack', 'Vite', 'Parcel', 'Rollup', 'ESLint', 'Prettier', 'Figma', 'Adobe XD', 'Sketch', 'InVision', 'Zeplin', 'Storybook', 'Chrome DevTools'
-  ],
+// Define categories
+const CATEGORIES = {
+  PROGRAMMING_LANGUAGES: 'Programming Languages',
+  FRONTEND: 'Frontend Development',
+  BACKEND: 'Backend Development',
+  DATABASE: 'Database Technologies',
+  DEVOPS: 'DevOps & Infrastructure',
+  CLOUD: 'Cloud Platforms',
+  MOBILE: 'Mobile Development',
+  DATA_SCIENCE: 'Data Science & ML',
+  DESIGN: 'Design & UX',
+  PROJECT_MANAGEMENT: 'Project Management',
+  TESTING: 'Testing & QA',
+  SECURITY: 'Security',
+  FRAMEWORKS: 'Frameworks & Libraries',
+  OTHER: 'Other Skills'
+};
 
-  // Backend Technologies
-  'Backend Development': [
-    'Node.js', 'Express.js', 'Django', 'Flask', 'FastAPI', 'Spring Boot', 'Spring Framework', 'ASP.NET', '.NET Core', 'Laravel', 'Symfony', 'Ruby on Rails', 'Sinatra', 'Gin', 'Echo', 'Fiber', 'Actix', 'Rocket', 'NestJS', 'Koa.js', 'Hapi.js', 'Strapi', 'GraphQL', 'REST API', 'gRPC', 'WebSockets', 'Socket.io', 'Microservices', 'Serverless'
-  ],
+// Define a list of popular skills to show by default
+export const POPULAR_SKILLS = [
+  'JavaScript', 'React', 'Python', 'SQL', 'Java', 
+  'AWS', 'Node.js', 'TypeScript', 'Git', 'Docker', 
+  'HTML', 'CSS', 'Angular', 'Vue.js', 'C#'
+];
 
-  // Databases
-  'Databases': [
-    'MySQL', 'PostgreSQL', 'MongoDB', 'Redis', 'SQLite', 'Oracle Database', 'SQL Server', 'MariaDB', 'DynamoDB', 'Cassandra', 'Neo4j', 'InfluxDB', 'CouchDB', 'Firebase Firestore', 'Supabase', 'PlanetScale', 'FaunaDB', 'Elasticsearch', 'Apache Solr', 'Amazon RDS', 'Google Cloud SQL'
+// Define all skills by category
+const SKILLS_BY_CATEGORY = {
+  [CATEGORIES.PROGRAMMING_LANGUAGES]: [
+    'JavaScript', 'TypeScript', 'Python', 'Java', 'C#', 'C++', 'C',
+    'Go', 'Rust', 'Swift', 'Kotlin', 'PHP', 'Ruby', 'R', 'Scala',
+    'Perl', 'Haskell', 'Clojure', 'Elixir', 'Dart', 'Groovy',
+    'Objective-C', 'Assembly', 'COBOL', 'Fortran', 'Lua', 'Julia',
+    'Shell Scripting', 'PowerShell', 'Bash', 'VBA'
   ],
-
-  // Cloud Platforms
-  'Cloud Platforms': [
-    'AWS', 'Azure', 'Google Cloud Platform', 'DigitalOcean', 'Heroku', 'Netlify', 'Vercel', 'Firebase', 'Supabase', 'Railway', 'Render', 'Linode', 'Vultr', 'Oracle Cloud', 'IBM Cloud', 'Alibaba Cloud', 'Cloudflare', 'CDN', 'S3', 'CloudFront', 'Lambda', 'EC2', 'ECS', 'EKS'
+  [CATEGORIES.FRONTEND]: [
+    'HTML', 'CSS', 'SCSS/SASS', 'JavaScript', 'TypeScript', 'React',
+    'Angular', 'Vue.js', 'Svelte', 'Redux', 'MobX', 'jQuery',
+    'Bootstrap', 'Tailwind CSS', 'Material UI', 'Chakra UI', 'Styled Components',
+    'Emotion', 'Next.js', 'Gatsby', 'Webpack', 'Vite', 'Babel',
+    'ESLint', 'Prettier', 'Jest', 'React Testing Library', 'Cypress',
+    'Web Components', 'Progressive Web Apps', 'Single Page Applications'
   ],
-
-  // DevOps & Infrastructure
-  'DevOps & Infrastructure': [
-    'Docker', 'Kubernetes', 'Jenkins', 'GitLab CI/CD', 'GitHub Actions', 'Azure DevOps', 'CircleCI', 'Travis CI', 'Terraform', 'Ansible', 'Chef', 'Puppet', 'Vagrant', 'CloudFormation', 'Pulumi', 'Helm', 'ArgoCD', 'Prometheus', 'Grafana', 'ELK Stack', 'Splunk', 'New Relic', 'Datadog', 'Nginx', 'Apache', 'HAProxy', 'Load Balancing'
+  [CATEGORIES.BACKEND]: [
+    'Node.js', 'Express.js', 'Django', 'Flask', 'Spring Boot', 'Laravel',
+    'Ruby on Rails', 'ASP.NET Core', 'FastAPI', 'Nest.js', 'Phoenix',
+    'GraphQL', 'REST API', 'gRPC', 'WebSockets', 'Microservices',
+    'Serverless', 'Message Queues', 'RabbitMQ', 'Kafka', 'Redis',
+    'OAuth', 'JWT', 'API Gateway', 'Service Mesh', 'Socket.io',
+    'Deno', 'Bun'
   ],
-
-  // Mobile Development
-  'Mobile Development': [
-    'React Native', 'Flutter', 'iOS Development', 'Android Development', 'Xamarin', 'Ionic', 'Cordova', 'PhoneGap', 'Unity', 'Unreal Engine', 'ARKit', 'ARCore', 'Core Data', 'Realm', 'SQLite Mobile', 'Firebase Mobile', 'Push Notifications', 'In-App Purchases', 'App Store Optimization'
+  [CATEGORIES.DATABASE]: [
+    'SQL', 'PostgreSQL', 'MySQL', 'SQLite', 'Microsoft SQL Server', 'Oracle',
+    'MongoDB', 'Cassandra', 'Redis', 'Elasticsearch', 'DynamoDB',
+    'Firebase Firestore', 'Supabase', 'Neo4j', 'CouchDB', 'MariaDB',
+    'Amazon RDS', 'Google Cloud SQL', 'Azure SQL Database', 'InfluxDB',
+    'Prisma', 'Sequelize', 'TypeORM', 'Mongoose', 'Knex.js', 'SQLAlchemy'
   ],
-
-  // Data Science & Analytics
-  'Data Science & Analytics': [
-    'Pandas', 'NumPy', 'SciPy', 'Matplotlib', 'Seaborn', 'Plotly', 'Jupyter', 'TensorFlow', 'PyTorch', 'Scikit-learn', 'Keras', 'OpenCV', 'NLTK', 'spaCy', 'Apache Spark', 'Hadoop', 'Kafka', 'Airflow', 'dbt', 'Tableau', 'Power BI', 'Looker', 'Google Analytics', 'Adobe Analytics', 'Mixpanel', 'Amplitude'
+  [CATEGORIES.DEVOPS]: [
+    'Git', 'GitHub', 'GitLab', 'Bitbucket', 'CI/CD', 'Jenkins',
+    'GitHub Actions', 'GitLab CI/CD', 'CircleCI', 'Travis CI', 'Docker',
+    'Kubernetes', 'Terraform', 'Ansible', 'Puppet', 'Chef', 'Vagrant',
+    'Prometheus', 'Grafana', 'ELK Stack', 'Log Management', 'Nagios',
+    'Datadog', 'New Relic', 'Rollbar', 'Sentry', 'ArgoCD'
   ],
-
-  // Testing
-  'Testing & Quality Assurance': [
-    'Jest', 'Mocha', 'Chai', 'Jasmine', 'Cypress', 'Selenium', 'Playwright', 'Puppeteer', 'TestCafe', 'WebdriverIO', 'Appium', 'JUnit', 'TestNG', 'pytest', 'unittest', 'RSpec', 'Cucumber', 'Postman', 'Insomnia', 'SoapUI', 'LoadRunner', 'JMeter', 'K6', 'Artillery'
+  [CATEGORIES.CLOUD]: [
+    'AWS', 'Microsoft Azure', 'Google Cloud Platform', 'Heroku', 'Digital Ocean',
+    'Netlify', 'Vercel', 'Firebase', 'Cloudflare', 'Linode', 'IBM Cloud',
+    'Oracle Cloud', 'AWS Lambda', 'Azure Functions', 'Google Cloud Functions',
+    'S3', 'EC2', 'RDS', 'CloudFront', 'Route 53', 'IAM', 'Cognito',
+    'Azure DevOps', 'GKE', 'EKS', 'AKS'
   ],
-
-  // Version Control & Collaboration
-  'Version Control & Collaboration': [
-    'Git', 'GitHub', 'GitLab', 'Bitbucket', 'SVN', 'Mercurial', 'Perforce', 'Git Flow', 'GitHub Flow', 'Trunk-based Development', 'Code Review', 'Pull Requests', 'Merge Requests', 'Branching Strategies', 'Git Hooks', 'Git LFS'
+  [CATEGORIES.MOBILE]: [
+    'iOS Development', 'Android Development', 'React Native', 'Flutter', 'Swift',
+    'Kotlin', 'Objective-C', 'SwiftUI', 'Jetpack Compose', 'Xamarin',
+    'Ionic', 'Capacitor', 'Mobile UI/UX', 'App Store Optimization',
+    'Google Play Store', 'Mobile Analytics', 'Mobile Testing', 'PhoneGap',
+    'Cordova', 'Unity Mobile', 'ARKit', 'ARCore', 'Push Notifications'
   ],
-
-  // Security
-  'Security': [
-    'OAuth', 'JWT', 'SSL/TLS', 'HTTPS', 'Authentication', 'Authorization', 'OWASP', 'Penetration Testing', 'Vulnerability Assessment', 'Security Auditing', 'Encryption', 'Cryptography', 'PKI', 'SIEM', 'WAF', 'DDoS Protection', 'Two-Factor Authentication', 'Single Sign-On', 'LDAP', 'Active Directory'
+  [CATEGORIES.DATA_SCIENCE]: [
+    'Python', 'R', 'Data Analysis', 'Data Visualization', 'Machine Learning',
+    'Deep Learning', 'Natural Language Processing', 'Computer Vision',
+    'TensorFlow', 'PyTorch', 'Keras', 'scikit-learn', 'Pandas', 'NumPy',
+    'Matplotlib', 'Seaborn', 'Tableau', 'Power BI', 'Jupyter', 'SAS',
+    'SPSS', 'Big Data', 'Hadoop', 'Spark', 'ETL', 'Data Mining',
+    'Statistics', 'A/B Testing', 'Reinforcement Learning'
   ],
-
-  // Design & UX
-  'Design & User Experience': [
-    'UI Design', 'UX Design', 'User Research', 'Wireframing', 'Prototyping', 'User Testing', 'A/B Testing', 'Design Systems', 'Accessibility', 'WCAG', 'Information Architecture', 'Interaction Design', 'Visual Design', 'Typography', 'Color Theory', 'Design Thinking', 'Human-Computer Interaction', 'Usability Testing'
+  [CATEGORIES.DESIGN]: [
+    'UI Design', 'UX Design', 'Figma', 'Adobe XD', 'Sketch',
+    'InVision', 'Photoshop', 'Illustrator', 'User Research',
+    'Wireframing', 'Prototyping', 'Design Systems', 'Responsive Design',
+    'Accessibility (a11y)', 'WCAG Guidelines', 'Typography', 'Color Theory',
+    'Design Thinking', 'User Testing', 'Zeplin'
   ],
-
-  // Project Management
-  'Project Management': [
-    'Agile', 'Scrum', 'Kanban', 'Lean', 'Waterfall', 'JIRA', 'Trello', 'Asana', 'Monday.com', 'Notion', 'Linear', 'Azure Boards', 'Confluence', 'Slack', 'Microsoft Teams', 'Product Management', 'Roadmapping', 'Sprint Planning', 'Retrospectives', 'Stand-ups', 'User Stories', 'Epics'
+  [CATEGORIES.PROJECT_MANAGEMENT]: [
+    'Agile', 'Scrum', 'Kanban', 'Waterfall', 'Jira', 'Confluence',
+    'Trello', 'Asana', 'Project Planning', 'Team Leadership',
+    'Risk Management', 'Stakeholder Management', 'PRINCE2',
+    'PMI', 'PMP Certification', 'Roadmapping', 'Sprint Planning',
+    'Monday.com', 'ClickUp', 'Microsoft Project', 'Basecamp'
   ],
-
-  // Business & Soft Skills
-  'Business & Communication': [
-    'Product Strategy', 'Business Analysis', 'Requirements Gathering', 'Stakeholder Management', 'Leadership', 'Team Management', 'Communication', 'Presentation', 'Technical Writing', 'Documentation', 'Training', 'Mentoring', 'Problem Solving', 'Critical Thinking', 'Decision Making', 'Time Management', 'Adaptability', 'Creativity', 'Innovation'
+  [CATEGORIES.TESTING]: [
+    'Manual Testing', 'Automated Testing', 'Test Planning', 'QA',
+    'Selenium', 'Cypress', 'Jest', 'Mocha', 'Chai', 'JUnit',
+    'TestNG', 'NUnit', 'Load Testing', 'Performance Testing',
+    'Security Testing', 'Penetration Testing', 'API Testing',
+    'UI Testing', 'End-to-End Testing', 'Integration Testing',
+    'Unit Testing', 'Regression Testing', 'TestRail', 'JIRA QA'
   ],
-
-  // E-commerce & CMS
-  'E-commerce & CMS': [
-    'Shopify', 'WooCommerce', 'Magento', 'BigCommerce', 'PrestaShop', 'OpenCart', 'WordPress', 'Drupal', 'Joomla', 'Strapi', 'Contentful', 'Sanity', 'Ghost', 'Webflow', 'Squarespace', 'Wix', 'Payment Gateways', 'Stripe', 'PayPal', 'Square'
+  [CATEGORIES.SECURITY]: [
+    'Cybersecurity', 'Network Security', 'OWASP', 'Penetration Testing',
+    'Security Auditing', 'Encryption', 'Authentication', 'Authorization',
+    'OAuth', 'JWT', 'Single Sign-On', 'Two-Factor Authentication',
+    'Firewalls', 'VPN', 'Intrusion Detection', 'Security Compliance',
+    'GDPR', 'HIPAA', 'PCI DSS', 'ISO 27001', 'Security Frameworks'
   ],
-
-  // Marketing & SEO
-  'Digital Marketing & SEO': [
-    'Search Engine Optimization', 'Google Analytics', 'Google Ads', 'Facebook Ads', 'LinkedIn Ads', 'Content Marketing', 'Email Marketing', 'Social Media Marketing', 'Influencer Marketing', 'Affiliate Marketing', 'Conversion Rate Optimization', 'Marketing Automation', 'HubSpot', 'Salesforce', 'Mailchimp', 'Constant Contact', 'Hootsuite', 'Buffer', 'Sprout Social'
+  [CATEGORIES.FRAMEWORKS]: [
+    'React', 'Angular', 'Vue.js', 'Svelte', 'Next.js', 'Nuxt.js',
+    'Express.js', 'Django', 'Flask', 'Spring Boot', 'Laravel',
+    'Ruby on Rails', 'ASP.NET Core', 'FastAPI', 'Nest.js', 'Phoenix',
+    'Symfony', 'CodeIgniter', 'Strapi', 'Gatsby', 'Flutter',
+    'React Native', 'Ionic', 'Xamarin', 'TensorFlow', 'PyTorch'
+  ],
+  [CATEGORIES.OTHER]: [
+    'Technical Writing', 'Communication', 'Blockchain', 'Smart Contracts',
+    'Ethereum', 'Solidity', 'NFTs', 'AR/VR', 'Game Development',
+    'Unity', 'Unreal Engine', 'IoT', 'Embedded Systems', 'Robotics',
+    'Technical SEO', 'Growth Hacking', 'Digital Marketing', 'Content Management Systems',
+    'WordPress', 'Drupal', 'Technical Leadership', 'Mentoring',
+    'Public Speaking', 'Code Reviews', 'Technical Architecture'
   ]
 };
 
-// Popular skills for quick access
-export const POPULAR_SKILLS = [
-  'JavaScript', 'Python', 'React', 'Node.js', 'Java', 'TypeScript', 'AWS', 'Docker', 'Kubernetes', 'SQL', 'MongoDB', 'Git', 'HTML', 'CSS', 'Angular', 'Vue.js', 'Express.js', 'Django', 'Flask', 'Spring Boot', 'PostgreSQL', 'MySQL', 'Redis', 'GraphQL', 'REST API', 'Microservices', 'Agile', 'Scrum', 'CI/CD', 'Jenkins', 'Terraform', 'Machine Learning', 'Data Analysis', 'UI/UX Design', 'Figma', 'Adobe XD'
-];
+// Generate a flat list of all skills
+const ALL_SKILLS = Object.values(SKILLS_BY_CATEGORY).reduce(
+  (all, categorySkills) => [...all, ...categorySkills], 
+  []
+);
 
-// Get all skills as a flat array
-export const getAllSkills = () => {
-  const allSkills = [];
-  Object.values(SKILLS_DATABASE).forEach(categorySkills => {
-    allSkills.push(...categorySkills);
-  });
-  return [...new Set(allSkills)].sort(); // Remove duplicates and sort
-};
-
-// Search skills by query
+// Search for skills matching the query string
 export const searchSkills = (query, limit = 10) => {
-  if (!query) return POPULAR_SKILLS.slice(0, limit);
+  const normalizedQuery = query.toLowerCase().trim();
   
-  const allSkills = getAllSkills();
-  const lowerQuery = query.toLowerCase();
+  // Return empty array for empty query
+  if (!normalizedQuery) return [];
   
-  // Exact matches first, then partial matches
-  const exactMatches = allSkills.filter(skill => 
-    skill.toLowerCase() === lowerQuery
+  // Filter skills that contain the query string
+  const matches = ALL_SKILLS.filter(skill => 
+    skill.toLowerCase().includes(normalizedQuery)
   );
   
-  const partialMatches = allSkills.filter(skill => 
-    skill.toLowerCase().includes(lowerQuery) && 
-    skill.toLowerCase() !== lowerQuery
-  );
+  // Sort results: exact matches first, then by starting with query, then alphabetically
+  const sortedMatches = matches.sort((a, b) => {
+    const aLower = a.toLowerCase();
+    const bLower = b.toLowerCase();
+    
+    // Exact match gets highest priority
+    if (aLower === normalizedQuery && bLower !== normalizedQuery) return -1;
+    if (bLower === normalizedQuery && aLower !== normalizedQuery) return 1;
+    
+    // Starting with query gets next priority
+    if (aLower.startsWith(normalizedQuery) && !bLower.startsWith(normalizedQuery)) return -1;
+    if (bLower.startsWith(normalizedQuery) && !aLower.startsWith(normalizedQuery)) return 1;
+    
+    // Fall back to alphabetical order
+    return a.localeCompare(b);
+  });
   
-  return [...exactMatches, ...partialMatches].slice(0, limit);
+  // Limit results if needed
+  return sortedMatches.slice(0, limit);
 };
 
-// Get skills by category
-export const getSkillsByCategory = (category) => {
-  return SKILLS_DATABASE[category] || [];
-};
-
-// Get all categories
+// Get all available categories
 export const getCategories = () => {
-  return Object.keys(SKILLS_DATABASE);
+  return Object.values(CATEGORIES);
 };
+
+// Get skills for a specific category
+export const getSkillsByCategory = (category) => {
+  if (category === 'Popular') {
+    return POPULAR_SKILLS;
+  }
+  
+  return SKILLS_BY_CATEGORY[category] || [];
+};
+
+// Export the categories constant for use elsewhere
+export { CATEGORIES };

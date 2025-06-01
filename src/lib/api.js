@@ -1,6 +1,6 @@
 // API client utility for frontend-backend communication
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 // API client with basic methods
 export const apiClient = {  // GET request
@@ -53,11 +53,14 @@ export const apiClient = {  // GET request
       throw error;
     }
   },
-
   // PUT request
   async put(endpoint, data = {}, options = {}) {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      
+      console.log(`Making PUT request to: ${API_BASE_URL}${endpoint}`);
+      console.log('Token available:', !!token);
+      
       const response = await fetch(`${API_BASE_URL}${endpoint}`, {
         method: 'PUT',
         headers: {
@@ -69,11 +72,26 @@ export const apiClient = {  // GET request
         ...options,
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      console.log('PUT response status:', response.status);
+      
+      let responseData;
+      const responseText = await response.text();
+      
+      try {
+        // Try to parse as JSON
+        responseData = responseText ? JSON.parse(responseText) : {};
+        console.log('PUT response body:', responseData);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        console.log('Raw response body:', responseText);
+        responseData = { success: false, message: 'Invalid JSON response' };
       }
 
-      return await response.json();
+      if (!response.ok) {
+        throw new Error(responseData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      return responseData;
     } catch (error) {
       console.error('API PUT Error:', error);
       throw error;

@@ -16,6 +16,7 @@ import {
   Plus
 } from 'lucide-react';
 import { apiClient } from '../lib/api';
+import SkillsEditor from './SkillsEditor';
 
 export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'applicant' }) {
   const [loading, setLoading] = useState(false);
@@ -84,15 +85,21 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
       fetchProfileData();
     }
   }, [isOpen, userRole]);
-
   const handleSave = async () => {
     setSaving(true);
     try {
-      await apiClient.put('/api/applicant/profile', profileData);
+      console.log('Saving profile data:', JSON.stringify(profileData, null, 2));
+      console.log('Auth token exists:', localStorage.getItem('token') ? 'Yes' : 'No');
+      
+      const response = await apiClient.put('/api/applicant/profile', profileData);
+      console.log('Profile save response:', response);
+      
       onClose();
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile. Please try again.');
+      console.error('Error details:', error.message);
+      console.error('Error stack:', error.stack);
+      alert(`Error saving profile: ${error.message || 'Please try again.'}`);
     } finally {
       setSaving(false);
     }
@@ -126,9 +133,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
       ...prev,
       [arrayName]: prev[arrayName].filter((_, i) => i !== index)
     }));
-  };
-  const handleSkillsChange = (value) => {
-    const skillsArray = value.split(',').map(skill => skill.trim()).filter(skill => skill);
+  };  const handleSkillsChange = (skillsArray) => {
     setProfileData(prev => ({
       ...prev,
       skills: skillsArray
@@ -498,39 +503,98 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
               {activeTab === 'skills' && (
                 <div className="space-y-6">
                   <h3 className="text-xl font-semibold text-black">Skills</h3>
-                  <div>
-                    <label className="block text-sm font-semibold text-black mb-3">
-                      Skills (comma-separated)
-                    </label>
-                    <textarea
-                      value={profileData.skills.join(', ')}
-                      onChange={(e) => handleSkillsChange(e.target.value)}
-                      rows={5}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
-                      placeholder="e.g., JavaScript, React, Node.js, Python, SQL..."
+                  <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+                    <SkillsEditor
+                      skills={profileData.skills}
+                      onChange={handleSkillsChange}
+                      className="w-full"
                     />
-                    <p className="text-sm text-gray-600 mt-3 font-medium">
-                      Separate each skill with a comma. These will help match you with relevant job opportunities.
+                    <p className="text-sm text-gray-600 mt-4 font-medium">
+                      Select skills from the suggestions or type to search. These will help match you with relevant job opportunities.
                     </p>
-                  </div>
-
-                  {profileData.skills.length > 0 && (
-                    <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
-                      <h4 className="text-sm font-semibold text-black mb-4">Current Skills:</h4>
-                      <div className="flex flex-wrap gap-3">
-                        {profileData.skills.map((skill, index) => (
-                          <span
-                            key={index}
-                            className="px-4 py-2 bg-black text-white rounded-full text-sm font-medium"
-                          >
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
+                    <div className="mt-6 flex justify-end">
+                      <button
+                        onClick={async () => {
+                          try {
+                            // Store button reference so we can update it
+                            const btn = document.getElementById('skills-confirm-btn');
+                            
+                            // Update button state to loading
+                            if (btn) {
+                              btn.disabled = true;
+                              btn.innerHTML = 'Saving...';
+                              btn.classList.add('opacity-75');
+                            }
+                            
+                            // Only send required fields to minimize data
+                            const minimalData = {
+                              firstName: profileData.firstName || 'User',
+                              lastName: profileData.lastName || 'Name',
+                              email: profileData.email || 'email@example.com',
+                              skills: profileData.skills
+                            };
+                            
+                            console.log('Saving minimal profile data:', minimalData);
+                            
+                            // Use a direct fetch instead of the apiClient to bypass potential issues
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              throw new Error('Authentication token not found. Please log in again.');
+                            }
+                            
+                            const response = await fetch('/api/applicant/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify(minimalData)
+                            });
+                            
+                            const result = await response.json();
+                            console.log('Skills save result:', result);
+                            
+                            if (!response.ok) {
+                              throw new Error(result.message || `Error: ${response.status}`);
+                            }
+                            
+                            // Show success state
+                            if (btn) {
+                              btn.innerHTML = 'Skills Saved!';
+                              btn.classList.remove('opacity-75');
+                              btn.classList.add('bg-green-700');
+                              
+                              // Reset button after delay
+                              setTimeout(() => {
+                                if (btn) {
+                                  btn.disabled = false;
+                                  btn.innerHTML = 'Confirm Skills';
+                                  btn.classList.remove('bg-green-700');
+                                }
+                              }, 2000);
+                            }
+                          } catch (error) {
+                            console.error('Failed to save skills:', error);
+                            alert(`Error saving skills: ${error.message}`);
+                            
+                            // Reset button state on error
+                            const btn = document.getElementById('skills-confirm-btn');
+                            if (btn) {
+                              btn.disabled = false;
+                              btn.innerHTML = 'Confirm Skills';
+                              btn.classList.remove('opacity-75');
+                            }
+                          }
+                        }}
+                        id="skills-confirm-btn"
+                        className="flex items-center px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors font-semibold"
+                      >
+                        Confirm Skills
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </div>
-              )}              {/* Certifications Tab */}
+              )}{/* Certifications Tab */}
               {activeTab === 'certifications' && (
                 <div className="space-y-6">
                   <div className="flex items-center justify-between">

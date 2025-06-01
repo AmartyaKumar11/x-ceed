@@ -50,79 +50,55 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
 
   // Handle keyboard navigation
   const handleKeyDown = (e) => {
-    if (!showSuggestions || suggestions.length === 0) {
-      if (e.key === 'Enter' && inputValue.trim()) {
-        e.preventDefault();
+    // Enter key - add selected suggestion or current input
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
+        addSkill(suggestions[activeSuggestionIndex]);
+      } else if (inputValue.trim()) {
         addSkill(inputValue);
       }
-      return;
+    } 
+    // Escape key - hide suggestions
+    else if (e.key === 'Escape') {
+      setShowSuggestions(false);
+    } 
+    // Arrow down - move selection down
+    else if (e.key === 'ArrowDown' && showSuggestions) {
+      e.preventDefault();
+      setActiveSuggestionIndex(prev => 
+        prev < suggestions.length - 1 ? prev + 1 : prev
+      );
+    } 
+    // Arrow up - move selection up
+    else if (e.key === 'ArrowUp' && showSuggestions) {
+      e.preventDefault();
+      setActiveSuggestionIndex(prev => prev > 0 ? prev - 1 : 0);
     }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setActiveSuggestionIndex(prev => 
-          prev < suggestions.length - 1 ? prev + 1 : 0
-        );
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setActiveSuggestionIndex(prev => 
-          prev > 0 ? prev - 1 : suggestions.length - 1
-        );
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (activeSuggestionIndex >= 0) {
-          addSkill(suggestions[activeSuggestionIndex]);
-        } else if (inputValue.trim()) {
-          addSkill(inputValue);
-        }
-        break;
-      case 'Escape':
-        setShowSuggestions(false);
-        setActiveSuggestionIndex(-1);
-        break;
-      case 'Tab':
-        if (activeSuggestionIndex >= 0) {
-          e.preventDefault();
-          addSkill(suggestions[activeSuggestionIndex]);
-        }
-        break;
+    // Tab key - add selected suggestion
+    else if (e.key === 'Tab' && showSuggestions && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      addSkill(suggestions[activeSuggestionIndex]);
+    }
+    // Comma - add current input as skill
+    else if (e.key === ',') {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        addSkill(inputValue);
+      }
     }
   };
 
-  // Handle category selection
-  const handleCategorySelect = (category) => {
-    setSelectedCategory(category);
-    if (category === 'Popular') {
-      setSuggestions(POPULAR_SKILLS.filter(
-        skill => !skills.some(existingSkill => 
-          existingSkill.toLowerCase() === skill.toLowerCase()
-        )
-      ));
-    } else {
-      setSuggestions(getSkillsByCategory(category).filter(
-        skill => !skills.some(existingSkill => 
-          existingSkill.toLowerCase() === skill.toLowerCase()
-        )
-      ));
-    }
-    setShowSuggestions(true);
-    setActiveSuggestionIndex(-1);
-    setInputValue('');
-  };
-
-  // Close suggestions when clicking outside
+  // Click outside to close suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
         suggestionsRef.current && 
         !suggestionsRef.current.contains(event.target) &&
+        inputRef.current && 
         !inputRef.current.contains(event.target)
       ) {
         setShowSuggestions(false);
-        setActiveSuggestionIndex(-1);
       }
     };
 
@@ -130,149 +106,108 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Categories for browsing skills
   const categories = ['Popular', ...getCategories()];
+  const categorySkills = getSkillsByCategory(selectedCategory)
+    .filter(skill => !skills.some(s => s.toLowerCase() === skill.toLowerCase()));
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Skills Input Section */}
-      <div className="space-y-4">
-        <div className="relative">
-          <label className="block text-sm font-semibold text-black mb-3">
-            <Search size={16} className="inline mr-2" />
-            Add Skills
-          </label>
-          
-          <div className="relative">
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              onFocus={() => {
-                if (suggestions.length > 0) {
-                  setShowSuggestions(true);
-                }
-              }}
-              className="w-full px-4 py-3 pr-12 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
-              placeholder="Type a skill (e.g., JavaScript, Python, React...)"
-            />
-            
-            {inputValue && (
-              <button
-                onClick={() => addSkill(inputValue)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                title="Add skill"
-              >
-                <Plus size={16} className="text-gray-600" />
-              </button>
-            )}
-          </div>
-
-          {/* Suggestions Dropdown */}
-          {showSuggestions && suggestions.length > 0 && (
-            <div 
-              ref={suggestionsRef}
-              className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto"
+    <div className={`skills-editor ${className}`}>
+      {/* Selected Skills */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        {skills.map((skill, index) => (
+          <div 
+            key={index}
+            className="bg-black text-white px-3 py-1 rounded-full text-sm flex items-center gap-1"
+          >
+            <span>{skill}</span>
+            <button 
+              onClick={() => removeSkill(skill)} 
+              className="hover:bg-gray-700 rounded-full p-1"
             >
-              {suggestions.map((suggestion, index) => (
-                <button
-                  key={suggestion}
-                  onClick={() => addSkill(suggestion)}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-50 transition-colors ${
-                    index === activeSuggestionIndex ? 'bg-black text-white' : 'text-gray-900'
-                  }`}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Category Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex overflow-x-auto space-x-1 pb-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => handleCategorySelect(category)}
-                className={`flex-shrink-0 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  selectedCategory === category
-                    ? 'bg-black text-white'
-                    : 'text-gray-600 hover:text-black hover:bg-gray-100'
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+              <X size={12} />
+            </button>
           </div>
-        </div>
-
-        <p className="text-sm text-gray-600 font-medium">
-          {skills.length === 0 
-            ? "Start typing or browse categories to add your skills. These help match you with relevant opportunities."
-            : `${skills.length} skill${skills.length !== 1 ? 's' : ''} added. Add more to improve your profile visibility.`
-          }
-        </p>
+        ))}
       </div>
-
-      {/* Skills Display */}
-      {skills.length > 0 && (
-        <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-semibold text-black">Your Skills ({skills.length})</h4>
-            {skills.length > 0 && (
-              <button
-                onClick={() => onChange([])}
-                className="text-xs text-red-600 hover:text-red-800 font-medium"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-          
-          <div className="flex flex-wrap gap-3">
-            {skills.map((skill, index) => (
-              <div
-                key={`${skill}-${index}`}
-                className="group flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-sm font-medium hover:bg-gray-800 transition-colors"
-              >
-                <span>{skill}</span>
-                <button
-                  onClick={() => removeSkill(skill)}
-                  className="opacity-70 hover:opacity-100 transition-opacity"
-                  title={`Remove ${skill}`}
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
+      
+      {/* Input and Suggestions */}
+      <div className="relative mb-6">
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            className="w-full px-10 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+            placeholder="Type to search skills or browse below..."
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            onFocus={() => inputValue.trim() && setShowSuggestions(true)}
+          />
+          <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
         </div>
-      )}
-
-      {/* Skills Suggestions when no input */}
-      {!inputValue && !showSuggestions && skills.length < 10 && (
-        <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
-          <h4 className="text-sm font-semibold text-black mb-4">Popular Skills to Add</h4>
-          <div className="flex flex-wrap gap-2">
-            {POPULAR_SKILLS.filter(skill => 
-              !skills.some(existingSkill => 
-                existingSkill.toLowerCase() === skill.toLowerCase()
-              )
-            ).slice(0, 12).map((skill) => (
-              <button
-                key={skill}
-                onClick={() => addSkill(skill)}
-                className="px-3 py-1 text-sm bg-white text-gray-700 border border-gray-300 rounded-full hover:bg-black hover:text-white hover:border-black transition-colors"
+        
+        {/* Search suggestions dropdown */}
+        {showSuggestions && suggestions.length > 0 && (
+          <ul 
+            ref={suggestionsRef}
+            className="absolute z-10 w-full mt-1 max-h-60 overflow-auto bg-white border border-gray-300 rounded-md shadow-lg"
+          >
+            {suggestions.map((suggestion, index) => (
+              <li 
+                key={index}
+                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
+                  activeSuggestionIndex === index ? 'bg-gray-100' : ''
+                }`}
+                onClick={() => addSkill(suggestion)}
+                onMouseEnter={() => setActiveSuggestionIndex(index)}
               >
-                + {skill}
-              </button>
+                {suggestion}
+              </li>
             ))}
-          </div>
+          </ul>
+        )}
+      </div>
+      
+      {/* Category Tabs */}
+      <div className="mb-4 border-b">
+        <div className="flex overflow-x-auto pb-1">
+          {categories.map((category, index) => (
+            <button
+              key={index}
+              className={`px-4 py-2 whitespace-nowrap text-sm font-medium ${
+                selectedCategory === category 
+                  ? 'border-b-2 border-black text-black' 
+                  : 'text-gray-500 hover:text-black'
+              }`}
+              onClick={() => setSelectedCategory(category)}
+            >
+              {category}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
+      
+      {/* Skills by category */}
+      <div className="flex flex-wrap gap-2">
+        {categorySkills.slice(0, 20).map((skill, index) => (
+          <button
+            key={index}
+            onClick={() => addSkill(skill)}
+            className="flex items-center gap-1 border border-gray-300 hover:border-black bg-gray-50 hover:bg-gray-100 px-3 py-1 rounded-full text-sm transition-colors"
+          >
+            <Plus size={14} />
+            {skill}
+          </button>
+        ))}
+        {categorySkills.length === 0 && (
+          <p className="text-gray-500 text-sm py-2">
+            {selectedCategory === 'Popular' 
+              ? 'You\'ve added all popular skills! Browse other categories.'
+              : `You've added all ${selectedCategory.toLowerCase()} skills!`}
+          </p>
+        )}
+      </div>
     </div>
   );
 };
