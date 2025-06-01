@@ -107,59 +107,150 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
     if (currentStep > 1) {
       setCurrentStep(prev => prev - 1);
     }
-  };
-  const handleSubmit = async () => {
+  };  const handleSubmit = async () => {
     setIsLoading(true);
     try {
+      console.log('🚀 Starting job creation process...');
+      
+      // Check token first
+      const token = localStorage.getItem('token');
+      console.log('🔑 Current token:', token);
+      console.log('🔑 Token preview:', token ? token.substring(0, 50) + '...' : 'null');
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
+      }
+      
+      // Debug: Try to decode the token locally
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        console.log('🔍 Token payload decoded:', payload);
+        console.log('🆔 User ID in token:', payload.userId);
+        console.log('👤 User type:', payload.userType);
+        console.log('📧 Email:', payload.email);
+        console.log('⏰ Expires:', new Date(payload.exp * 1000).toISOString());
+      } catch (tokenDecodeError) {
+        console.error('❌ Failed to decode token locally:', tokenDecodeError);
+      }
+      
       // Convert date components to Date objects
       const applicationStart = getDateFromComponents(formData.startDay, formData.startMonth, formData.startYear);
       const applicationEnd = getDateFromComponents(formData.endDay, formData.endMonth, formData.endYear);
       
+      console.log('📅 Application dates:', { applicationStart, applicationEnd });
+      
+      let jobDescriptionFileUrl = null;
+      
+      // Upload PDF file if job description type is 'file'
+      if (formData.jobDescriptionType === 'file' && formData.jobDescriptionFile) {
+        console.log('📄 Uploading job description PDF...', formData.jobDescriptionFile.name);
+        
+        const fileFormData = new FormData();
+        fileFormData.append('file', formData.jobDescriptionFile);
+          const uploadResponse = await fetch('/api/upload/job-description', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: fileFormData,
+        });
+        
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          console.error('❌ File upload failed:', errorData);
+          throw new Error(errorData.message || 'Failed to upload job description file');
+        }
+        
+        const uploadResult = await uploadResponse.json();
+        jobDescriptionFileUrl = uploadResult.data.url;
+        console.log('✅ Job description PDF uploaded:', jobDescriptionFileUrl);
+      }
+      
+      // Prepare job data for backend
       const jobData = {
-        ...formData,
-        applicationStart,
-        applicationEnd,
-        status: 'active',
-        createdAt: new Date(),
-        applicationsCount: 0
+        title: formData.title,
+        department: formData.department,
+        level: formData.level,
+        description: formData.description,
+        jobDescriptionType: formData.jobDescriptionType,
+        jobDescriptionText: formData.jobDescriptionType === 'text' ? formData.jobDescriptionText : '',
+        jobDescriptionFile: jobDescriptionFileUrl,
+        workMode: formData.workMode,
+        location: formData.location,
+        jobType: formData.jobType,
+        duration: formData.duration,
+        salaryMin: parseInt(formData.salaryMin),
+        salaryMax: parseInt(formData.salaryMax),
+        currency: formData.currency,
+        benefits: formData.benefits,
+        numberOfOpenings: parseInt(formData.numberOfOpenings),
+        applicationStart: applicationStart.toISOString(),
+        applicationEnd: applicationEnd.toISOString(),
+        status: 'active'
       };
 
-      const response = await apiClient.post('/api/jobs', jobData);
+      console.log('📝 Creating job with data:', jobData);
+        // Create job via API
+      const response = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(jobData),
+      });
       
-      if (response.success) {
-        onJobCreated(response.data);
-        onClose();        // Reset form
-        setFormData({
-          title: '',
-          department: '',
-          level: '',
-          description: '',
-          workMode: '',
-          location: '',
-          jobType: '',
-          duration: '',
-          salaryMin: '',
-          salaryMax: '',
-          currency: 'USD',
-          benefits: '',          numberOfOpenings: 1,
-          startDay: '',
-          startMonth: '',
-          startYear: '',
-          endDay: '',
-          endMonth: '',
-          endYear: '',
-          jobDescriptionType: 'text',
-          jobDescriptionText: '',
-          jobDescriptionFile: null
-        });
-        setCurrentStep(1);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ Job creation failed:', errorData);
+        throw new Error(errorData.message || 'Failed to create job');
       }
+      
+      const result = await response.json();
+      console.log('✅ Job created successfully:', result.data);
+      
+      // Notify parent component
+      onJobCreated(result.data);
+      
+      // Show success message
+      alert('Job created successfully!');
+        // Close dialog
+      onClose();
+      
+      // Reset form
+      setFormData({
+        title: '',
+        department: '',
+        level: '',
+        description: '',
+        workMode: '',
+        location: '',
+        jobType: '',
+        duration: '',
+        salaryMin: '',
+        salaryMax: '',
+        currency: 'USD',
+        benefits: '',
+        numberOfOpenings: 1,
+        startDay: '',
+        startMonth: '',
+        startYear: '',
+        endDay: '',
+        endMonth: '',
+        endYear: '',
+        jobDescriptionType: 'text',
+        jobDescriptionText: '',
+        jobDescriptionFile: null
+      });
+      setCurrentStep(1);
+      
     } catch (error) {
-      console.error('Error creating job:', error);
+      console.error('❌ Error creating job:', error);
+      alert(`Failed to create job: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
-  };  const isStepValid = () => {
+  };const isStepValid = () => {
     switch (currentStep) {
       case 1:
         return formData.title && formData.department && formData.level;

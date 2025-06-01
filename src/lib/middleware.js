@@ -43,9 +43,7 @@ export async function authMiddleware(req) {
         error: 'Authentication token is missing',
         status: 401
       };
-    }
-    
-    // Verify the token
+    }    // Verify the token
     const decoded = verify(token, process.env.JWT_SECRET);
     
     // Check if the token is expired
@@ -55,37 +53,46 @@ export async function authMiddleware(req) {
         error: 'Token has expired',
         status: 401
       };
-    }
-    
-    // Verify that the user still exists in the database
+    }    // Verify that the user still exists in the database
     if (decoded.userId) {
       const client = await clientPromise;
-      const db = client.db();
+      const db = client.db('x-ceed-db'); // Specify the correct database name
       
-      const user = await db.collection('users').findOne({
-        _id: new ObjectId(decoded.userId)
-      });
-      
-      if (!user) {
+      try {
+        const objectId = new ObjectId(decoded.userId);
+        
+        const user = await db.collection('users').findOne({
+          _id: objectId
+        });
+        
+        if (!user) {
+          return {
+            isAuthenticated: false,
+            error: 'User no longer exists',
+            status: 401
+          };
+        }
+        
+        // Add the full user object without password
+        const { password, ...userWithoutPassword } = user;
+        
+        // Add user info to the request for downstream handlers
+        return {
+          isAuthenticated: true,
+          user: {
+            ...decoded,
+            details: userWithoutPassword
+          },
+          status: 200
+        };
+      } catch (objectIdError) {
+        console.error('Failed to create ObjectId from userId:', objectIdError);
         return {
           isAuthenticated: false,
-          error: 'User no longer exists',
+          error: 'Invalid user ID format',
           status: 401
         };
       }
-      
-      // Add the full user object without password
-      const { password, ...userWithoutPassword } = user;
-      
-      // Add user info to the request for downstream handlers
-      return {
-        isAuthenticated: true,
-        user: {
-          ...decoded,
-          details: userWithoutPassword
-        },
-        status: 200
-      };
     }
     
     // Add user info to the request for downstream handlers

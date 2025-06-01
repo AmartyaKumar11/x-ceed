@@ -38,13 +38,14 @@ export default async function handler(req, res) {
       // Verify user is a recruiter
       if (auth.user.userType !== 'recruiter') {
         return res.status(403).json({ success: false, message: 'Only recruiters can create jobs' });
-      }
-
-      const {
+      }      const {
         title,
         department,
         level,
         description,
+        jobDescriptionType,
+        jobDescriptionText,
+        jobDescriptionFile,
         workMode,
         location,
         jobType,
@@ -86,13 +87,15 @@ export default async function handler(req, res) {
           message: 'Application end date must be after start date' 
         });
       }
-      
-      const job = {
+        const job = {
         recruiterId: auth.user.userId,
         title,
         department,
         level,
         description: description || '',
+        jobDescriptionType: jobDescriptionType || 'text',
+        jobDescriptionText: jobDescriptionText || '',
+        jobDescriptionFile: jobDescriptionFile || null,
         workMode,
         location: location || '',
         jobType,

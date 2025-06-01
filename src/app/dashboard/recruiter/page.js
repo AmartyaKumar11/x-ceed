@@ -13,15 +13,17 @@ import {
   MapPin,
   DollarSign,
   Calendar,
-  Eye
+  Eye,
+  Plus
 } from 'lucide-react';
 import { apiClient, authAPI } from '@/lib/api';
+import CreateJobDialog from '@/components/CreateJobDialog';
 
 export default function RecruiterDashboardPage() {
-  const router = useRouter();
-  const [jobs, setJobs] = useState([]);
+  const router = useRouter();  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
+  const [isCreateJobDialogOpen, setIsCreateJobDialogOpen] = useState(false);
   const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplications: 0,
@@ -134,7 +136,6 @@ export default function RecruiterDashboardPage() {
     setJobs(mockJobs);
     calculateStats(mockJobs);
   };
-
   const calculateStats = (jobsData) => {
     const activeJobs = jobsData.filter(job => job.status === 'active').length;
     const totalApplications = jobsData.reduce((sum, job) => sum + (job.applicationsCount || 0), 0);
@@ -145,6 +146,13 @@ export default function RecruiterDashboardPage() {
       totalCandidates: Math.floor(totalApplications * 0.7), // Estimate unique candidates
       interviews: Math.floor(totalApplications * 0.3) // Estimate interviews
     });
+  };
+
+  const handleJobCreated = (newJob) => {
+    console.log('✅ New job created:', newJob);
+    setJobs(prevJobs => [newJob, ...prevJobs]);
+    calculateStats([newJob, ...jobs]);
+    setIsCreateJobDialogOpen(false);
   };
 
   const formatSalary = (min, max, currency = 'USD') => {
@@ -221,18 +229,18 @@ export default function RecruiterDashboardPage() {
       </div>
         {/* Main Content Cards */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        {/* Active Job Postings */}
-        <div className="xl:col-span-3 bg-white p-4 rounded-lg border border-gray-200 shadow-md">
+        {/* Active Job Postings */}        <div className="xl:col-span-3 bg-white p-4 rounded-lg border border-gray-200 shadow-md">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold flex items-center">
               <Briefcase className="h-5 w-5 mr-2 text-gray-600" />
               Active Job Postings
-            </h3>
-            {jobs.length > 0 && (
-              <span className="text-sm text-gray-500">
-                {jobs.filter(job => job.status === 'active').length} active
-              </span>
-            )}
+            </h3>            <div className="flex items-center gap-2">
+              {jobs.length > 0 && (
+                <span className="text-sm text-gray-500">
+                  {jobs.filter(job => job.status === 'active').length} active
+                </span>
+              )}
+            </div>
           </div>
           
           {loading ? (
@@ -244,13 +252,19 @@ export default function RecruiterDashboardPage() {
                   <div className="h-3 bg-gray-200 rounded w-1/4"></div>
                 </div>
               ))}
-            </div>
-          ) : jobs.length === 0 ? (
+            </div>          ) : jobs.length === 0 ? (
             <div className="text-center py-8">
               <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500 mb-2">No jobs posted yet</p>
-              <p className="text-sm text-gray-400">Create your first job posting to get started</p>
-            </div>          ) : (
+              <p className="text-sm text-gray-400 mb-4">Create your first job posting to get started</p>
+              <button
+                onClick={() => setIsCreateJobDialogOpen(true)}
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Create Your First Job
+              </button>
+            </div>) : (
             <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
               {jobs.filter(job => job.status === 'active').map((job) => (
                 <div 
@@ -343,9 +357,14 @@ export default function RecruiterDashboardPage() {
               </div>
               <p className="text-xs text-gray-500 mt-1">Backend Developer • Tomorrow, 1:30 PM</p>
             </div>
-          </div>
-        </div>
+          </div>        </div>
       </div>
+      
+      <CreateJobDialog
+        isOpen={isCreateJobDialogOpen}
+        onClose={() => setIsCreateJobDialogOpen(false)}
+        onJobCreated={handleJobCreated}
+      />
     </div>
   );
 }

@@ -292,29 +292,22 @@ export default function RegistrationPage() {
   const onSubmitWorkExperience = (data) => {
     setFormData(prev => ({ ...prev, workExperience: data }));
     setStep(4);
-  };
-  const handleProfileImageChange = (e) => {
+  };  const handleProfileImageChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setProfileImageFile(file); // Store the actual file
       setProfileImage(URL.createObjectURL(file)); // Store the preview URL
-      console.log("Profile image selected:", file.name, "Type:", file.type, "Size:", file.size);
     }
   };
   const handleResumeChange = (e) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setResumeFile(file);
-      console.log("Resume file selected:", file.name, "Type:", file.type, "Size:", file.size);
     }
-  };
-  const handleFinish = async () => {
+  };const handleFinish = async () => {
     try {
       // Set loading state
       setIsLoading(true);
-      console.log("🚀 Starting registration process...");
-      
-      console.log("Preparing registration data with form data:", formData);
       
       // Ensure we have a valid email
       if (!formData.contact?.email || formData.contact.email.trim() === '') {
@@ -326,7 +319,6 @@ export default function RegistrationPage() {
       const email = formData.contact.email.trim().toLowerCase();
       const password = formData.contact.password; // Use the user-entered password
       
-      console.log("📧 Step 1: Checking email availability...");
       // Verify one more time that the email is still available before final submission
       const emailCheckResponse = await fetch('/api/auth/check-email', {
         method: 'POST',
@@ -335,7 +327,6 @@ export default function RegistrationPage() {
       });
       
       const emailCheckResult = await emailCheckResponse.json();
-      console.log("📧 Email check result:", emailCheckResult);
       
       if (!emailCheckResult.available) {
         alert(`The email address ${email} is already registered. Please go back to the contact step and use a different email address.`);
@@ -343,8 +334,6 @@ export default function RegistrationPage() {
         return;
       }
       
-      console.log("✅ Email available. Using email for registration:", email);      
-      console.log("📝 Step 2: Preparing registration data...");
       // Prepare the data for the API
       const registrationData = {
         email: email,
@@ -358,12 +347,7 @@ export default function RegistrationPage() {
         }
       };
       
-      console.log("📝 Registration data prepared:", JSON.stringify(registrationData, null, 2));
-      
-      console.log("🌐 Step 3: Submitting to registration API...");
       // Submit to the registration API
-      console.log("Sending registration request with data:", JSON.stringify(registrationData));
-      
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
@@ -372,12 +356,9 @@ export default function RegistrationPage() {
         body: JSON.stringify(registrationData),
       });
       
-      console.log("🌐 Registration API response status:", response.status);
-      const result = await response.json();
-      console.log("🌐 Registration API response:", result);        if (!response.ok) {
+      const result = await response.json();        if (!response.ok) {
         // Show a user-friendly error message
         const errorMessage = result.message || 'Registration failed';
-        console.error("❌ Registration error:", errorMessage);
         
         if (errorMessage.includes('email already exists')) {
           alert(`The email address ${registrationData.email} is already registered. Please use a different email.`);
@@ -390,11 +371,7 @@ export default function RegistrationPage() {
         throw new Error(errorMessage);
       }
       
-      console.log("✅ Registration successful! User ID:", result.user?.id);
-      
-      console.log("🔑 Step 4: Auto-login to get auth token...");
       // Registration successful, now login to get auth token
-      console.log("Registration successful, logging in to get auth token");
       const loginResponse = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
@@ -405,41 +382,27 @@ export default function RegistrationPage() {
         }),
       });
       
-      console.log("🔑 Login API response status:", loginResponse.status);
       const loginResult = await loginResponse.json();
-      console.log("🔑 Login API response:", loginResult);        if (!loginResponse.ok) {
-        console.error("❌ Auto-login after registration failed:", loginResult.message);
+      
+      if (!loginResponse.ok) {
         // Continue even if auto-login fails - user can login manually later
-        console.log("Registration completed successfully, but auto-login failed. User will need to login manually.");
       } else {
         // Store token in localStorage for successful login
         localStorage.setItem('token', loginResult.token);
-        console.log("✅ Auto-login successful, token stored");      }
+      }
 
-      console.log("📁 Step 5: Processing file uploads...");
       // Upload files if they were selected (regardless of auto-login success)
-      const token = loginResult?.token; // Use token if available// If resume file was uploaded, send it to the backend
+      const token = loginResult?.token; // Use token if available
+
+      // If resume file was uploaded, send it to the backend
       if (resumeFile) {
         if (!token) {
-          console.warn("No authentication token available for file upload. User will need to upload files manually.");
           alert("Your profile was created successfully! However, you'll need to log in and upload your resume and profile image from your dashboard.");
         } else {
           try {
-          console.log("Uploading resume file:", resumeFile.name, "Type:", resumeFile.type, "Size:", resumeFile.size);
-          
           // Create FormData object for file upload
           const formData = new FormData();
           formData.append('file', resumeFile, resumeFile.name); // Append with filename
-
-          // Log what's in the FormData to confirm it contains the file
-          console.log("FormData created with file:", {
-            fileName: resumeFile.name,
-            fileType: resumeFile.type,
-            fileSize: resumeFile.size,
-            formDataEntries: [...formData.entries()].map(e => ({ key: e[0], value: e[1].name || e[1] }))
-          });
-          
-          console.log("Token for upload:", token);
           
           // Upload the resume file to the resume upload endpoint
           const uploadResponse = await fetch('/api/upload/resume', {
@@ -455,24 +418,18 @@ export default function RegistrationPage() {
           });
           
           if (!uploadResponse.ok) {
-            console.error("Resume upload failed:", uploadResponse.status);
             // Try to get more details from the error response
             try {
               const errorData = await uploadResponse.json();
-              console.error("Resume upload error details:", errorData);
               
               // Show a notification to the user but continue registration
               alert(`Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard. (Error: ${errorData.message || 'Unknown error'})`);
-            } catch (parseError) {
-              console.error("Couldn't parse error response:", parseError);
-              alert("Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard.");
+            } catch (parseError) {              alert("Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard.");
             }
             // Continue with registration even if resume upload fails
           } else {
             const uploadResult = await uploadResponse.json();
-            console.log("Resume upload successful:", uploadResult);
           }        } catch (uploadError) {
-          console.error("Resume upload error:", uploadError);
           alert("Your profile was created successfully, but we couldn't upload your resume. You can upload it later from your dashboard.");
           // Continue with registration even if resume upload fails
         }
@@ -482,17 +439,9 @@ export default function RegistrationPage() {
       // If profile image was uploaded, send it to the backend
       if (profileImageFile && token) {
         try {
-          console.log("Uploading profile image:", profileImageFile.name, "Type:", profileImageFile.type, "Size:", profileImageFile.size);
-          
           // Create FormData object for profile image upload
           const imageFormData = new FormData();
           imageFormData.append('file', profileImageFile, profileImageFile.name);
-
-          console.log("Profile image FormData created:", {
-            fileName: profileImageFile.name,
-            fileType: profileImageFile.type,
-            fileSize: profileImageFile.size,
-          });
           
           // Upload the profile image
           const imageUploadResponse = await fetch('/api/upload/profile-image', {
@@ -505,21 +454,16 @@ export default function RegistrationPage() {
           });
           
           if (!imageUploadResponse.ok) {
-            console.error("Profile image upload failed:", imageUploadResponse.status);
             try {
               const errorData = await imageUploadResponse.json();
-              console.error("Profile image upload error details:", errorData);
               alert(`Note: Your profile was created but the profile image upload failed. You can upload it later from your dashboard. (Error: ${errorData.message || 'Unknown error'})`);
             } catch (parseError) {
-              console.error("Couldn't parse image upload error response:", parseError);
               alert("Note: Your profile was created but the profile image upload failed. You can upload it later from your dashboard.");
             }
           } else {
             const imageUploadResult = await imageUploadResponse.json();
-            console.log("Profile image upload successful:", imageUploadResult);
           }
         } catch (imageUploadError) {
-          console.error("Profile image upload error:", imageUploadError);
           alert("Your profile was created successfully, but we couldn't upload your profile image. You can upload it later from your dashboard.");
         }
       }
@@ -533,10 +477,7 @@ export default function RegistrationPage() {
         id: result.user.id,
         registrationComplete: true,
         userType: 'applicant'
-      }));
-      
-      console.log("Registration process completed successfully");
-      
+      }));      
       // Navigate to dashboard after a short delay
       setTimeout(() => {
         router.push('/dashboard/applicant');
