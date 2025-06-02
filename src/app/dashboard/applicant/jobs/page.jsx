@@ -131,64 +131,15 @@ export default function ApplicantJobsPage() {
                       {new Date(selectedJob.createdAt).toLocaleDateString()}
                     </span>
                   </DialogDescription>
-                </div>                <div className="flex items-center gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      if (selectedJob.jobDescriptionFile) {
-                        window.open(selectedJob.jobDescriptionFile, '_blank');
-                      } else {
-                        // Generate a text file with job details if no file is available
-                        const jobDetails = `
-Job Title: ${selectedJob.title}
-Company: ${selectedJob.companyName || 'Not specified'}
-Department: ${selectedJob.department || 'Not specified'}
-Level: ${selectedJob.level || 'Not specified'}
-Work Mode: ${selectedJob.workMode || 'Not specified'}
-Location: ${selectedJob.location || 'Not specified'}
-Job Type: ${selectedJob.jobType || 'Not specified'}
-Description: ${selectedJob.description || 'No description provided.'}
-                        `;
-                        
-                        const blob = new Blob([jobDetails], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `${selectedJob.title.replace(/\s+/g, '-')}-job-description.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                      }
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download JD
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => {
-                      console.log('Match resume with job:', selectedJob._id);
-                      // You would implement the resume matching functionality here
-                      alert('Resume matching feature will be available soon!');
-                    }}
-                    className="flex items-center gap-1"
-                  >
-                    <FileText className="h-4 w-4" />
-                    Match Resume
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    className="flex items-center gap-1"
-                  >
-                    <Bookmark className="h-4 w-4 transition-colors" />
-                    Save Job
-                  </Button>
                 </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1"
+                >
+                  <Bookmark className="h-4 w-4 transition-colors" />
+                  Save Job
+                </Button>
               </div>
             </DialogHeader>
             
