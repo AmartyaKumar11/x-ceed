@@ -403,11 +403,10 @@ export default function NotificationPanel({ isOpen, onClose }) {
       </div>
     );
   };
-
   return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-10 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />
       
       {/* Notification Panel */}
       <div 
