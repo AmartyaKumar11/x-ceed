@@ -192,3 +192,88 @@ ${company} Recruitment Team
 
   return await sendEmail({ to, subject, text, html });
 }
+
+/**
+ * Sends a custom email with flexible content
+ * @param {Object} options - Email options
+ * @param {string} options.to - Recipient email address
+ * @param {string} options.subject - Email subject
+ * @param {string} options.body - Email body (plain text)
+ * @param {string} options.senderType - Type of sender (recruiter, applicant, etc.)
+ * @param {string} options.senderId - ID of the sender
+ * @returns {Promise<Object>} - Nodemailer info object
+ */
+export async function sendCustomEmail({ to, subject, body, senderType, senderId }) {
+  // Convert plain text body to HTML with basic formatting
+  const htmlBody = body
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>')
+    .replace(/^/, '<p>')
+    .replace(/$/, '</p>');
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      text-align: center;
+    }
+    .content {
+      background: #f9f9f9;
+      padding: 30px;
+      border: 1px solid #ddd;
+      border-top: none;
+    }
+    .footer {
+      background: #f1f1f1;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+    }
+    p {
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>X-CEED Recruitment</h1>
+  </div>
+  <div class="content">
+    ${htmlBody}
+  </div>
+  <div class="footer">
+    <p>This email was sent from X-CEED Recruitment Platform.</p>
+    <p>If you have any questions, please contact us.</p>
+  </div>
+</body>
+</html>
+`;
+
+  return await sendEmail({ 
+    to, 
+    subject, 
+    text: body, 
+    html 
+  });
+}

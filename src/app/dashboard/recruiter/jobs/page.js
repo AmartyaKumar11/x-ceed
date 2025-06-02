@@ -1,0 +1,1492 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { 
+  MapPin, 
+  Building, 
+  Calendar, 
+  DollarSign,
+  Users,
+  XCircle,
+  FileText,
+  Eye,
+  ArrowLeftCircle,
+  Download,
+  Loader2,
+  AlertCircle,
+  Check,
+  XIcon,
+  Clock,
+  Calendar as CalendarIcon,
+  ChevronDown,
+  Search,
+  Filter,
+  Mail
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+export default function RecruiterJobsPage() {
+  const router = useRouter();
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [candidatesDialogOpen, setCandidatesDialogOpen] = useState(false);
+  const [candidateDetailsDialogOpen, setCandidateDetailsDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
+  const [jobCandidates, setJobCandidates] = useState([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+    // New state for filtering and sorting
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortOption, setSortOption] = useState('newest');
+  const [currentPage, setCurrentPage] = useState(1);
+  
+  // New state for toggling between update status and communicate sections
+  const [activeDetailsSection, setActiveDetailsSection] = useState('status'); // 'status' or 'communicate'
+  const [totalCandidates, setTotalCandidates] = useState(0);
+  const candidatesPerPage = 10;
+  const [isConfirmCloseJobDialogOpen, setIsConfirmCloseJobDialogOpen] = useState(false);
+  const [jobToClose, setJobToClose] = useState(null);
+  const [updatingApplication, setUpdatingApplication] = useState(false);
+  const [updateStatusMessage, setUpdateStatusMessage] = useState('');
+  const [updateStatusSuccess, setUpdateStatusSuccess] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const fetchJobs = async () => {
+    setLoading(true);
+    try {
+      // Call the jobs API to get recruiter's jobs
+      const response = await apiClient.get('/api/jobs');
+      
+      if (response && response.success) {
+        console.log('Fetched recruiter jobs:', response.data);
+        setJobs(response.data || []);
+      } else {
+        console.error('Failed to fetch jobs:', response);
+        setError('Failed to load jobs. Please try again later.');
+      }
+    } catch (error) {
+      console.error('Error fetching jobs:', error);
+      setError('An error occurred while loading jobs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmCloseJob = (jobId) => {
+    setJobToClose(jobId);
+    setIsConfirmCloseJobDialogOpen(true);
+  };
+
+  const handleCloseJob = async () => {
+    if (!jobToClose) return;
+
+    try {
+      const response = await apiClient.put('/api/jobs', {
+        jobId: jobToClose,
+        status: 'closed'
+      });
+
+      if (response && response.success) {
+        // Update the jobs list
+        setJobs(jobs.map(job => 
+          job._id === jobToClose ? { ...job, status: 'closed' } : job
+        ));
+        setIsConfirmCloseJobDialogOpen(false);
+        setJobToClose(null);
+      } else {
+        alert('Failed to close job. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error closing job:', error);
+      alert('An error occurred. Please try again.');
+    }
+  };
+  const fetchJobCandidates = async (jobId) => {
+    setLoadingCandidates(true);
+    try {
+      // Call the applications API to get candidates with filters
+      let url = `/api/applications?jobId=${jobId}`;
+
+      // Add pagination
+      url += `&page=${currentPage}&limit=${candidatesPerPage}`;
+
+      // Add sorting
+      if (sortOption === 'newest') {
+        url += '&sort=date&order=desc';
+      } else if (sortOption === 'oldest') {
+        url += '&sort=date&order=asc';
+      } else if (sortOption === 'name') {
+        url += '&sort=name';
+      }
+
+      // Add status filter if not 'all'
+      if (filterStatus !== 'all') {
+        url += `&status=${filterStatus}`;
+      }
+      
+      try {
+        // Ensure we have a valid token before making the API call
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No authentication token found, using mock data');
+          const mockCandidates = generateMockCandidates(jobId);
+          setJobCandidates(mockCandidates);
+          setTotalCandidates(mockCandidates.length);
+          return;
+        }
+        
+        const response = await apiClient.get(url);
+        
+        if (response && response.success) {
+          console.log('Fetched job candidates:', response.data);
+          setJobCandidates(response.data || []);
+          setTotalCandidates(response.pagination ? response.pagination.total : 0);
+        } else {
+          console.error('API returned error:', response);
+          // If API fails, use mock data for demonstration
+          const mockCandidates = generateMockCandidates(jobId);
+          setJobCandidates(mockCandidates);
+          setTotalCandidates(mockCandidates.length);
+        }
+      } catch (apiError) {
+        console.error('API error:', apiError);
+        // Use mock data for API errors
+        const mockCandidates = generateMockCandidates(jobId);
+        setJobCandidates(mockCandidates);
+        setTotalCandidates(mockCandidates.length);
+      }
+    } catch (error) {
+      console.error('Error in fetchJobCandidates:', error);
+      // Use mock data on error
+      const mockCandidates = generateMockCandidates(jobId);
+      setJobCandidates(mockCandidates);
+      setTotalCandidates(mockCandidates.length);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+  
+  useEffect(() => {
+    if (selectedJob && candidatesDialogOpen) {
+      fetchJobCandidates(selectedJob._id);
+    }
+  }, [selectedJob, candidatesDialogOpen, filterStatus, sortOption, currentPage]);
+  
+  // Generate mock candidates for demonstration purposes
+  const generateMockCandidates = (jobId) => {
+    return [
+      {
+        _id: '1',
+        jobId: jobId,
+        appliedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
+        status: 'pending',
+        message: "I believe my experience in frontend development and my passion for creating user-friendly interfaces makes me an ideal candidate for this role. I've worked extensively with React and have built several projects that showcase my skills.",
+        resumeUrl: 'https://example.com/resume1.pdf',
+        applicant: {
+          _id: 'user1',
+          firstName: 'John',
+          lastName: 'Smith',
+          email: 'john.smith@example.com',
+          phone: '(123) 456-7890',
+          city: 'New York',
+          state: 'NY',
+          skills: [
+            { name: 'React' },
+            { name: 'JavaScript' },
+            { name: 'HTML/CSS' },
+            { name: 'Node.js' },
+            { name: 'TypeScript' }
+          ]
+        }
+      },
+      {
+        _id: '2',
+        jobId: jobId,
+        appliedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        status: 'reviewing',
+        message: "I have 5+ years of experience in full stack development with a focus on React, Node.js, and MongoDB. I've led teams in building scalable web applications and I'm excited about the opportunity to join your company.",
+        resumeUrl: 'https://example.com/resume2.pdf',
+        applicant: {
+          _id: 'user2',
+          firstName: 'Emily',
+          lastName: 'Johnson',
+          email: 'emily.johnson@example.com',
+          phone: '(234) 567-8901',
+          city: 'Chicago',
+          state: 'IL',
+          skills: [
+            { name: 'MongoDB' },
+            { name: 'Express' },
+            { name: 'React' },
+            { name: 'Node.js' },
+            { name: 'AWS' }
+          ]
+        }
+      },
+      {
+        _id: '3',
+        jobId: jobId,
+        appliedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        status: 'interview',
+        message: "I'm a recent CS graduate with a strong foundation in software engineering principles. During my studies, I completed several internships that gave me hands-on experience with React and Node.js development. I'm eager to apply my skills in a professional setting.",
+        resumeUrl: 'https://example.com/resume3.pdf',
+        applicant: {
+          _id: 'user3',
+          firstName: 'Michael',
+          lastName: 'Chen',
+          email: 'michael.chen@example.com',
+          phone: '(345) 678-9012',
+          city: 'San Francisco',
+          state: 'CA',
+          skills: [
+            { name: 'JavaScript' },
+            { name: 'React' },
+            { name: 'Python' },
+            { name: 'SQL' },
+            { name: 'Git' }
+          ]
+        }
+      },
+      {
+        _id: '4',
+        jobId: jobId,
+        appliedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        status: 'accepted',
+        message: "With my extensive experience in frontend development and UI/UX design, I believe I would be a valuable addition to your team. I've worked on several large-scale applications and am passionate about creating beautiful, functional interfaces.",
+        resumeUrl: 'https://example.com/resume4.pdf',
+        applicant: {
+          _id: 'user4',
+          firstName: 'Sarah',
+          lastName: 'Williams',
+          email: 'sarah.williams@example.com',
+          phone: '(456) 789-0123',
+          city: 'Boston',
+          state: 'MA',
+          skills: [
+            { name: 'UI/UX Design' },
+            { name: 'Figma' },
+            { name: 'React' },
+            { name: 'CSS' },
+            { name: 'User Testing' }
+          ]
+        }
+      },
+      {
+        _id: '5',
+        jobId: jobId,
+        appliedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        status: 'rejected',
+        message: "I'm very interested in this position and believe my skills in software development and project management make me a strong candidate. I've been following your company's growth and am excited about the possibility of contributing to your innovative products.",
+        resumeUrl: 'https://example.com/resume5.pdf',
+        applicant: {
+          _id: 'user5',
+          firstName: 'David',
+          lastName: 'Brown',
+          email: 'david.brown@example.com',
+          phone: '(567) 890-1234',
+          city: 'Austin',
+          state: 'TX',
+          skills: [
+            { name: 'JavaScript' },
+            { name: 'Angular' },
+            { name: 'Node.js' },
+            { name: 'Project Management' },
+            { name: 'Agile' }
+          ]
+        }
+      }
+    ];
+  };
+
+  const handleViewCandidates = async (job) => {
+    setSelectedJob(job);
+    setCurrentPage(1);
+    setCandidatesDialogOpen(true);
+  };
+
+  const handleViewCandidateDetails = (candidate) => {
+    setSelectedCandidate(candidate);
+    setCandidateDetailsDialogOpen(true);
+  };  const handleUpdateApplicationStatus = async (applicationId, status) => {
+    setUpdatingApplication(true);
+    setUpdateStatusMessage('');
+    setUpdateStatusSuccess(false);
+    
+    try {
+      const response = await apiClient.patch(`/api/applications/${applicationId}`, {
+        status
+      });
+      
+      if (response && response.success) {
+        // Update the candidate in the local state
+        setJobCandidates(prev => 
+          prev.map(candidate => 
+            candidate._id === applicationId ? { ...candidate, status } : candidate
+          )
+        );
+        
+        // If we're viewing candidate details, update the selected candidate too
+        if (selectedCandidate && selectedCandidate._id === applicationId) {
+          setSelectedCandidate(prev => ({ ...prev, status }));
+          
+          // Show a success message in the UI
+          setUpdateStatusMessage(`Status successfully updated to ${status}`);
+          setUpdateStatusSuccess(true);
+          
+          // Clear the message after 5 seconds
+          setTimeout(() => {
+            setUpdateStatusMessage('');
+            setUpdateStatusSuccess(false);
+          }, 5000);
+        }
+      } else {
+        console.error('Failed to update application status:', response);
+        setUpdateStatusMessage('Failed to update application status. Please try again.');
+        setUpdateStatusSuccess(false);
+      }
+    } catch (error) {
+      console.error('Error updating application status:', error);
+      setUpdateStatusMessage('An error occurred while updating application status.');
+      setUpdateStatusSuccess(false);
+    } finally {
+      setUpdatingApplication(false);
+    }
+  };
+  const openEmailDialog = (type) => {
+    let subject = '';
+    let body = '';
+    
+    if (type === 'interview') {
+      subject = `Interview Invitation for ${selectedJob?.title} Position`;
+      body = `Dear ${selectedCandidate.applicant.firstName},\n\nWe are pleased to invite you for an interview for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nPlease let us know your availability for an interview in the coming week.\n\nBest regards,\nRecruitment Team`;
+    } else if (type === 'accepted') {
+      subject = `Congratulations! Your Application for ${selectedJob?.title} Position`;
+      body = `Dear ${selectedCandidate.applicant.firstName},\n\nCongratulations! We are pleased to inform you that we would like to move forward with your application for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nWe will be in touch shortly with the next steps.\n\nBest regards,\nRecruitment Team`;
+    } else if (type === 'rejected') {
+      subject = `Regarding Your Application for ${selectedJob?.title} Position`;
+      body = `Dear ${selectedCandidate.applicant.firstName},\n\nThank you for your interest in the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nAfter careful consideration, we regret to inform you that we have decided to pursue other candidates whose qualifications more closely align with our current needs.\n\nWe appreciate your interest in our company and wish you success in your job search.\n\nBest regards,\nRecruitment Team`;
+    }
+    
+    setEmailSubject(subject);
+    setEmailBody(body);
+    setEmailDialogOpen(true);
+  };  const handleSendEmailNotification = async () => {
+    if (!selectedCandidate || !emailSubject.trim() || !emailBody.trim()) {
+      setUpdateStatusMessage('Please fill in both subject and message fields.');
+      setUpdateStatusSuccess(false);
+      return;
+    }
+
+    setSendingEmail(true);
+    setUpdateStatusMessage('');
+    setUpdateStatusSuccess(false);
+    
+    try {
+      // Send email via API
+      const response = await apiClient.post('/api/email/send', {
+        to: selectedCandidate.applicant.email,
+        subject: emailSubject,
+        body: emailBody
+      });
+
+      if (response && response.success) {
+        // Show success message
+        setUpdateStatusMessage('Email sent successfully!');
+        setUpdateStatusSuccess(true);
+        
+        // Update candidate status based on email type if it's a status notification
+        let statusToUpdate = null;
+        
+        if (emailSubject.includes('Interview Invitation') && selectedCandidate.status !== 'interview') {
+          statusToUpdate = 'interview';
+        } else if (emailSubject.includes('Congratulations') && selectedCandidate.status !== 'accepted') {
+          statusToUpdate = 'accepted';
+        } else if (emailSubject.includes('Regarding Your Application') && !emailSubject.includes('Congratulations') && selectedCandidate.status !== 'rejected') {
+          statusToUpdate = 'rejected';
+        }
+        
+        // If status needs to be updated, do it after email is sent
+        if (statusToUpdate) {
+          // Update the status
+          try {
+            const statusResponse = await apiClient.patch(`/api/applications/${selectedCandidate._id}`, {
+              status: statusToUpdate
+            });
+            
+            if (statusResponse && statusResponse.success) {
+              // Update local state
+              setJobCandidates(prev => 
+                prev.map(candidate => 
+                  candidate._id === selectedCandidate._id ? { ...candidate, status: statusToUpdate } : candidate
+                )
+              );
+              setSelectedCandidate(prev => ({ ...prev, status: statusToUpdate }));
+              
+              setUpdateStatusMessage(`Email sent and status updated to ${statusToUpdate}!`);
+            }
+          } catch (statusError) {
+            console.error('Error updating status after email:', statusError);
+            setUpdateStatusMessage('Email sent successfully, but failed to update status. Please update manually.');
+          }
+        }
+        
+        // Close dialog after delay
+        setTimeout(() => {
+          setEmailDialogOpen(false);
+          setEmailSubject('');
+          setEmailBody('');
+          
+          // Switch to status tab to show the status update
+          if (statusToUpdate) {
+            setActiveDetailsSection('status');
+          }
+          
+          // Clear message after additional delay
+          setTimeout(() => {
+            setUpdateStatusMessage('');
+            setUpdateStatusSuccess(false);
+          }, 3000);
+        }, 2000);
+        
+      } else {
+        console.error('Failed to send email:', response);
+        setUpdateStatusMessage(response?.message || 'Failed to send email. Please try again.');
+        setUpdateStatusSuccess(false);
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      setUpdateStatusMessage('An error occurred while sending email. Please try again.');
+      setUpdateStatusSuccess(false);
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const formatPostedDate = (dateString) => {
+    try {
+      const date = new Date(dateString);
+      return formatDistanceToNow(date, { addSuffix: true });
+    } catch (error) {
+      return 'Recently';
+    }
+  };
+
+  const formatSalary = (min, max, currency = 'USD') => {
+    if (!min && !max) return 'Salary not specified';
+    
+    const formatNumber = (num) => {
+      if (num >= 1000000) {
+        return `${(num / 1000000).toFixed(0)}M`;
+      }
+      return `${(num / 1000).toFixed(0)}K`;
+    };
+    
+    const currencySymbol = currency === 'USD' ? '$' : currency;
+    
+    if (min && max) {
+      return `${currencySymbol}${formatNumber(min)} - ${currencySymbol}${formatNumber(max)}`;
+    } else if (min) {
+      return `From ${currencySymbol}${formatNumber(min)}`;
+    } else if (max) {
+      return `Up to ${currencySymbol}${formatNumber(max)}`;
+    }
+  };
+  
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'pending':
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Pending</Badge>;
+      case 'reviewing':
+        return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Reviewing</Badge>;
+      case 'interview':
+        return <Badge variant="secondary" className="bg-purple-100 text-purple-800">Interview</Badge>;
+      case 'accepted':
+        return <Badge variant="secondary" className="bg-green-100 text-green-800">Accepted</Badge>;
+      case 'rejected':
+        return <Badge variant="secondary" className="bg-red-100 text-red-800">Rejected</Badge>;
+      default:
+        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">{status}</Badge>;
+    }
+  };
+  
+  // Function to filter candidates based on search query
+  const filteredCandidates = jobCandidates.filter(candidate => {
+    const fullName = `${candidate.applicant.firstName} ${candidate.applicant.lastName}`.toLowerCase();
+    const email = candidate.applicant.email.toLowerCase();
+    const query = searchQuery.toLowerCase();
+    
+    return fullName.includes(query) || email.includes(query);
+  });
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-12 w-12 animate-spin text-gray-400 mb-4" />
+        <p className="text-gray-600">Loading job listings...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+        <h3 className="text-lg font-medium">Failed to load jobs</h3>
+        <p className="text-gray-600 mt-2">{error}</p>
+        <Button variant="outline" className="mt-4" onClick={fetchJobs}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  const activeJobs = jobs.filter(job => job.status === 'active');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="flex items-center gap-2"
+            onClick={() => router.push('/dashboard/recruiter')}
+          >
+            <ArrowLeftCircle size={18} />
+            Back to Dashboard
+          </Button>          
+          <h2 className="text-3xl font-bold">Active Jobs</h2>
+        </div>
+        <Button onClick={() => router.push('/dashboard/recruiter#create-job')}>
+          Create New Job
+        </Button>
+      </div>
+
+      {activeJobs.length === 0 ? (
+        <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+          <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium">No active jobs</h3>
+          <p className="text-gray-500 mt-2 mb-6">
+            You haven't posted any active jobs yet.
+          </p>
+          <Button onClick={() => router.push('/dashboard/recruiter')}>
+            Create Your First Job
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {activeJobs.map((job) => (
+            <Card key={job._id} className="border-gray-200 hover:shadow-md transition-all">
+              <CardHeader className="pb-2">
+                <div>
+                  <CardTitle className="text-lg font-semibold">{job.title}</CardTitle>
+                  <CardDescription className="flex items-center mt-1">
+                    <Building className="h-3 w-3 mr-1" />
+                    {job.companyName || 'Your Company'}
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-y-2 mb-3">
+                  <div className="flex items-center text-sm text-gray-500 mr-4">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    {job.workMode} {job.location ? `(${job.location})` : ''}
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500 mr-4">
+                    <DollarSign className="h-3 w-3 mr-1" />
+                    {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
+                  </div>
+                  <div className="flex items-center text-sm text-gray-500">
+                    <Calendar className="h-3 w-3 mr-1" />
+                    Posted {formatPostedDate(job.createdAt || new Date())}
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-2 mt-2">
+                  <Badge variant="secondary" className="font-normal">
+                    {job.jobType || 'Full-time'}
+                  </Badge>
+                  <Badge variant="secondary" className="font-normal">
+                    {job.department || 'General'}
+                  </Badge>
+                  <Badge variant="secondary" className="font-normal">
+                    {job.level || 'Entry Level'}
+                  </Badge>
+                </div>
+                
+                <div className="flex items-center mt-4 text-sm font-medium">
+                  <Users className="h-4 w-4 mr-1 text-blue-600" />
+                  <span>{job.applicationsCount || 0} applications</span>
+                  {job.applicationsCount > 0 && job.applicationStats && (
+                    <div className="flex ml-2 gap-1">
+                      {job.applicationStats.reviewing > 0 && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-800 text-xs border-blue-200">
+                          {job.applicationStats.reviewing} reviewing
+                        </Badge>
+                      )}
+                      {job.applicationStats.interview > 0 && (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-800 text-xs border-purple-200">
+                          {job.applicationStats.interview} interview
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+              <CardFooter className="flex flex-wrap gap-2 justify-end">
+                <Button 
+                  variant="outline"
+                  className="flex items-center gap-1"
+                  onClick={() => handleViewCandidates(job)}
+                >
+                  <Eye className="h-3 w-3" />
+                  View Candidates
+                </Button>
+                <Button 
+                  variant="destructive"
+                  className="flex items-center gap-1"
+                  onClick={() => handleConfirmCloseJob(job._id)}
+                >
+                  <XCircle className="h-3 w-3" />
+                  Close Job
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Close Job Confirmation Dialog */}
+      <Dialog open={isConfirmCloseJobDialogOpen} onOpenChange={setIsConfirmCloseJobDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Close Job Posting</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to close this job? It will no longer accept new applications.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex justify-end gap-3 mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsConfirmCloseJobDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleCloseJob}
+            >
+              Close Job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Candidates Dialog */}
+      {selectedJob && (
+        <Dialog 
+          open={candidatesDialogOpen} 
+          onOpenChange={setCandidatesDialogOpen}
+          className="w-full"
+        >
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                Candidates for {selectedJob.title}
+              </DialogTitle>
+              <DialogDescription>
+                Review candidates who applied for this position
+              </DialogDescription>
+            </DialogHeader>
+            
+            {/* Filters and controls */}
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4 my-4">
+              <div className="flex flex-wrap gap-3 items-center">
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Input
+                    placeholder="Search candidates..."
+                    className="pl-9"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Status</SelectLabel>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="reviewing">Reviewing</SelectItem>
+                      <SelectItem value="interview">Interview</SelectItem>
+                      <SelectItem value="accepted">Accepted</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-500">Sort by:</span>
+                <Select value={sortOption} onValueChange={setSortOption}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="newest">Newest</SelectItem>
+                      <SelectItem value="oldest">Oldest</SelectItem>
+                      <SelectItem value="name">Name (A-Z)</SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {loadingCandidates ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <span className="ml-2">Loading candidates...</span>
+              </div>
+            ) : jobCandidates.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <Users className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                <h3 className="text-lg font-medium">No applications yet</h3>
+                <p className="text-gray-500 mt-2">
+                  There are no applications for this position yet.
+                </p>
+              </div>
+            ) : filteredCandidates.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg">
+                <Search className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+                <h3 className="text-lg font-medium">No matching candidates</h3>
+                <p className="text-gray-500 mt-2">
+                  No candidates match your search criteria. Try adjusting your filters.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4 my-4">
+                {filteredCandidates.map((candidate) => (
+                  <div 
+                    key={candidate._id} 
+                    className="bg-white p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                  >
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-base">
+                        {candidate.applicant.firstName} {candidate.applicant.lastName}
+                      </h4>
+                      {getStatusBadge(candidate.status)}
+                    </div>
+                    <div className="text-gray-500 text-sm">{candidate.applicant.email}</div>
+                    <div className="text-gray-500 text-xs mt-1">
+                      Applied {formatPostedDate(candidate.createdAt)}
+                    </div>
+                  </div>
+                      <div className="flex flex-wrap gap-2 sm:gap-3 w-full sm:w-auto">                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild disabled={updatingApplication}>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="flex items-center gap-1"
+                            >
+                              {updatingApplication && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                              {candidate.status} <ChevronDown className="h-3 w-3 ml-1" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateApplicationStatus(candidate._id, 'pending')}
+                              className="flex items-center gap-2"
+                            >
+                              <Clock className="h-3 w-3" /> Pending
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateApplicationStatus(candidate._id, 'reviewing')}
+                              className="flex items-center gap-2"
+                            >
+                              <Eye className="h-3 w-3" /> Reviewing
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateApplicationStatus(candidate._id, 'interview')}
+                              className="flex items-center gap-2"
+                            >
+                              <CalendarIcon className="h-3 w-3" /> Interview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateApplicationStatus(candidate._id, 'accepted')}
+                              className="flex items-center gap-2"
+                            >
+                              <Check className="h-3 w-3" /> Accept
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleUpdateApplicationStatus(candidate._id, 'rejected')}
+                              className="flex items-center gap-2"
+                            >
+                              <XIcon className="h-3 w-3" /> Reject
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        
+                        {candidate.resumeUrl && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => window.open(candidate.resumeUrl, '_blank')}
+                            className="flex items-center gap-1"
+                          >
+                            <Download className="h-3 w-3" />
+                            Resume
+                          </Button>
+                        )}
+                        <Button 
+                          size="sm"
+                          onClick={() => handleViewCandidateDetails(candidate)}
+                          className="flex items-center gap-1"
+                        >
+                          <Eye className="h-3 w-3" />
+                          View Details
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Pagination */}
+            {totalCandidates > candidatesPerPage && (
+              <div className="flex justify-center items-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-500">
+                  Page {currentPage} of {Math.ceil(totalCandidates / candidatesPerPage)}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => p + 1)}
+                  disabled={currentPage >= Math.ceil(totalCandidates / candidatesPerPage)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Candidate Details Dialog */}
+      {selectedCandidate && (
+        <Dialog open={candidateDetailsDialogOpen} onOpenChange={setCandidateDetailsDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName}
+              </DialogTitle>
+              <DialogDescription className="flex items-center gap-2">
+                <span>Application for {selectedJob?.title}</span>
+                {getStatusBadge(selectedCandidate.status)}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-6 my-4">
+              {/* Personal Information */}
+              <div>
+                <h3 className="font-semibold text-lg mb-3">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm text-gray-500">Email</h4>
+                    <p>{selectedCandidate.applicant.email}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm text-gray-500">Phone</h4>
+                    <p>{selectedCandidate.applicant.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm text-gray-500">Location</h4>
+                    <p>
+                      {selectedCandidate.applicant.city && selectedCandidate.applicant.state
+                        ? `${selectedCandidate.applicant.city}, ${selectedCandidate.applicant.state}`
+                        : 'Not provided'}
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm text-gray-500">Application Date</h4>
+                    <p>{new Date(selectedCandidate.appliedAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Skills */}
+              {selectedCandidate.applicant.skills && selectedCandidate.applicant.skills.length > 0 && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Skills</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCandidate.applicant.skills.map((skill, i) => (
+                      <Badge key={i} variant="secondary">
+                        {skill.name || skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Application Details */}
+              <div>
+                <h3 className="font-semibold text-lg mb-3">Application</h3>
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <h4 className="text-sm text-gray-500 mb-2">Message to Recruiter</h4>
+                  <p className="whitespace-pre-wrap">
+                    {selectedCandidate.message || 'No message provided.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Resume */}
+              {selectedCandidate.resumeUrl && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Resume</h3>
+                  <Button 
+                    onClick={() => window.open(selectedCandidate.resumeUrl, '_blank')}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download Resume
+                  </Button>
+                </div>
+              )}              {/* Action Tabs */}
+              <div className="border-t border-gray-200 pt-4 mt-4">
+                {/* Tab Navigation */}
+                <div className="flex border-b border-gray-200 mb-4">
+                  <button
+                    onClick={() => setActiveDetailsSection('status')}
+                    className={`px-4 py-2 mr-2 font-medium text-sm rounded-t-md ${
+                      activeDetailsSection === 'status'
+                        ? 'bg-black text-white'
+                        : 'text-gray-600 hover:text-gray-900 bg-gray-50'
+                    }`}
+                  >
+                    Update Status
+                  </button>
+                  <button
+                    onClick={() => setActiveDetailsSection('communicate')}
+                    className={`px-4 py-2 font-medium text-sm rounded-t-md ${
+                      activeDetailsSection === 'communicate'
+                        ? 'bg-black text-white'
+                        : 'text-gray-600 hover:text-gray-900 bg-gray-50'
+                    }`}
+                  >
+                    Communicate
+                  </button>
+                </div>                  {/* Update Status Tab */}
+                {activeDetailsSection === 'status' && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3">Update Application Status</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        size="sm" 
+                        variant={selectedCandidate.status === 'pending' ? 'default' : 'outline'}
+                        disabled={updatingApplication}
+                        onClick={() => handleUpdateApplicationStatus(selectedCandidate._id, 'pending')}
+                        className="flex items-center gap-2"
+                      >
+                        <Clock className="h-3 w-3" />
+                        Pending
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={selectedCandidate.status === 'reviewing' ? 'default' : 'outline'}
+                        disabled={updatingApplication}
+                        onClick={() => handleUpdateApplicationStatus(selectedCandidate._id, 'reviewing')}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="h-3 w-3" />
+                        Reviewing
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={selectedCandidate.status === 'interview' ? 'default' : 'outline'}
+                        disabled={updatingApplication}
+                        onClick={() => handleUpdateApplicationStatus(selectedCandidate._id, 'interview')}
+                        className="flex items-center gap-2"
+                      >
+                        <CalendarIcon className="h-3 w-3" />
+                        Interview
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={selectedCandidate.status === 'accepted' ? 'default' : 'outline'}
+                        disabled={updatingApplication}
+                        onClick={() => handleUpdateApplicationStatus(selectedCandidate._id, 'accepted')}
+                        className="flex items-center gap-2"
+                      >
+                        <Check className="h-3 w-3" />
+                        Accept
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant={selectedCandidate.status === 'rejected' ? 'default' : 'outline'}
+                        disabled={updatingApplication}
+                        onClick={() => handleUpdateApplicationStatus(selectedCandidate._id, 'rejected')}
+                        className="flex items-center gap-2"
+                      >
+                        <XIcon className="h-3 w-3" />
+                        Reject
+                      </Button>
+                    </div>
+                    {updatingApplication && (
+                      <div className="mt-2 flex items-center text-sm text-blue-600">
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Updating status...
+                      </div>
+                    )}
+                      {/* Improved status feedback message */}
+                    {updateStatusMessage && (
+                      <div className={`mt-3 p-3 rounded-md text-sm ${!updateStatusSuccess
+                        ? 'bg-red-50 text-red-800 border border-red-100' 
+                        : 'bg-green-50 text-green-800 border border-green-100'}`}>
+                        {!updateStatusSuccess ? (
+                          <div className="flex items-start">
+                            <AlertCircle className="h-4 w-4 mt-0.5 mr-2 flex-shrink-0" />
+                            <div>{updateStatusMessage}</div>
+                          </div>
+                        ) : (
+                          <div className="flex items-start">
+                            <Check className="h-4 w-4 mt-0.5 mr-2 flex-shrink-0" />
+                            <div>
+                              <div className="font-medium mb-1">{updateStatusMessage}</div>
+                              {(selectedCandidate.status === 'interview' || 
+                                selectedCandidate.status === 'accepted' || 
+                                selectedCandidate.status === 'rejected') && (
+                                <div className="flex items-center mt-2">
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  <span>Would you like to notify the candidate?</span>
+                                  <Button 
+                                    variant="link" 
+                                    className="px-2 h-auto text-sm font-medium underline" 
+                                    onClick={() => {
+                                      setActiveDetailsSection('communicate');
+                                      openEmailDialog(selectedCandidate.status);
+                                    }}
+                                  >
+                                    Send email notification
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Contextual help based on current status */}
+                    {!updatingApplication && !updateStatusMessage && (
+                      <>
+                        {selectedCandidate.status === 'accepted' && (
+                          <div className="mt-3 p-3 bg-blue-50 border border-blue-100 rounded-md">
+                            <h4 className="text-sm font-medium text-blue-800 mb-1">Next Steps</h4>
+                            <p className="text-sm text-blue-700 flex items-center">
+                              <Check className="h-4 w-4 mr-2 text-green-600" />
+                              This candidate was accepted. 
+                              <Button 
+                                variant="link" 
+                                className="px-1 h-auto text-sm font-medium text-blue-800 underline" 
+                                onClick={() => {
+                                  setActiveDetailsSection('communicate');
+                                  openEmailDialog('accepted');
+                                }}
+                              >
+                                Send acceptance email
+                              </Button>
+                            </p>
+                          </div>
+                        )}
+                        
+                        {selectedCandidate.status === 'rejected' && (
+                          <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-md">
+                            <h4 className="text-sm font-medium text-amber-800 mb-1">Candidate Rejected</h4>
+                            <p className="text-sm text-amber-700 flex items-center">
+                              <XIcon className="h-4 w-4 mr-2 text-red-600" />
+                              This candidate was rejected. 
+                              <Button 
+                                variant="link" 
+                                className="px-1 h-auto text-sm font-medium text-amber-800 underline" 
+                                onClick={() => {
+                                  setActiveDetailsSection('communicate');
+                                  openEmailDialog('rejected');
+                                }}
+                              >
+                                Send rejection email
+                              </Button>
+                            </p>
+                          </div>
+                        )}
+                        
+                        {selectedCandidate.status === 'interview' && (
+                          <div className="mt-3 p-3 bg-purple-50 border border-purple-100 rounded-md">
+                            <h4 className="text-sm font-medium text-purple-800 mb-1">Interview Scheduled</h4>
+                            <p className="text-sm text-purple-700 flex items-center">
+                              <CalendarIcon className="h-4 w-4 mr-2 text-purple-600" />
+                              This candidate is scheduled for an interview. 
+                              <Button 
+                                variant="link" 
+                                className="px-1 h-auto text-sm font-medium text-purple-800 underline" 
+                                onClick={() => {
+                                  setActiveDetailsSection('communicate');
+                                  openEmailDialog('interview');
+                                }}
+                              >
+                                Send interview details
+                              </Button>
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}                  {/* Communication Tab */}
+                {activeDetailsSection === 'communicate' && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3">Communicate with Candidate</h3>
+                    
+                    {/* Status-aware communication options */}
+                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
+                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                        <AlertCircle className="h-4 w-4 mr-2 text-blue-600" />
+                        Current Status: {getStatusBadge(selectedCandidate.status)}
+                      </h4>
+                      <p className="text-xs text-gray-600">
+                        Sending emails may update the candidate's status if indicated below.
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                      {/* Interview card with contextual UI based on current status */}
+                      <div 
+                        className={`border rounded-lg p-4 transition-all cursor-pointer
+                          ${selectedCandidate.status === 'interview' 
+                            ? 'border-blue-300 bg-blue-50' 
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+                        onClick={() => openEmailDialog('interview')}
+                      >
+                        <div className="flex items-center mb-2">
+                          <CalendarIcon className={`h-5 w-5 mr-2 ${selectedCandidate.status === 'interview' ? 'text-blue-800' : 'text-blue-600'}`} />
+                          <h4 className="font-medium">Interview Invitation</h4>
+                          {selectedCandidate.status === 'interview' && (
+                            <Badge className="ml-auto text-xs bg-blue-100 text-blue-800 border border-blue-200">Current</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">Send an interview request with details about the next steps</p>
+                        {selectedCandidate.status !== 'interview' && (
+                          <div className="flex items-center mt-2 text-xs text-blue-600">
+                            <ArrowLeftCircle className="h-3 w-3 mr-1" />
+                            Will update status to "Interview"
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Acceptance card with contextual UI */}
+                      <div 
+                        className={`border rounded-lg p-4 transition-all cursor-pointer
+                          ${selectedCandidate.status === 'accepted' 
+                            ? 'border-green-300 bg-green-50' 
+                            : 'border-gray-200 hover:border-green-300 hover:bg-green-50'}`}
+                        onClick={() => openEmailDialog('accepted')}
+                      >
+                        <div className="flex items-center mb-2">
+                          <Check className={`h-5 w-5 mr-2 ${selectedCandidate.status === 'accepted' ? 'text-green-800' : 'text-green-600'}`} />
+                          <h4 className="font-medium">Acceptance Notification</h4>
+                          {selectedCandidate.status === 'accepted' && (
+                            <Badge className="ml-auto text-xs bg-green-100 text-green-800 border border-green-200">Current</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">Inform the candidate that they've been accepted for the position</p>
+                        {selectedCandidate.status !== 'accepted' && (
+                          <div className="flex items-center mt-2 text-xs text-green-600">
+                            <ArrowLeftCircle className="h-3 w-3 mr-1" />
+                            Will update status to "Accepted"
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Rejection card with contextual UI */}
+                      <div 
+                        className={`border rounded-lg p-4 transition-all cursor-pointer
+                          ${selectedCandidate.status === 'rejected' 
+                            ? 'border-red-300 bg-red-50' 
+                            : 'border-gray-200 hover:border-red-300 hover:bg-red-50'}`}
+                        onClick={() => openEmailDialog('rejected')}
+                      >
+                        <div className="flex items-center mb-2">
+                          <XIcon className={`h-5 w-5 mr-2 ${selectedCandidate.status === 'rejected' ? 'text-red-800' : 'text-red-600'}`} />
+                          <h4 className="font-medium">Rejection Notification</h4>
+                          {selectedCandidate.status === 'rejected' && (
+                            <Badge className="ml-auto text-xs bg-red-100 text-red-800 border border-red-200">Current</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600">Inform the candidate that they haven't been selected</p>
+                        {selectedCandidate.status !== 'rejected' && (
+                          <div className="flex items-center mt-2 text-xs text-red-600">
+                            <ArrowLeftCircle className="h-3 w-3 mr-1" />
+                            Will update status to "Rejected"
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Custom Email option */}
+                      <div 
+                        className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors cursor-pointer"
+                        onClick={() => openEmailDialog('')}
+                      >
+                        <div className="flex items-center mb-2">
+                          <Mail className="h-5 w-5 text-purple-600 mr-2" />
+                          <h4 className="font-medium">Custom Email</h4>
+                        </div>
+                        <p className="text-sm text-gray-600">Send a personalized message to this candidate</p>
+                        <p className="flex items-center mt-2 text-xs text-gray-500">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          No status change
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 flex justify-end">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setActiveDetailsSection('status')}
+                        className="flex items-center gap-1"
+                      >
+                        <ArrowLeftCircle className="h-4 w-4" />
+                        Back to Status Update
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setCandidateDetailsDialogOpen(false)}
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}      {/* Email Notification Dialog */}
+      {selectedCandidate && (
+        <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-xl">
+                Send Email to Candidate
+              </DialogTitle>
+              <DialogDescription>
+                {selectedCandidate && (
+                  <span>Sending to {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName} ({selectedCandidate.applicant.email})</span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 my-4">
+              {/* Email information panel with improved UI */}
+              <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                  <h4 className="font-medium text-blue-700">Email Details</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div className="flex flex-col">
+                    <span className="text-gray-500 mb-1">Recipient</span>
+                    <span className="font-medium text-blue-900">
+                      {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName}
+                    </span>
+                    <span className="text-blue-700">{selectedCandidate.applicant.email}</span>
+                  </div>
+                  
+                  <div className="flex flex-col">
+                    <span className="text-gray-500 mb-1">Position</span>
+                    <span className="font-medium text-blue-900">{selectedJob?.title}</span>
+                    <div className="flex items-center mt-1">
+                      <span className="mr-2">Current Status:</span>
+                      {getStatusBadge(selectedCandidate.status)}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Show status change information if applicable */}
+                {(emailSubject.includes('Interview') || 
+                  emailSubject.includes('Congratulations') || 
+                  (emailSubject.includes('Regarding') && !emailSubject.includes('Congratulations'))) && (
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <div className="flex items-center">
+                      <AlertCircle className="h-4 w-4 text-amber-600 mr-2" />
+                      <span className="text-sm font-medium text-amber-800">
+                        Status Change Notice
+                      </span>
+                    </div>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Sending this email will {emailSubject.includes('Interview') ? 'update' : 'change'} the candidate's status to{' '}
+                      {emailSubject.includes('Interview') ? (
+                        <Badge className="ml-1 bg-purple-100 text-purple-800 border-purple-200">Interview</Badge>
+                      ) : emailSubject.includes('Congratulations') ? (
+                        <Badge className="ml-1 bg-green-100 text-green-800 border-green-200">Accepted</Badge>
+                      ) : (
+                        <Badge className="ml-1 bg-red-100 text-red-800 border-red-200">Rejected</Badge>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Email subject with improved UI */}
+              <div>
+                <div className="flex items-center mb-2">
+                  <FileText className="h-4 w-4 mr-2 text-gray-700" /> 
+                  <label htmlFor="email-subject" className="text-sm font-medium">Subject</label>
+                </div>
+                <Input
+                  id="email-subject"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter email subject..."
+                />
+              </div>
+
+              {/* Email body with improved UI */}
+              <div>
+                <div className="flex items-center mb-2">
+                  <FileText className="h-4 w-4 mr-2 text-gray-700" /> 
+                  <label htmlFor="email-body" className="text-sm font-medium">Message</label>
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <textarea
+                    id="email-body"
+                    value={emailBody}
+                    onChange={(e) => setEmailBody(e.target.value)}
+                    rows={10}
+                    className="w-full p-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Write your message here..."
+                  />
+                </div>
+                
+                {/* Character counter and email tips */}
+                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                  <span>{emailBody.length} characters</span>
+                  <span>Markdown formatting is not supported</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex justify-between mt-6">
+              <div>
+                {emailSubject.includes('Interview') && selectedCandidate.status !== 'interview' && (
+                  <div className="text-sm text-purple-700 flex items-center">
+                    <CalendarIcon className="h-4 w-4 mr-1" />
+                    Will update to "Interview"
+                  </div>
+                )}
+                {emailSubject.includes('Congratulations') && selectedCandidate.status !== 'accepted' && (
+                  <div className="text-sm text-green-700 flex items-center">
+                    <Check className="h-4 w-4 mr-1" />
+                    Will update to "Accepted" 
+                  </div>
+                )}
+                {emailSubject.includes('Regarding') && !emailSubject.includes('Congratulations') && selectedCandidate.status !== 'rejected' && (
+                  <div className="text-sm text-red-700 flex items-center">
+                    <XIcon className="h-4 w-4 mr-1" />
+                    Will update to "Rejected"
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setEmailDialogOpen(false)}
+                  disabled={sendingEmail}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSendEmailNotification}
+                  disabled={!emailSubject.trim() || !emailBody.trim() || sendingEmail}
+                  className="flex items-center gap-2"
+                >
+                  {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
+                  Send Email
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}

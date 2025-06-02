@@ -30,9 +30,26 @@ export default function RecruiterDashboardPage() {
     totalCandidates: 0,
     interviews: 0
   });
-
   useEffect(() => {
     checkAuthAndFetchData();
+  }, []);
+  
+  // Check URL hash for #create-job
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const handleHashChange = () => {
+        if (window.location.hash === '#create-job') {
+          setIsCreateJobDialogOpen(true);
+        }
+      };
+      
+      // Check hash on initial load
+      handleHashChange();
+      
+      // Listen for hash changes
+      window.addEventListener('hashchange', handleHashChange);
+      return () => window.removeEventListener('hashchange', handleHashChange);
+    }
   }, []);
 
   const checkAuthAndFetchData = async () => {
@@ -187,8 +204,11 @@ export default function RecruiterDashboardPage() {
     <div className="space-y-6 max-w-7xl mx-auto">
       <h2 className="text-3xl font-bold mb-6">Recruitment Overview</h2>
       
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">        <div className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow">
+      {/* Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">        
+        <div 
+          className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" 
+          onClick={() => router.push('/dashboard/recruiter/jobs')}
+        >
           <div className="p-2 rounded-full bg-indigo-50 mr-3">
             <Briefcase className="h-5 w-5 text-indigo-500" />
           </div>

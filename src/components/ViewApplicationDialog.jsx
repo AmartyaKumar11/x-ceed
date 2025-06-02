@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { resumeAPI } from "@/lib/api";
 
 export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
   const { toast } = useToast();
@@ -22,8 +23,39 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
     toast({
       title: "Sent Interview Notification",
       description: `An interview invitation has been sent to ${candidate.name}`,
-      variant: "default", // Using our new black translucent style
+      variant: "default",
     });
+  };
+
+  const handleDownloadResume = async () => {
+    try {
+      if (!candidate.userId) {
+        toast({
+          title: "Download Failed",
+          description: "Unable to download resume: User ID not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate a user-friendly filename
+      const fileName = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      
+      await resumeAPI.downloadResumeAsFile(candidate.userId, fileName);
+      
+      toast({
+        title: "Resume Downloaded",
+        description: `Resume for ${candidate.name} has been downloaded successfully`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error('Error downloading resume:', error);
+      toast({
+        title: "Download Failed", 
+        description: "Failed to download resume. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -101,16 +133,13 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
             <div>
               <h3 className="text-lg font-semibold mb-2">Resume</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">
-                  <a
-                    href={candidate.resumeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    View Resume
-                  </a>
-                </p>
+                {candidate.resumeUrl ? (
+                  <p className="text-gray-700">
+                    Resume available for download
+                  </p>
+                ) : (
+                  <p className="text-gray-500">No resume uploaded</p>
+                )}
               </div>
             </div>
             
@@ -118,7 +147,8 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
               <Button 
                 variant="default"
                 className="bg-black hover:bg-gray-800 text-white"
-                onClick={() => window.open(candidate.resumeUrl, "_blank")}
+                onClick={handleDownloadResume}
+                disabled={!candidate.userId || !candidate.resumeUrl}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download Resume

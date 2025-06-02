@@ -8,20 +8,20 @@ import {
   Bell, 
   CheckCircle 
 } from 'lucide-react';
+import JobCountBadge from '@/components/JobCountBadge';
 
 export default function ApplicantDashboardPage() {
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold mb-6">Welcome back</h2>
       
-      {/* Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/applicant/jobs'}>
+      {/* Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-6">        <div className="bg-white p-6 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/applicant/jobs'}>
           <div className="p-3 rounded-full bg-blue-50 mr-4">
             <Briefcase className="h-6 w-6 text-blue-500" />
           </div>
           <div>
             <p className="text-sm text-gray-500">Available Jobs</p>
-            <h3 className="text-2xl font-bold">248</h3>
+            <JobCountBadge />
           </div>
         </div>
         

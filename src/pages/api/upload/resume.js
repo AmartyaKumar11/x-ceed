@@ -17,10 +17,15 @@ export const config = {
  */
 export default async function handler(req, res) {
   try {
-    console.log("Resume upload API called");
+    console.log("🔥🔥🔥 RESUME UPLOAD API CALLED!");
+    console.log("🔥 Method:", req.method);
+    console.log("🔥 URL:", req.url);
+    console.log("🔥 Headers:", req.headers);
+    console.log("🔥 Timestamp:", new Date().toISOString());
     
     // Only allow POST requests
     if (req.method !== 'POST') {
+      console.log("❌ Invalid method, returning 405");
       return res.status(405).json({ message: 'Method not allowed' });
     }
     

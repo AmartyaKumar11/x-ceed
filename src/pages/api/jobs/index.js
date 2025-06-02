@@ -125,8 +125,7 @@ export default async function handler(req, res) {
     } else if (req.method === 'GET') {
       // Handle public job listings vs. recruiter-specific job listings
       const isPublic = req.query.public === 'true';
-      
-      if (!isPublic) {
+        if (!isPublic) {
         // If not public, verify authentication for recruiter-specific listings
         const auth = await authMiddleware(req);
         if (!auth.isAuthenticated) {
@@ -141,10 +140,49 @@ export default async function handler(req, res) {
           })
           .sort({ createdAt: -1 })
           .toArray();
+          
+        // Get application statistics for each job
+        const jobsWithStats = await Promise.all(jobs.map(async (job) => {
+          try {
+            // Get total applications count for this job
+            job.applicationsCount = await db.collection('applications')
+              .countDocuments({ jobId: job._id.toString() });
+              
+            // Get counts by status
+            const statusStats = await db.collection('applications')
+              .aggregate([
+                { $match: { jobId: job._id.toString() } },
+                { $group: { _id: '$status', count: { $sum: 1 } } }
+              ])
+              .toArray();
+              
+            // Convert to object for easier access
+            const applicationStats = {
+              pending: 0,
+              reviewing: 0,
+              interview: 0,
+              accepted: 0,
+              rejected: 0
+            };
+            
+            statusStats.forEach(stat => {
+              if (stat._id && applicationStats.hasOwnProperty(stat._id)) {
+                applicationStats[stat._id] = stat.count;
+              }
+            });
+            
+            job.applicationStats = applicationStats;
+            
+            return job;
+          } catch (error) {
+            console.error(`Error getting stats for job ${job._id}:`, error);
+            return job;
+          }
+        }));
 
         return res.status(200).json({
           success: true,
-          data: jobs
+          data: jobsWithStats
         });
       } else {
         // Public jobs listing - show only active jobs

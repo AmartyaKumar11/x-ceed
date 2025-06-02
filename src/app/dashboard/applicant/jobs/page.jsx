@@ -41,6 +41,7 @@ export default function ApplicantJobsPage() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [resumeFile, setResumeFile] = useState(null);
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Handle job card click
   const handleJobClick = (job) => {
@@ -52,22 +53,107 @@ export default function ApplicantJobsPage() {
   // Handle file upload
   const handleFileChange = (file) => {
     setResumeFile(file);
-  };
+  };  // Submit application
+  const handleSubmitApplication = async () => {
+    if (!resumeFile || !message.trim()) {
+      alert('Please upload a resume and provide a message before submitting.');
+      return;
+    }
 
-  // Submit application
-  const handleSubmitApplication = () => {
-    // Here you would handle the application submission
-    console.log("Submitting application for:", selectedJob?.title);
-    console.log("Resume:", resumeFile);
-    console.log("Message:", message);
-    
-    // Close dialog and show success message
-    setIsDialogOpen(false);
-    setResumeFile(null);
-    setMessage("");
-    
-    // You would typically show a success notification here
-    alert("Application submitted successfully!");
+    try {
+      setIsSubmitting(true);
+      console.log('🚀 Starting application submission process...');
+      console.log('🚀 Resume file:', resumeFile);
+      console.log('🚀 Token exists:', !!localStorage.getItem('token'));
+
+      // Step 1: Upload the resume file first
+      console.log('📄 Step 1: Uploading resume file...');
+      const formData = new FormData();
+      formData.append('file', resumeFile);
+
+      console.log('📄 Making request to /api/upload/resume');
+      const uploadResponse = await fetch('/api/upload/resume', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: formData,
+      });
+
+      console.log('📄 Upload response status:', uploadResponse.status);
+      console.log('📄 Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
+
+      if (!uploadResponse.ok) {
+        console.error('📄 Upload failed with status:', uploadResponse.status);
+        let errorData;
+        try {
+          errorData = await uploadResponse.json();
+          console.error('📄 Upload error data:', errorData);
+        } catch (parseError) {
+          console.error('📄 Could not parse error response:', parseError);
+          const errorText = await uploadResponse.text();
+          console.error('📄 Error response text:', errorText);
+          throw new Error(`Upload failed with status ${uploadResponse.status}: ${errorText}`);
+        }
+        throw new Error(errorData.message || 'Failed to upload resume');
+      }
+
+      const uploadResult = await uploadResponse.json();
+      console.log('✅ Resume uploaded successfully:', uploadResult);
+
+      // Step 2: Submit the job application
+      console.log('📝 Step 2: Submitting job application...');
+      console.log('📝 Selected job:', selectedJob);
+      console.log('📝 Job ID:', selectedJob._id);
+      console.log('📝 Job ID type:', typeof selectedJob._id);      
+      console.log('📝 Making request to /api/applications');
+      const applicationResponse = await fetch('/api/applications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({
+          jobId: selectedJob._id,
+          coverLetter: message.trim(),
+        }),
+      });
+
+      console.log('📝 Application response status:', applicationResponse.status);
+      console.log('📝 Application response headers:', Object.fromEntries(applicationResponse.headers.entries()));
+
+      if (!applicationResponse.ok) {
+        console.error('📝 Application failed with status:', applicationResponse.status);
+        let errorData;
+        try {
+          errorData = await applicationResponse.json();
+          console.error('📝 Application error data:', errorData);
+        } catch (parseError) {
+          console.error('📝 Could not parse error response:', parseError);
+          const errorText = await applicationResponse.text();
+          console.error('📝 Error response text:', errorText);
+          throw new Error(`Application failed with status ${applicationResponse.status}: ${errorText}`);
+        }
+        throw new Error(errorData.message || 'Failed to submit application');
+      }
+
+      const applicationResult = await applicationResponse.json();
+      console.log('✅ Application submitted successfully:', applicationResult);
+
+      // Success! Close dialog and reset form
+      setIsDialogOpen(false);
+      setResumeFile(null);
+      setMessage("");
+      
+      // Show success message
+      alert("Application submitted successfully!");
+
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert(`Error submitting application: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Format requirements as an array if it's not already one
@@ -242,14 +328,13 @@ export default function ApplicantJobsPage() {
                 </div>
               </TabsContent>
             </Tabs>
-              
-            <DialogFooter className="mt-6">
+                <DialogFooter className="mt-6">
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
               <Button 
-                disabled={!resumeFile || message.trim().length < 10} 
+                disabled={!resumeFile || message.trim().length < 10 || isSubmitting} 
                 onClick={handleSubmitApplication}
               >
-                Submit Application
+                {isSubmitting ? 'Submitting...' : 'Submit Application'}
               </Button>
             </DialogFooter>
           </DialogContent>

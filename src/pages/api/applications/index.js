@@ -3,6 +3,13 @@ import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
+  console.log('🔥🔥🔥 APPLICATIONS API CALLED!');
+  console.log('🔥 Method:', req.method);
+  console.log('🔥 URL:', req.url);
+  console.log('🔥 Headers:', req.headers);
+  console.log('🔥 Request body:', req.body);
+  console.log('🔥 Timestamp:', new Date().toISOString());
+  
   // Check authentication first
   const auth = await authMiddleware(req);
   if (!auth.isAuthenticated) {
@@ -16,8 +23,7 @@ export default async function handler(req, res) {
   // Handle different request methods
   switch (req.method) {
     case 'GET':
-      try {
-        // Check if this is a recruiter querying all applications or an applicant querying their own
+      try {        // Check if this is a recruiter querying all applications or an applicant querying their own
         let query = {};
         let sortOptions = { appliedAt: -1 }; // Sort by application date, newest first
         
@@ -29,7 +35,29 @@ export default async function handler(req, res) {
           const { jobId, status } = req.query;
           
           if (jobId) {
+            // Verify the recruiter owns this job
+            const job = await db.collection('jobs').findOne({ 
+              _id: new ObjectId(jobId),
+              recruiterId: auth.user.userId 
+            });
+            
+            if (!job) {
+              return res.status(403).json({ 
+                success: false, 
+                message: 'You do not have permission to view applications for this job' 
+              });
+            }
+            
             query.jobId = jobId;
+          } else {
+            // If no specific job ID, get all jobs from this recruiter
+            const recruiterJobs = await db.collection('jobs')
+              .find({ recruiterId: auth.user.userId })
+              .project({ _id: 1 })
+              .toArray();
+            
+            const jobIds = recruiterJobs.map(job => job._id.toString());
+            query.jobId = { $in: jobIds };
           }
           
           if (status) {
@@ -47,30 +75,84 @@ export default async function handler(req, res) {
         } else {
           return res.status(403).json({ message: 'Unauthorized access' });
         }
-        
-        // Get paginated results
+          // Get paginated results
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
         
-        // Get applications
-        const applications = await db.collection('applications')
-          .find(query)
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(limit)
-          .toArray();
+        // Set default sort options if they weren't set already
+        if (!req.query.sort) {
+          sortOptions = { appliedAt: -1 }; // Most recent first by default
+        }
+        
+        console.log('Query:', query, 'Sort:', sortOptions, 'Page:', page, 'Limit:', limit);
           
-        // Get total count for pagination
+        // Get applications with applicant details for recruiters
+        let applications;
+          if (auth.user.userType === 'recruiter') {
+          // For recruiters, include detailed applicant and job information
+          applications = await db.collection('applications')
+            .aggregate([
+              { $match: query },
+              { $sort: sortOptions },
+              { $skip: skip },
+              { $limit: limit },
+              {
+                $lookup: {
+                  from: 'users',
+                  let: { applicantId: { $toObjectId: '$applicantId' } },
+                  pipeline: [
+                    { $match: { $expr: { $eq: ['$_id', '$$applicantId'] } } },
+                    { $project: { 
+                      password: 0,
+                      refreshTokens: 0,
+                      resetPasswordToken: 0,
+                      resetPasswordExpires: 0
+                    }}
+                  ],
+                  as: 'applicantDetails'
+                }
+              },
+              {
+                $lookup: {
+                  from: 'jobs',
+                  let: { jobId: { $toObjectId: '$jobId' } },
+                  pipeline: [
+                    { $match: { $expr: { $eq: ['$_id', '$$jobId'] } } }
+                  ],
+                  as: 'jobDetails'
+                }
+              },
+              {
+                $addFields: {
+                  applicantDetails: { $arrayElemAt: ['$applicantDetails', 0] },
+                  jobDetails: { $arrayElemAt: ['$jobDetails', 0] }
+                }
+              }
+            ])
+            .toArray();
+        } else {
+          // For applicants, just get their own applications
+          applications = await db.collection('applications')
+            .find(query)
+            .sort(sortOptions)
+            .skip(skip)
+            .limit(limit)
+            .toArray();
+        }
+            // Get total count for pagination
         const totalApplications = await db.collection('applications').countDocuments(query);
         
         return res.status(200).json({ 
-          applications,
+          success: true,
+          data: applications,
           pagination: {
             total: totalApplications,
             page,
             limit,
-            pages: Math.ceil(totalApplications / limit)
+            pages: Math.ceil(totalApplications / limit),
+            hasNextPage: page < Math.ceil(totalApplications / limit),
+            hasPrevPage: page > 1
           }
         });
       } catch (error) {
@@ -84,17 +166,40 @@ export default async function handler(req, res) {
         if (auth.user.userType !== 'applicant') {
           return res.status(403).json({ message: 'Only applicants can apply for jobs' });
         }
+          const { jobId, coverLetter } = req.body;
         
-        const { jobId, coverLetter } = req.body;
+        console.log('🔍 Application submission debugging:');
+        console.log('  - Received jobId:', jobId);
+        console.log('  - jobId type:', typeof jobId);
+        console.log('  - jobId length:', jobId?.length);
+        console.log('  - ObjectId.isValid(jobId):', ObjectId.isValid(jobId));
         
         // Validate required fields
         if (!jobId) {
           return res.status(400).json({ message: 'Job ID is required' });
         }
         
+        // Validate ObjectId format
+        if (!ObjectId.isValid(jobId)) {
+          console.log('❌ Invalid ObjectId format:', jobId);
+          return res.status(400).json({ message: 'Invalid job ID format' });
+        }
+        
         // Check if the job exists
+        console.log('🔍 Looking for job with _id:', jobId);
         const job = await db.collection('jobs').findOne({ _id: new ObjectId(jobId) });
+        console.log('🔍 Job lookup result:', job ? 'Found' : 'Not found');
+        
         if (!job) {
+          console.log('❌ Job not found for ID:', jobId);
+          // Let's also check if there are any jobs in the collection
+          const totalJobs = await db.collection('jobs').countDocuments();
+          console.log('📊 Total jobs in collection:', totalJobs);
+          
+          // List a few job IDs for debugging
+          const sampleJobs = await db.collection('jobs').find({}).limit(3).project({ _id: 1, title: 1 }).toArray();
+          console.log('📋 Sample jobs in database:', sampleJobs);
+          
           return res.status(404).json({ message: 'Job not found' });
         }
         
