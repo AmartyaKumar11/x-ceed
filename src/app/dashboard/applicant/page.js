@@ -73,7 +73,7 @@ export default function ApplicantDashboardPage() {
             <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
               <div className="flex justify-between">
                 <h4 className="font-medium text-foreground">React Developer</h4>
-                <span className="text-xs bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 px-2 py-1 rounded-full">Reviewing</span>
+                <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">Reviewing</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">AppWorks Solutions</p>
               <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 22, 2025</p>

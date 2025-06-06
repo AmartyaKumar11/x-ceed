@@ -73,10 +73,9 @@ export default function TestSkillsForm() {
           placeholder="Add a skill"
           className="px-4 py-2 border-2 border-border rounded-md mr-2"
           onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
-        />
-        <button 
+        />        <button 
           onClick={handleAddSkill}
-          className="px-4 py-2 bg-black text-white rounded-md"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
         >
           Add
         </button>
@@ -86,11 +85,11 @@ export default function TestSkillsForm() {
         <h3 className="text-lg font-semibold mb-2">Current Skills:</h3>
         <div className="flex flex-wrap gap-2">
           {skills.map(skill => (
-            <div key={skill} className="bg-black text-white px-3 py-1 rounded-full text-sm flex items-center gap-1">
+            <div key={skill} className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm flex items-center gap-1">
               {skill}
               <button
                 onClick={() => handleRemoveSkill(skill)}
-                className="ml-2 text-white hover:text-red-300"
+                className="ml-2 text-primary-foreground hover:text-red-300"
               >
                 ×
               </button>
@@ -103,7 +102,7 @@ export default function TestSkillsForm() {
       <button
         onClick={handleSave}
         disabled={loading}
-        className="w-full px-4 py-2 bg-black text-white rounded-md disabled:opacity-50"
+        className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
       >
         {loading ? 'Saving...' : 'Save Skills'}
       </button>

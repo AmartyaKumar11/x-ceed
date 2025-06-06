@@ -107,7 +107,7 @@ export default function CandidatesPage() {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center justify-center h-32">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           </CardContent>
         </Card>
@@ -141,7 +141,7 @@ export default function CandidatesPage() {
         <CardContent>
           {applications.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No applications found</p>
+              <p className="text-muted-foreground">No applications found</p>
             </div>
           ) : (
             <ScrollArea className="h-[600px]">
@@ -152,18 +152,18 @@ export default function CandidatesPage() {
                       <div>
                         <h3 className="text-lg font-semibold">{candidate.name}</h3>
                         <p className="text-sm font-medium text-primary">{candidate.position}</p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-muted-foreground">
                           Applied on {format(new Date(candidate.dateOfApplication), "MMMM d, yyyy")}
                         </p>
                         {candidate.company && (
-                          <p className="text-sm text-gray-600">Company: {candidate.company}</p>
+                          <p className="text-sm text-muted-foreground">Company: {candidate.company}</p>
                         )}
                       </div>
                       <div className="flex gap-2">
                         <Button
                           variant="default"
                           size="sm"
-                          className="bg-black hover:bg-gray-800 text-white"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
                           onClick={() => handleViewApplication(candidate.id)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
@@ -172,7 +172,7 @@ export default function CandidatesPage() {
                         <Button
                           variant="default"
                           size="sm"
-                          className="bg-black hover:bg-gray-800 text-white"
+                          className="bg-primary hover:bg-primary/90 text-primary-foreground"
                           onClick={() => handleDownloadResume(candidate)}
                           disabled={!candidate.userId || !candidate.resumeUrl}
                         >

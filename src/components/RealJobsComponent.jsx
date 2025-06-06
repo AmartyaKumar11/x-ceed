@@ -33,8 +33,7 @@ export default function RealJobsComponent({ onJobClick }) {
 
   useEffect(() => {
     fetchJobs();
-  }, []);
-  const fetchJobs = async () => {
+  }, []);  const fetchJobs = async () => {
     setLoading(true);
     try {
       // Call the jobs API to get public jobs from the database
@@ -54,7 +53,6 @@ export default function RealJobsComponent({ onJobClick }) {
       setLoading(false);
     }
   };
-
   // Format the posted date as a relative time (e.g., "2 days ago")
   const formatPostedDate = (dateString) => {
     try {
@@ -84,8 +82,21 @@ export default function RealJobsComponent({ onJobClick }) {
       return `From ${currencySymbol}${formatNumber(min)}`;
     } else if (max) {
       return `Up to ${currencySymbol}${formatNumber(max)}`;
-    }
+    }  };
+
+  const handleApplyJob = (job) => {
+    setApplicationDialog({
+      isOpen: true,
+      selectedJob: job
+    });  };
+
+  const handleCloseApplicationDialog = () => {
+    setApplicationDialog({
+      isOpen: false,
+      selectedJob: null
+    });
   };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
@@ -117,11 +128,10 @@ export default function RealJobsComponent({ onJobClick }) {
         </p>
       </div>
     );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container">
-      {jobs.map((job) => (        <Card 
+  }  return (
+    <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
+        {jobs.map((job) => (<Card 
           key={job._id} 
           className="job-card hover:shadow-lg transition-all cursor-pointer border-border"
           onClick={() => onJobClick(job)}
@@ -247,8 +257,7 @@ Description: ${job.description || 'No description provided.'}
             >
               <Download className="h-3 w-3" />
               Download JD
-            </Button>
-            <Button 
+            </Button>            <Button 
               variant="outline" 
               size="sm"
               onClick={(e) => {
@@ -264,8 +273,7 @@ Description: ${job.description || 'No description provided.'}
             </Button>
             <Button variant="outline" size="sm">View Details</Button>
           </CardFooter>
-        </Card>
-      ))}
+        </Card>      ))}      </div>
     </div>
   );
 }

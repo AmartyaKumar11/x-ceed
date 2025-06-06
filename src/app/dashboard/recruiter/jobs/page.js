@@ -544,9 +544,8 @@ export default function RecruiterJobsPage() {
   };
   
   const getStatusBadge = (status) => {
-    switch (status) {
-      case 'pending':
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">Pending</Badge>;
+    switch (status) {      case 'pending':
+        return <Badge variant="secondary" className="bg-muted text-muted-foreground">Pending</Badge>;
       case 'reviewing':
         return <Badge variant="secondary" className="bg-blue-100 text-blue-800">Reviewing</Badge>;
       case 'interview':
@@ -556,7 +555,7 @@ export default function RecruiterJobsPage() {
       case 'rejected':
         return <Badge variant="secondary" className="bg-red-100 text-red-800">Rejected</Badge>;
       default:
-        return <Badge variant="secondary" className="bg-gray-100 text-gray-800">{status}</Badge>;
+        return <Badge variant="secondary" className="bg-muted text-muted-foreground">{status}</Badge>;
     }
   };
   
@@ -568,12 +567,11 @@ export default function RecruiterJobsPage() {
     
     return fullName.includes(query) || email.includes(query);
   });
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-12 w-12 animate-spin text-gray-400 mb-4" />
-        <p className="text-gray-600">Loading job listings...</p>
+        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Loading job listings...</p>
       </div>
     );
   }
@@ -583,7 +581,7 @@ export default function RecruiterJobsPage() {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
         <h3 className="text-lg font-medium">Failed to load jobs</h3>
-        <p className="text-gray-600 mt-2">{error}</p>
+        <p className="text-muted-foreground mt-2">{error}</p>
         <Button variant="outline" className="mt-4" onClick={fetchJobs}>
           Try Again
         </Button>
@@ -611,23 +609,20 @@ export default function RecruiterJobsPage() {
         <Button onClick={() => router.push('/dashboard/recruiter#create-job')}>
           Create New Job
         </Button>
-      </div>
-
-      {activeJobs.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
-          <FileText className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+      </div>      {activeJobs.length === 0 ? (
+        <div className="text-center py-16 bg-card rounded-lg border border-border">
+          <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
           <h3 className="text-lg font-medium">No active jobs</h3>
-          <p className="text-gray-500 mt-2 mb-6">
+          <p className="text-muted-foreground mt-2 mb-6">
             You haven't posted any active jobs yet.
           </p>
           <Button onClick={() => router.push('/dashboard/recruiter')}>
             Create Your First Job
           </Button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      ) : (        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {activeJobs.map((job) => (
-            <Card key={job._id} className="border-gray-200 hover:shadow-md transition-all">
+            <Card key={job._id} className="border-border hover:shadow-md transition-all">
               <CardHeader className="pb-2">
                 <div>
                   <CardTitle className="text-lg font-semibold">{job.title}</CardTitle>
@@ -639,15 +634,15 @@ export default function RecruiterJobsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-y-2 mb-3">
-                  <div className="flex items-center text-sm text-gray-500 mr-4">
+                  <div className="flex items-center text-sm text-muted-foreground mr-4">
                     <MapPin className="h-3 w-3 mr-1" />
                     {job.workMode} {job.location ? `(${job.location})` : ''}
                   </div>
-                  <div className="flex items-center text-sm text-gray-500 mr-4">
+                  <div className="flex items-center text-sm text-muted-foreground mr-4">
                     <DollarSign className="h-3 w-3 mr-1" />
                     {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
                   </div>
-                  <div className="flex items-center text-sm text-gray-500">
+                  <div className="flex items-center text-sm text-muted-foreground">
                     <Calendar className="h-3 w-3 mr-1" />
                     Posted {formatPostedDate(job.createdAt || new Date())}
                   </div>
@@ -751,10 +746,9 @@ export default function RecruiterJobsPage() {
             </DialogHeader>
             
             {/* Filters and controls */}
-            <div className="flex flex-col md:flex-row justify-between items-start gap-4 my-4">
-              <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex flex-col md:flex-row justify-between items-start gap-4 my-4">              <div className="flex flex-wrap gap-3 items-center">
                 <div className="relative w-64">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     placeholder="Search candidates..."
                     className="pl-9"
@@ -779,10 +773,9 @@ export default function RecruiterJobsPage() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-              </div>
-              
+              </div>              
               <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">Sort by:</span>
+                <span className="text-sm text-muted-foreground">Sort by:</span>
                 <Select value={sortOption} onValueChange={setSortOption}>
                   <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Sort by" />
@@ -800,41 +793,38 @@ export default function RecruiterJobsPage() {
 
             {loadingCandidates ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <span className="ml-2">Loading candidates...</span>
               </div>
             ) : jobCandidates.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <Users className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+              <div className="text-center py-8 bg-muted rounded-lg">
+                <Users className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                 <h3 className="text-lg font-medium">No applications yet</h3>
-                <p className="text-gray-500 mt-2">
+                <p className="text-muted-foreground mt-2">
                   There are no applications for this position yet.
                 </p>
               </div>
             ) : filteredCandidates.length === 0 ? (
-              <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <Search className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+              <div className="text-center py-8 bg-muted rounded-lg">
+                <Search className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                 <h3 className="text-lg font-medium">No matching candidates</h3>
-                <p className="text-gray-500 mt-2">
+                <p className="text-muted-foreground mt-2">
                   No candidates match your search criteria. Try adjusting your filters.
                 </p>
               </div>
             ) : (
               <div className="space-y-4 my-4">
-                {filteredCandidates.map((candidate) => (
-                  <div 
+                {filteredCandidates.map((candidate) => (                  <div 
                     key={candidate._id} 
-                    className="bg-white p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                    className="bg-card p-4 rounded-lg border border-border hover:border-muted-foreground transition-colors"
                   >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-base">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>                    <div className="flex items-center gap-2">
+                      <h4 className="font-medium text-base text-foreground">
                         {candidate.applicant.firstName} {candidate.applicant.lastName}
                       </h4>
                       {getStatusBadge(candidate.status)}
-                    </div>
-                    <div className="text-gray-500 text-sm">{candidate.applicant.email}</div>
-                    <div className="text-gray-500 text-xs mt-1">
+                    </div><div className="text-muted-foreground text-sm">{candidate.applicant.email}</div>
+                    <div className="text-muted-foreground text-xs mt-1">
                       Applied {formatPostedDate(candidate.createdAt)}
                     </div>
                   </div>
@@ -919,8 +909,7 @@ export default function RecruiterJobsPage() {
                   disabled={currentPage === 1}
                 >
                   Previous
-                </Button>
-                <span className="text-sm text-gray-500">
+                </Button>                <span className="text-sm text-muted-foreground">
                   Page {currentPage} of {Math.ceil(totalCandidates / candidatesPerPage)}
                 </span>
                 <Button
@@ -955,17 +944,16 @@ export default function RecruiterJobsPage() {
               {/* Personal Information */}
               <div>
                 <h3 className="font-semibold text-lg mb-3">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="text-sm text-gray-500">Email</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  <div>
+                    <h4 className="text-sm text-muted-foreground">Email</h4>
                     <p>{selectedCandidate.applicant.email}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm text-gray-500">Phone</h4>
+                    <h4 className="text-sm text-muted-foreground">Phone</h4>
                     <p>{selectedCandidate.applicant.phone || 'Not provided'}</p>
                   </div>
                   <div>
-                    <h4 className="text-sm text-gray-500">Location</h4>
+                    <h4 className="text-sm text-muted-foreground">Location</h4>
                     <p>
                       {selectedCandidate.applicant.city && selectedCandidate.applicant.state
                         ? `${selectedCandidate.applicant.city}, ${selectedCandidate.applicant.state}`
@@ -973,7 +961,7 @@ export default function RecruiterJobsPage() {
                     </p>
                   </div>
                   <div>
-                    <h4 className="text-sm text-gray-500">Application Date</h4>
+                    <h4 className="text-sm text-muted-foreground">Application Date</h4>
                     <p>{new Date(selectedCandidate.appliedAt).toLocaleDateString()}</p>
                   </div>
                 </div>
@@ -995,9 +983,8 @@ export default function RecruiterJobsPage() {
 
               {/* Application Details */}
               <div>
-                <h3 className="font-semibold text-lg mb-3">Application</h3>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <h4 className="text-sm text-gray-500 mb-2">Message to Recruiter</h4>
+                <h3 className="font-semibold text-lg mb-3">Application</h3>                <div className="bg-muted rounded-lg p-4 border border-border">
+                  <h4 className="text-sm text-muted-foreground mb-2">Message to Recruiter</h4>
                   <p className="whitespace-pre-wrap">
                     {selectedCandidate.message || 'No message provided.'}
                   </p>
@@ -1016,16 +1003,15 @@ export default function RecruiterJobsPage() {
                     Download Resume
                   </Button>
                 </div>
-              )}              {/* Action Tabs */}
-              <div className="border-t border-gray-200 pt-4 mt-4">
+              )}              {/* Action Tabs */}              <div className="border-t border-border pt-4 mt-4">
                 {/* Tab Navigation */}
-                <div className="flex border-b border-gray-200 mb-4">
+                <div className="flex border-b border-border mb-4">
                   <button
                     onClick={() => setActiveDetailsSection('status')}
                     className={`px-4 py-2 mr-2 font-medium text-sm rounded-t-md ${
                       activeDetailsSection === 'status'
                         ? 'bg-black text-white'
-                        : 'text-gray-600 hover:text-gray-900 bg-gray-50'
+                        : 'text-muted-foreground hover:text-foreground bg-muted'
                     }`}
                   >
                     Update Status
@@ -1035,12 +1021,12 @@ export default function RecruiterJobsPage() {
                     className={`px-4 py-2 font-medium text-sm rounded-t-md ${
                       activeDetailsSection === 'communicate'
                         ? 'bg-black text-white'
-                        : 'text-gray-600 hover:text-gray-900 bg-gray-50'
+                        : 'text-muted-foreground hover:text-foreground bg-muted'
                     }`}
                   >
                     Communicate
                   </button>
-                </div>                  {/* Update Status Tab */}
+                </div>{/* Update Status Tab */}
                 {activeDetailsSection === 'status' && (
                   <div>
                     <h3 className="font-semibold text-lg mb-3">Update Application Status</h3>
@@ -1210,35 +1196,32 @@ export default function RecruiterJobsPage() {
                 {activeDetailsSection === 'communicate' && (
                   <div>
                     <h3 className="font-semibold text-lg mb-3">Communicate with Candidate</h3>
-                    
-                    {/* Status-aware communication options */}
-                    <div className="mb-3 p-3 bg-gray-50 border border-gray-200 rounded-md">
-                      <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                      {/* Status-aware communication options */}
+                    <div className="mb-3 p-3 bg-muted border border-border rounded-md">
+                      <h4 className="text-sm font-medium text-foreground mb-2 flex items-center">
                         <AlertCircle className="h-4 w-4 mr-2 text-blue-600" />
                         Current Status: {getStatusBadge(selectedCandidate.status)}
                       </h4>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-muted-foreground">
                         Sending emails may update the candidate's status if indicated below.
                       </p>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
-                      {/* Interview card with contextual UI based on current status */}
-                      <div 
+                      {/* Interview card with contextual UI based on current status */}                      <div 
                         className={`border rounded-lg p-4 transition-all cursor-pointer
                           ${selectedCandidate.status === 'interview' 
                             ? 'border-blue-300 bg-blue-50' 
-                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'}`}
+                            : 'border-border hover:border-blue-300 hover:bg-blue-50'}`}
                         onClick={() => openEmailDialog('interview')}
-                      >
-                        <div className="flex items-center mb-2">
+                      >                        <div className="flex items-center mb-2">
                           <CalendarIcon className={`h-5 w-5 mr-2 ${selectedCandidate.status === 'interview' ? 'text-blue-800' : 'text-blue-600'}`} />
                           <h4 className="font-medium">Interview Invitation</h4>
                           {selectedCandidate.status === 'interview' && (
                             <Badge className="ml-auto text-xs bg-blue-100 text-blue-800 border border-blue-200">Current</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">Send an interview request with details about the next steps</p>
+                        <p className="text-sm text-muted-foreground">Send an interview request with details about the next steps</p>
                         {selectedCandidate.status !== 'interview' && (
                           <div className="flex items-center mt-2 text-xs text-blue-600">
                             <ArrowLeftCircle className="h-3 w-3 mr-1" />
@@ -1247,12 +1230,11 @@ export default function RecruiterJobsPage() {
                         )}
                       </div>
                       
-                      {/* Acceptance card with contextual UI */}
-                      <div 
+                      {/* Acceptance card with contextual UI */}                      <div 
                         className={`border rounded-lg p-4 transition-all cursor-pointer
                           ${selectedCandidate.status === 'accepted' 
                             ? 'border-green-300 bg-green-50' 
-                            : 'border-gray-200 hover:border-green-300 hover:bg-green-50'}`}
+                            : 'border-border hover:border-green-300 hover:bg-green-50'}`}
                         onClick={() => openEmailDialog('accepted')}
                       >
                         <div className="flex items-center mb-2">
@@ -1262,7 +1244,7 @@ export default function RecruiterJobsPage() {
                             <Badge className="ml-auto text-xs bg-green-100 text-green-800 border border-green-200">Current</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">Inform the candidate that they've been accepted for the position</p>
+                        <p className="text-sm text-muted-foreground">Inform the candidate that they've been accepted for the position</p>
                         {selectedCandidate.status !== 'accepted' && (
                           <div className="flex items-center mt-2 text-xs text-green-600">
                             <ArrowLeftCircle className="h-3 w-3 mr-1" />
@@ -1271,12 +1253,11 @@ export default function RecruiterJobsPage() {
                         )}
                       </div>
                       
-                      {/* Rejection card with contextual UI */}
-                      <div 
+                      {/* Rejection card with contextual UI */}                      <div 
                         className={`border rounded-lg p-4 transition-all cursor-pointer
                           ${selectedCandidate.status === 'rejected' 
                             ? 'border-red-300 bg-red-50' 
-                            : 'border-gray-200 hover:border-red-300 hover:bg-red-50'}`}
+                            : 'border-border hover:border-red-300 hover:bg-red-50'}`}
                         onClick={() => openEmailDialog('rejected')}
                       >
                         <div className="flex items-center mb-2">
@@ -1286,7 +1267,7 @@ export default function RecruiterJobsPage() {
                             <Badge className="ml-auto text-xs bg-red-100 text-red-800 border border-red-200">Current</Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">Inform the candidate that they haven't been selected</p>
+                        <p className="text-sm text-muted-foreground">Inform the candidate that they haven't been selected</p>
                         {selectedCandidate.status !== 'rejected' && (
                           <div className="flex items-center mt-2 text-xs text-red-600">
                             <ArrowLeftCircle className="h-3 w-3 mr-1" />
@@ -1294,18 +1275,17 @@ export default function RecruiterJobsPage() {
                           </div>
                         )}
                       </div>
-                      
-                      {/* Custom Email option */}
+                        {/* Custom Email option */}
                       <div 
-                        className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors cursor-pointer"
+                        className="border border-border rounded-lg p-4 hover:border-purple-300 hover:bg-purple-50 transition-colors cursor-pointer"
                         onClick={() => openEmailDialog('')}
                       >
                         <div className="flex items-center mb-2">
                           <Mail className="h-5 w-5 text-purple-600 mr-2" />
                           <h4 className="font-medium">Custom Email</h4>
                         </div>
-                        <p className="text-sm text-gray-600">Send a personalized message to this candidate</p>
-                        <p className="flex items-center mt-2 text-xs text-gray-500">
+                        <p className="text-sm text-muted-foreground">Send a personalized message to this candidate</p>
+                        <p className="flex items-center mt-2 text-xs text-muted-foreground">
                           <AlertCircle className="h-3 w-3 mr-1" />
                           No status change
                         </p>
@@ -1361,9 +1341,8 @@ export default function RecruiterJobsPage() {
                   <h4 className="font-medium text-blue-700">Email Details</h4>
                 </div>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                  <div className="flex flex-col">
-                    <span className="text-gray-500 mb-1">Recipient</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">                  <div className="flex flex-col">
+                    <span className="text-muted-foreground mb-1">Recipient</span>
                     <span className="font-medium text-blue-900">
                       {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName}
                     </span>
@@ -1371,7 +1350,7 @@ export default function RecruiterJobsPage() {
                   </div>
                   
                   <div className="flex flex-col">
-                    <span className="text-gray-500 mb-1">Position</span>
+                    <span className="text-muted-foreground mb-1">Position</span>
                     <span className="font-medium text-blue-900">{selectedJob?.title}</span>
                     <div className="flex items-center mt-1">
                       <span className="mr-2">Current Status:</span>
@@ -1405,10 +1384,9 @@ export default function RecruiterJobsPage() {
                 )}
               </div>
 
-              {/* Email subject with improved UI */}
-              <div>
+              {/* Email subject with improved UI */}              <div>
                 <div className="flex items-center mb-2">
-                  <FileText className="h-4 w-4 mr-2 text-gray-700" /> 
+                  <FileText className="h-4 w-4 mr-2 text-foreground" /> 
                   <label htmlFor="email-subject" className="text-sm font-medium">Subject</label>
                 </div>
                 <Input
@@ -1423,10 +1401,10 @@ export default function RecruiterJobsPage() {
               {/* Email body with improved UI */}
               <div>
                 <div className="flex items-center mb-2">
-                  <FileText className="h-4 w-4 mr-2 text-gray-700" /> 
+                  <FileText className="h-4 w-4 mr-2 text-foreground" /> 
                   <label htmlFor="email-body" className="text-sm font-medium">Message</label>
                 </div>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="border border-border rounded-lg overflow-hidden">
                   <textarea
                     id="email-body"
                     value={emailBody}
@@ -1438,7 +1416,7 @@ export default function RecruiterJobsPage() {
                 </div>
                 
                 {/* Character counter and email tips */}
-                <div className="flex justify-between mt-2 text-xs text-gray-500">
+                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                   <span>{emailBody.length} characters</span>
                   <span>Markdown formatting is not supported</span>
                 </div>

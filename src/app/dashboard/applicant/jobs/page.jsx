@@ -177,7 +177,7 @@ export default function ApplicantJobsPage() {
         <div className="flex items-center space-x-4">
           {/* Search input */}
           <div className="relative">
-            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search jobs..."
               className="pl-9 w-64"
@@ -236,44 +236,41 @@ export default function ApplicantJobsPage() {
               </TabsList>
               
               <TabsContent value="description" className="space-y-6">
-                <div className="space-y-4">
-                  <div>
+                <div className="space-y-4">                  <div>
                     <h3 className="text-lg font-semibold mb-2">Job Description</h3>
-                    <p className="text-gray-700 leading-relaxed">
+                    <p className="text-foreground leading-relaxed">
                       {selectedJob.description || 'No detailed description available.'}
                     </p>
                   </div>
                   
-                  {getRequirements(selectedJob).length > 0 && (
-                    <div>
+                  {getRequirements(selectedJob).length > 0 && (                    <div>
                       <h3 className="text-lg font-semibold mb-2">Requirements</h3>
-                      <ul className="list-disc list-outside ml-5 text-gray-700 space-y-1">
+                      <ul className="list-disc list-outside ml-5 text-foreground space-y-1">
                         {getRequirements(selectedJob).map((req, index) => (
                           <li key={index} className="leading-relaxed">{req}</li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  
-                  <div>
+                    <div>
                     <h3 className="text-lg font-semibold mb-2">Job Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <span className="text-sm text-gray-500 block">Job Type</span>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <span className="text-sm text-muted-foreground block">Job Type</span>
                         <span className="font-medium">{selectedJob.jobType || 'Full-time'}</span>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <span className="text-sm text-gray-500 block">Department</span>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <span className="text-sm text-muted-foreground block">Department</span>
                         <span className="font-medium">{selectedJob.department || 'General'}</span>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <span className="text-sm text-gray-500 block">Location</span>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <span className="text-sm text-muted-foreground block">Location</span>
                         <span className="font-medium">
                           {selectedJob.workMode} {selectedJob.location ? `(${selectedJob.location})` : ''}
                         </span>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded-lg">
-                        <span className="text-sm text-gray-500 block">Level</span>
+                      <div className="bg-muted p-3 rounded-lg">
+                        <span className="text-sm text-muted-foreground block">Level</span>
                         <span className="font-medium">{selectedJob.level || 'Not specified'}</span>
                       </div>
                     </div>
@@ -281,16 +278,15 @@ export default function ApplicantJobsPage() {
                 </div>
               </TabsContent>
                 
-              <TabsContent value="apply" className="space-y-6">
-                <div className="space-y-5">
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <TabsContent value="apply" className="space-y-6">                <div className="space-y-5">
+                  <div className="p-4 bg-muted rounded-lg border border-border">
                     <div className="flex items-start mb-4">
                       <div className="bg-black p-2 rounded-full mr-3">
                         <Upload className="h-4 w-4 text-white" />
                       </div>
                       <div>
                         <h3 className="font-medium">Upload Your Resume</h3>
-                        <p className="text-sm text-gray-500">Upload your latest resume for this position</p>
+                        <p className="text-sm text-muted-foreground">Upload your latest resume for this position</p>
                       </div>
                     </div>
                     
@@ -300,28 +296,27 @@ export default function ApplicantJobsPage() {
                       onFileChange={handleFileChange}
                       label="Click to upload your resume or drag and drop"
                     />
-                  </div>
-                  
-                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  </div>                  
+                  <div className="p-4 bg-muted rounded-lg border border-border">
                     <div className="flex items-start mb-4">
                       <div className="bg-black p-2 rounded-full mr-3">
                         <FileText className="h-4 w-4 text-white" />
                       </div>
                       <div>
                         <h3 className="font-medium">Message to Recruiter</h3>
-                        <p className="text-sm text-gray-500">Tell them why you're a good fit for this role</p>
+                        <p className="text-sm text-muted-foreground">Tell them why you're a good fit for this role</p>
                       </div>
                     </div>
                     
                     <textarea
                       id="message"
-                      className="w-full p-3 border border-gray-300 rounded-lg min-h-[150px] focus:outline-none focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full p-3 border border-border rounded-lg min-h-[150px] focus:outline-none focus:ring-1 focus:ring-black disabled:cursor-not-allowed disabled:opacity-50"
                       placeholder="Briefly describe your relevant experience and why you're interested in this position..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
                     />
                     
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className="text-xs text-muted-foreground mt-2">
                       {message.length}/500 characters
                     </p>
                   </div>

@@ -11,7 +11,7 @@ export default function CandidatesLayout({ children }) {
       <Sidebar role="recruiter" />
       
       {/* Header */}
-      <header className="border-b border-gray-200 bg-white">
+      <header className="border-b border-border bg-background">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <div className="flex items-center">
             <h1 className="text-2xl font-bold">X-CEED</h1>
@@ -19,7 +19,7 @@ export default function CandidatesLayout({ children }) {
           <div className="flex items-center gap-4">
             <Link 
               href="/auth" 
-              className="text-sm text-gray-600 hover:text-gray-900 cursor-pointer"
+              className="text-sm text-muted-foreground hover:text-foreground cursor-pointer"
             >
               Sign out
             </Link>
