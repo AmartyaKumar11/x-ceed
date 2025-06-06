@@ -13,10 +13,9 @@ export default function DarkModeToggle() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
   if (!mounted) {
     return (
-      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse" />
+      <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
     );
   }
 
@@ -25,12 +24,11 @@ export default function DarkModeToggle() {
     setTheme(isDark ? 'light' : 'dark');
   };
 
-  return (
-    <Toggle
+  return (    <Toggle
       pressed={isDark}
       onPressedChange={toggleTheme}
       size="lg"
-      className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group data-[state=on]:bg-gray-200 dark:data-[state=on]:bg-gray-700"
+      className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 transition-all duration-300 ease-in-out group data-[state=on]:bg-muted"
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
@@ -40,11 +38,10 @@ export default function DarkModeToggle() {
           transform: isDark ? 'rotate(180deg)' : 'rotate(0deg)',
           transition: 'transform 0.5s ease-in-out'
         }}
-      >
-        {isDark ? (
-          <Moon className="h-5 w-5 text-gray-800 dark:text-white" />
+      >        {isDark ? (
+          <Moon className="h-5 w-5 text-foreground" />
         ) : (
-          <Sun className="h-5 w-5 text-gray-800 dark:text-white" />
+          <Sun className="h-5 w-5 text-foreground" />
         )}
       </div>
     </Toggle>

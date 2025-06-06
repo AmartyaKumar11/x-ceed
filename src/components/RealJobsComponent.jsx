@@ -86,12 +86,11 @@ export default function RealJobsComponent({ onJobClick }) {
       return `Up to ${currencySymbol}${formatNumber(max)}`;
     }
   };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-12">
-        <Loader2 className="h-12 w-12 animate-spin text-gray-400 mb-4" />
-        <p className="text-gray-600">Loading job listings...</p>
+        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
+        <p className="text-muted-foreground">Loading job listings...</p>
       </div>
     );
   }
@@ -101,7 +100,7 @@ export default function RealJobsComponent({ onJobClick }) {
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
         <h3 className="text-lg font-medium">Failed to load jobs</h3>
-        <p className="text-gray-600 mt-2">{error}</p>
+        <p className="text-muted-foreground mt-2">{error}</p>
         <Button variant="outline" className="mt-4" onClick={fetchJobs}>
           Try Again
         </Button>
@@ -110,11 +109,10 @@ export default function RealJobsComponent({ onJobClick }) {
   }
 
   if (jobs.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <FileText className="h-16 w-16 text-gray-300 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900">No jobs available</h3>
-        <p className="text-sm text-gray-500 mt-1">
+    return (      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium text-foreground">No jobs available</h3>
+        <p className="text-sm text-muted-foreground mt-1">
           There are currently no job postings available. Please check back later.
         </p>
       </div>
@@ -123,10 +121,9 @@ export default function RealJobsComponent({ onJobClick }) {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container">
-      {jobs.map((job) => (
-        <Card 
+      {jobs.map((job) => (        <Card 
           key={job._id} 
-          className="job-card hover:shadow-lg transition-all cursor-pointer border-gray-200"
+          className="job-card hover:shadow-lg transition-all cursor-pointer border-border"
           onClick={() => onJobClick(job)}
         >
           <CardHeader className="pb-2">
@@ -156,17 +153,16 @@ export default function RealJobsComponent({ onJobClick }) {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-y-2 mb-3">
-              <div className="flex items-center text-sm text-gray-500 mr-4">
+          <CardContent>            <div className="flex flex-wrap gap-y-2 mb-3">
+              <div className="flex items-center text-sm text-muted-foreground mr-4">
                 <MapPin className="h-3 w-3 mr-1" />
                 {job.workMode} {job.location ? `(${job.location})` : ''}
               </div>
-              <div className="flex items-center text-sm text-gray-500 mr-4">
+              <div className="flex items-center text-sm text-muted-foreground mr-4">
                 <DollarSign className="h-3 w-3 mr-1" />
                 {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
               </div>
-              <div className="flex items-center text-sm text-gray-500">
+              <div className="flex items-center text-sm text-muted-foreground">
                 <Calendar className="h-3 w-3 mr-1" />
                 Posted {formatPostedDate(job.createdAt || new Date())}
               </div>

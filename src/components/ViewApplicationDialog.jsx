@@ -70,29 +70,29 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
               <h3 className="text-lg font-semibold mb-2">Personal Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Name</p>
+                  <p className="text-sm text-muted-foreground">Name</p>
                   <p className="font-medium">{candidate.name}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Position Applied For</p>
+                  <p className="text-sm text-muted-foreground">Position Applied For</p>
                   <p className="font-medium">{candidate.position}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Date of Application</p>
+                  <p className="text-sm text-muted-foreground">Date of Application</p>
                   <p className="font-medium">
                     {format(new Date(candidate.dateOfApplication), "MMMM d, yyyy")}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Email</p>
+                  <p className="text-sm text-muted-foreground">Email</p>
                   <p className="font-medium">{candidate.email}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Phone</p>
+                  <p className="text-sm text-muted-foreground">Phone</p>
                   <p className="font-medium">{candidate.phone}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Address</p>
+                  <p className="text-sm text-muted-foreground">Address</p>
                   <p className="font-medium">{candidate.address}</p>
                 </div>
               </div>
@@ -102,11 +102,11 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
               <h3 className="text-lg font-semibold mb-2">Professional Background</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Experience</p>
+                  <p className="text-sm text-muted-foreground">Experience</p>
                   <p className="font-medium">{candidate.experience}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Education</p>
+                  <p className="text-sm text-muted-foreground">Education</p>
                   <p className="font-medium">{candidate.education}</p>
                 </div>
               </div>
@@ -125,28 +125,28 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
 
             <div>
               <h3 className="text-lg font-semibold mb-2">Message to Recruiter</h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="text-gray-700">{candidate.message}</p>
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="text-foreground">{candidate.message}</p>
               </div>
             </div>
 
             <div>
               <h3 className="text-lg font-semibold mb-2">Resume</h3>
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="bg-muted p-4 rounded-lg">
                 {candidate.resumeUrl ? (
-                  <p className="text-gray-700">
+                  <p className="text-foreground">
                     Resume available for download
                   </p>
                 ) : (
-                  <p className="text-gray-500">No resume uploaded</p>
+                  <p className="text-muted-foreground">No resume uploaded</p>
                 )}
               </div>
             </div>
             
-            <div className="flex justify-end gap-4 pt-4 border-t border-gray-200">
+            <div className="flex justify-end gap-4 pt-4 border-t border-border">
               <Button 
                 variant="default"
-                className="bg-black hover:bg-gray-800 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={handleDownloadResume}
                 disabled={!candidate.userId || !candidate.resumeUrl}
               >
@@ -155,7 +155,7 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
               </Button>
               <Button 
                 variant="default"
-                className="bg-black hover:bg-gray-800 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 onClick={handleSendAcceptanceLetter}
               >
                 Send Acceptance Letter for Interview

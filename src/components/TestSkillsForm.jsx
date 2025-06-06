@@ -62,7 +62,7 @@ export default function TestSkillsForm() {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 p-6 border-2 border-gray-300 rounded-lg">
+    <div className="max-w-md mx-auto mt-10 p-6 border-2 border-border rounded-lg">
       <h2 className="text-xl font-bold mb-4">Test Skills Update</h2>
       
       <div className="mb-4">
@@ -71,7 +71,7 @@ export default function TestSkillsForm() {
           value={newSkill}
           onChange={(e) => setNewSkill(e.target.value)}
           placeholder="Add a skill"
-          className="px-4 py-2 border-2 border-gray-300 rounded-md mr-2"
+          className="px-4 py-2 border-2 border-border rounded-md mr-2"
           onKeyPress={(e) => e.key === 'Enter' && handleAddSkill()}
         />
         <button 
@@ -96,7 +96,7 @@ export default function TestSkillsForm() {
               </button>
             </div>
           ))}
-          {skills.length === 0 && <p className="text-gray-500">No skills added</p>}
+          {skills.length === 0 && <p className="text-muted-foreground">No skills added</p>}
         </div>
       </div>
       

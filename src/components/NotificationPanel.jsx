@@ -170,7 +170,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
       case 'profile_view':
         return <Briefcase size={iconSize} className="text-purple-600" />;
       default:
-        return <Bell size={iconSize} className="text-gray-600" />;
+        return <Bell size={iconSize} className="text-muted-foreground" />;
     }
   };
   // Get priority badge color
@@ -408,11 +408,10 @@ export default function NotificationPanel({ isOpen, onClose }) {
       
       {/* Notification Panel */}
       <div 
-        ref={panelRef}
-        className="absolute top-0 right-0 h-full w-96 shadow-2xl border-l border-border transform transition-transform duration-300 ease-in-out rounded-l-3xl overflow-hidden flex flex-col bg-background/85 dark:bg-gray-900/85 backdrop-blur-lg"
+        ref={panelRef}        className="absolute top-0 right-0 h-full w-96 shadow-2xl border-l border-border transform transition-transform duration-300 ease-in-out rounded-l-3xl overflow-hidden flex flex-col bg-background/85 backdrop-blur-lg"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0 bg-background/70 dark:bg-gray-900/70">
+        <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0 bg-background/70">
           <div className="flex items-center gap-3">
             <Bell size={24} className="text-foreground" />
             <h2 className="text-xl font-bold text-foreground">Notifications</h2>
@@ -428,11 +427,9 @@ export default function NotificationPanel({ isOpen, onClose }) {
           >
             <X size={20} className="text-foreground" />
           </button>
-        </div>
-
-        {/* Actions Bar */}
+        </div>        {/* Actions Bar */}
         {unreadCount > 0 && (
-          <div className="p-4 border-b border-border flex-shrink-0 bg-background/50 dark:bg-gray-900/50">
+          <div className="p-4 border-b border-border flex-shrink-0 bg-background/50">
             <button
               onClick={markAllAsRead}
               className="text-sm text-primary hover:text-primary/80 font-medium"
@@ -445,8 +442,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
         {/* Tabs and Content - This is the main scrollable area */}
         <div className="flex-1 min-h-0">
           <Tabs defaultValue="all" value={filter} onValueChange={setFilter} className="h-full flex flex-col">
-            {/* Tabs List */}
-            <div className="flex-shrink-0 p-4 pb-2 bg-background/50 dark:bg-gray-900/50">
+            {/* Tabs List */}            <div className="flex-shrink-0 p-4 pb-2 bg-background/50">
               <TabsList className="grid w-full grid-cols-4 bg-muted">
                 <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
                 <TabsTrigger value="applications" className="text-xs">Apps</TabsTrigger>

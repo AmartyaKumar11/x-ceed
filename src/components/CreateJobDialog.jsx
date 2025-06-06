@@ -325,13 +325,12 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
               </Select>
             </div>
             <div>
-              <Label htmlFor="description">Job Description</Label>
-              <textarea
+              <Label htmlFor="description">Job Description</Label>              <textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Describe the role, responsibilities, and requirements..."
-                className="mt-1 w-full h-24 px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mt-1 w-full h-24 px-3 py-2 border border-input bg-background text-foreground rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -399,11 +398,10 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
         );      case 3:
         return (
           <div className="space-y-4 sm:space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">              <div>
                 <Label htmlFor="salaryMin">Minimum Salary *</Label>
                 <div className="relative mt-1">
-                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="salaryMin"
                     type="number"
@@ -417,7 +415,7 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
               <div>
                 <Label htmlFor="salaryMax">Maximum Salary *</Label>
                 <div className="relative mt-1">
-                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="salaryMax"
                     type="number"
@@ -445,13 +443,12 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
               </Select>
             </div>
             <div>
-              <Label htmlFor="benefits">Benefits & Perks</Label>
-              <textarea
+              <Label htmlFor="benefits">Benefits & Perks</Label>              <textarea
                 id="benefits"
                 value={formData.benefits}
                 onChange={(e) => handleInputChange('benefits', e.target.value)}
                 placeholder="Health insurance, 401k, flexible hours, remote work..."
-                className="mt-1 w-full h-20 px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="mt-1 w-full h-20 px-3 py-2 border border-input bg-background text-foreground rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground"
               />
             </div>
           </div>
@@ -459,9 +456,8 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
         return (
           <div className="space-y-4 sm:space-y-6">
             <div>
-              <Label htmlFor="numberOfOpenings">Number of Openings *</Label>
-              <div className="relative mt-1">
-                <Users className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Label htmlFor="numberOfOpenings">Number of Openings *</Label>              <div className="relative mt-1">
+                <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="numberOfOpenings"
                   type="number"
@@ -539,9 +535,8 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                {!isStartDateValid() && formData.startDay && formData.startMonth && formData.startYear && (
-                  <p className="text-sm text-red-500">Start date must be today or later</p>
+                </div>                {!isStartDateValid() && formData.startDay && formData.startMonth && formData.startYear && (
+                  <p className="text-sm text-destructive">Start date must be today or later</p>
                 )}
               </div>
               <div className="space-y-2">
@@ -611,17 +606,15 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                {!isEndDateValid() && formData.endDay && formData.endMonth && formData.endYear && (
-                  <p className="text-sm text-red-500">End date must be after start date</p>
+                </div>                {!isEndDateValid() && formData.endDay && formData.endMonth && formData.endYear && (
+                  <p className="text-sm text-destructive">End date must be after start date</p>
                 )}
               </div>
             </div>
             
             <div>
               <Label>Job Description *</Label>
-              <div className="mt-2">
-                <div className="flex gap-4 mb-4">
+              <div className="mt-2">                <div className="flex gap-4 mb-4">
                   <label className="flex items-center gap-2">
                     <input
                       type="radio"
@@ -629,9 +622,9 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
                       value="text"
                       checked={formData.jobDescriptionType === 'text'}
                       onChange={(e) => handleInputChange('jobDescriptionType', e.target.value)}
-                      className="text-blue-600"
+                      className="text-primary accent-primary"
                     />
-                    <span className="text-sm">Text Description</span>
+                    <span className="text-sm text-foreground">Text Description</span>
                   </label>
                   <label className="flex items-center gap-2">
                     <input
@@ -640,21 +633,19 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
                       value="file"
                       checked={formData.jobDescriptionType === 'file'}
                       onChange={(e) => handleInputChange('jobDescriptionType', e.target.value)}
-                      className="text-blue-600"
+                      className="text-primary accent-primary"
                     />
-                    <span className="text-sm">Upload PDF</span>
+                    <span className="text-sm text-foreground">Upload PDF</span>
                   </label>
                 </div>
                 
-                {formData.jobDescriptionType === 'text' ? (
-                  <textarea
+                {formData.jobDescriptionType === 'text' ? (                  <textarea
                     value={formData.jobDescriptionText}
                     onChange={(e) => handleInputChange('jobDescriptionText', e.target.value)}
                     placeholder="Enter detailed job description, requirements, responsibilities..."
-                    className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full h-32 px-3 py-2 border border-input bg-background text-foreground rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent placeholder:text-muted-foreground"
                   />
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                ) : (                  <div className="border-2 border-dashed border-border rounded-lg p-6 bg-background">
                     <FileUpload
                       onFileChange={(file) => handleInputChange('jobDescriptionFile', file)}
                       accept=".pdf"
@@ -662,7 +653,7 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
                       label="Upload job description PDF (max 10MB)"
                     />
                     {formData.jobDescriptionFile && (
-                      <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                      <div className="mt-2 flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                         <FileText className="h-4 w-4" />
                         <span>{formData.jobDescriptionFile.name}</span>
                       </div>
@@ -677,12 +668,11 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
       default:
         return null;
     }
-  };
-  return (
+  };  return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+      <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 bg-background text-foreground">
         <DialogHeader className="pb-4">
-          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl text-foreground">
             <Plus className="h-5 w-5" />
             Create New Job
           </DialogTitle>
@@ -696,26 +686,24 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
             const isCompleted = currentStep > step.id;
             
             return (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 ${
+              <div key={step.id} className="flex items-center flex-1">                <div className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 ${
                   isActive 
-                    ? 'border-blue-500 bg-blue-500 text-white' 
+                    ? 'border-primary bg-primary text-primary-foreground' 
                     : isCompleted 
-                      ? 'border-green-500 bg-green-500 text-white' 
-                      : 'border-gray-300 text-gray-400'
+                      ? 'border-green-500 bg-green-500 text-white dark:border-green-400 dark:bg-green-400 dark:text-gray-900' 
+                      : 'border-muted-foreground bg-background text-muted-foreground'
                 }`}>
                   <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
-                </div>
-                <div className="ml-2 hidden md:block flex-1">
-                  <p className={`text-xs font-medium ${isActive ? 'text-blue-500' : isCompleted ? 'text-green-500' : 'text-gray-400'}`}>
+                </div>                <div className="ml-2 hidden md:block flex-1">
+                  <p className={`text-xs font-medium ${isActive ? 'text-primary' : isCompleted ? 'text-green-500 dark:text-green-400' : 'text-muted-foreground'}`}>
                     Step {step.id}
                   </p>
-                  <p className={`text-xs ${isActive ? 'text-blue-500' : isCompleted ? 'text-green-500' : 'text-gray-400'}`}>
+                  <p className={`text-xs ${isActive ? 'text-primary' : isCompleted ? 'text-green-500 dark:text-green-400' : 'text-muted-foreground'}`}>
                     {step.title}
                   </p>
                 </div>
                 {index < STEPS.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-2 sm:mx-4 ${isCompleted ? 'bg-green-500' : 'bg-gray-300'}`} />
+                  <div className={`flex-1 h-0.5 mx-2 sm:mx-4 ${isCompleted ? 'bg-green-500 dark:bg-green-400' : 'bg-muted'}`} />
                 )}
               </div>
             );
@@ -725,10 +713,8 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
         {/* Step Content */}
         <div className="min-h-[300px] px-2 sm:px-4">
           {renderStepContent()}
-        </div>
-
-        {/* Navigation Buttons */}
-        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 mt-4 border-t px-2 sm:px-4">
+        </div>        {/* Navigation Buttons */}
+        <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-0 pt-4 mt-4 border-t border-border px-2 sm:px-4">
           <Button
             variant="outline"
             onClick={handlePrevious}

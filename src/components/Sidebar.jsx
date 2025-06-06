@@ -97,17 +97,16 @@ export default function Sidebar({ role }) {
       
       {/* Sidebar */}      <div
         ref={sidebarRef}
-        className={`sidebar fixed top-0 left-0 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out z-50 ${
+        className={`sidebar fixed top-0 left-0 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out z-50 ${
           isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
         }`}
       >
-        <div className="h-16 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">X-CEED</h2>
+        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+          <h2 className="text-xl font-bold text-foreground">X-CEED</h2>
           <div className="flex items-center space-x-2">
-            <DarkModeToggle />
-            <button 
+            <DarkModeToggle />            <button 
               onClick={() => setIsOpen(false)}
-              className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              className="text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Close menu"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -121,37 +120,34 @@ export default function Sidebar({ role }) {
         <div className="py-4">
           <ul className="space-y-1">
             {menuItems.map((item, index) => (
-              <li key={index}>                {item.onClick ? (
-                  <button 
+              <li key={index}>                {item.onClick ? (                  <button 
                     onClick={item.onClick}
-                    className={`sidebar-item flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer w-full text-left transition-colors duration-200 ${
-                      pathname === item.href ? 'active bg-gray-100 dark:bg-gray-800' : ''
+                    className={`sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer w-full text-left transition-colors duration-200 ${
+                      pathname === item.href ? 'active bg-muted' : ''
                     }`}
                   >
-                    <span className="sidebar-icon mr-4 text-gray-900 dark:text-gray-100">{item.icon}</span>
+                    <span className="sidebar-icon mr-4 text-foreground">{item.icon}</span>
                     <span>{item.label}</span>
                   </button>
-                ) : (
-                  <Link 
+                ) : (                  <Link 
                     href={item.href} 
-                    className={`sidebar-item flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-200 ${
-                      pathname === item.href ? 'active bg-gray-100 dark:bg-gray-800' : ''
+                    className={`sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer transition-colors duration-200 ${
+                      pathname === item.href ? 'active bg-muted' : ''
                     }`}
                   >
-                    <span className="sidebar-icon mr-4 text-gray-900 dark:text-gray-100">{item.icon}</span>
+                    <span className="sidebar-icon mr-4 text-foreground">{item.icon}</span>
                     <span>{item.label}</span>
                   </Link>
                 )}
               </li>
             ))}
           </ul>
-        </div>
-          <div className="absolute bottom-0 w-full border-t border-gray-200 dark:border-gray-700 py-4">
+        </div>          <div className="absolute bottom-0 w-full border-t border-border py-4">
           <Link 
             href="/auth" 
-            className="sidebar-item flex items-center px-6 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer transition-colors duration-200"
+            className="sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer transition-colors duration-200"
           >
-            <span className="sidebar-icon mr-4 text-gray-900 dark:text-gray-100"><LogOut size={18} /></span>
+            <span className="sidebar-icon mr-4 text-foreground"><LogOut size={18} /></span>
             <span>Sign out</span>
           </Link>
         </div>

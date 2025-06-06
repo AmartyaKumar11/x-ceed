@@ -120,10 +120,9 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
             key={index}
             className="bg-black text-white px-3 py-1 rounded-full text-sm flex items-center gap-1"
           >
-            <span>{skill}</span>
-            <button 
+            <span>{skill}</span>            <button 
               onClick={() => removeSkill(skill)} 
-              className="hover:bg-gray-700 rounded-full p-1"
+              className="hover:bg-black/20 rounded-full p-1"
             >
               <X size={12} />
             </button>
@@ -133,31 +132,29 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
       
       {/* Input and Suggestions */}
       <div className="relative mb-6">
-        <div className="relative">
-          <input
+        <div className="relative">          <input
             ref={inputRef}
             type="text"
-            className="w-full px-10 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+            className="w-full px-10 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring focus:border-ring transition-all"
             placeholder="Type to search skills or browse below..."
             value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             onFocus={() => inputValue.trim() && setShowSuggestions(true)}
           />
-          <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+          <Search className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
         </div>
         
         {/* Search suggestions dropdown */}
-        {showSuggestions && suggestions.length > 0 && (
-          <ul 
+        {showSuggestions && suggestions.length > 0 && (          <ul 
             ref={suggestionsRef}
-            className="absolute z-10 w-full mt-1 max-h-60 overflow-auto bg-white border border-gray-300 rounded-md shadow-lg"
+            className="absolute z-10 w-full mt-1 max-h-60 overflow-auto bg-popover border border-border rounded-md shadow-lg"
           >
             {suggestions.map((suggestion, index) => (
               <li 
                 key={index}
-                className={`px-4 py-2 cursor-pointer hover:bg-gray-100 ${
-                  activeSuggestionIndex === index ? 'bg-gray-100' : ''
+                className={`px-4 py-2 cursor-pointer hover:bg-muted text-popover-foreground ${
+                  activeSuggestionIndex === index ? 'bg-muted' : ''
                 }`}
                 onClick={() => addSkill(suggestion)}
                 onMouseEnter={() => setActiveSuggestionIndex(index)}
@@ -174,11 +171,10 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
         <div className="flex overflow-x-auto pb-1">
           {categories.map((category, index) => (
             <button
-              key={index}
-              className={`px-4 py-2 whitespace-nowrap text-sm font-medium ${
+              key={index}              className={`px-4 py-2 whitespace-nowrap text-sm font-medium ${
                 selectedCategory === category 
-                  ? 'border-b-2 border-black text-black' 
-                  : 'text-gray-500 hover:text-black'
+                  ? 'border-b-2 border-primary text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => setSelectedCategory(category)}
             >
@@ -194,14 +190,14 @@ const SkillsEditor = ({ skills = [], onChange, className = '' }) => {
           <button
             key={index}
             onClick={() => addSkill(skill)}
-            className="flex items-center gap-1 border border-gray-300 hover:border-black bg-gray-50 hover:bg-gray-100 px-3 py-1 rounded-full text-sm transition-colors"
+            className="flex items-center gap-1 border border-border hover:border-primary bg-muted hover:bg-muted/80 px-3 py-1 rounded-full text-sm transition-colors"
           >
             <Plus size={14} />
             {skill}
           </button>
         ))}
         {categorySkills.length === 0 && (
-          <p className="text-gray-500 text-sm py-2">
+          <p className="text-muted-foreground text-sm py-2">
             {selectedCategory === 'Popular' 
               ? 'You\'ve added all popular skills! Browse other categories.'
               : `You've added all ${selectedCategory.toLowerCase()} skills!`}

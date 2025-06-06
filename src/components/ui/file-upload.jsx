@@ -84,23 +84,22 @@ export function FileUpload({
 
   return (
     <div className={`w-full ${className}`}>
-      {!file ? (
-        <div
+      {!file ? (        <div
           className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${
             isDragOver 
-              ? 'border-black bg-gray-50' 
+              ? 'border-primary bg-accent' 
               : error 
-                ? 'border-red-300' 
-                : 'border-gray-300 hover:border-gray-400'
+                ? 'border-destructive' 
+                : 'border-border hover:border-border-hover bg-background'
           }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={() => document.getElementById('file-upload').click()}
         >
-          <Upload className="h-10 w-10 text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-xs text-gray-400 mt-1">Max size: {maxSize}MB</p>
+          <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground mt-1">Max size: {maxSize}MB</p>
           
           <input 
             id="file-upload" 
@@ -110,14 +109,13 @@ export function FileUpload({
             onChange={handleFileChange}
           />
         </div>
-      ) : (
-        <div className="border rounded-lg p-4 bg-gray-50">
+      ) : (        <div className="border rounded-lg p-4 bg-accent">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <FileText className="h-8 w-8 text-gray-500 mr-3" />
+              <FileText className="h-8 w-8 text-muted-foreground mr-3" />
               <div>
-                <p className="font-medium text-sm">{file.name}</p>
-                <p className="text-xs text-gray-500">
+                <p className="font-medium text-sm text-foreground">{file.name}</p>
+                <p className="text-xs text-muted-foreground">
                   {(file.size / (1024 * 1024)).toFixed(2)} MB
                 </p>
               </div>
@@ -135,9 +133,8 @@ export function FileUpload({
           </div>
         </div>
       )}
-      
-      {error && (
-        <p className="text-sm text-red-500 mt-2">{error}</p>
+        {error && (
+        <p className="text-sm text-destructive mt-2">{error}</p>
       )}
     </div>
   );

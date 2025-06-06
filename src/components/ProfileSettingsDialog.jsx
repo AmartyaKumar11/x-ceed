@@ -149,33 +149,30 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
   ];
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden border-2 border-gray-300 shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b-2 border-gray-200 bg-white">
-          <h2 className="text-3xl font-bold text-black">Profile Settings</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">      <div className="bg-card rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden border-2 border-border shadow-2xl">        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b-2 border-border bg-card">
+          <h2 className="text-3xl font-bold text-foreground">Profile Settings</h2>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors border border-gray-300 hover:border-black"
+            className="p-2 hover:bg-muted rounded-full transition-colors border border-border hover:border-foreground"
           >
-            <X size={24} className="text-black" />
+            <X size={24} className="text-foreground" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="border-b-2 border-gray-200 bg-white">
+        <div className="border-b-2 border-border bg-card">
           <div className="flex overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-8 py-5 text-sm font-semibold whitespace-nowrap transition-all border-b-2 ${
+                onClick={() => setActiveTab(tab.id)}                className={`flex items-center gap-3 px-8 py-5 text-sm font-semibold whitespace-nowrap transition-all border-b-2 ${
                   activeTab === tab.id
-                    ? 'text-black border-black bg-gray-50'
-                    : 'text-gray-600 hover:text-black hover:bg-gray-50 border-transparent hover:border-gray-300'
+                    ? 'text-foreground border-foreground bg-muted'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent hover:border-border'
                 }`}
               >
-                <span className={activeTab === tab.id ? 'text-black' : 'text-gray-600'}>
+                <span className={activeTab === tab.id ? 'text-foreground' : 'text-muted-foreground'}>
                   {tab.icon}
                 </span>
                 {tab.label}
@@ -183,19 +180,17 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
             ))}
           </div>
         </div>        {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[65vh] bg-gray-50">
-          {loading ? (
+        <div className="p-8 overflow-y-auto max-h-[65vh] bg-muted">          {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black"></div>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
             </div>
           ) : (
             <>
               {/* Personal Information Tab */}
               {activeTab === 'personal' && (
                 <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-semibold text-black mb-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-3">
                         <User size={16} className="inline mr-2" />
                         First Name
                       </label>
@@ -203,23 +198,23 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         type="text"
                         value={profileData.firstName}
                         onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">
+                      <label className="block text-sm font-semibold text-foreground mb-3">
                         Last Name
                       </label>
                       <input
                         type="text"
                         value={profileData.lastName}
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
                   </div>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">
+                      <label className="block text-sm font-semibold text-foreground mb-3">
                         <Mail size={16} className="inline mr-2" />
                         Email
                       </label>
@@ -227,11 +222,11 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         type="email"
                         value={profileData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">
+                      <label className="block text-sm font-semibold text-foreground mb-3">
                         <Phone size={16} className="inline mr-2" />
                         Phone
                       </label>
@@ -239,13 +234,11 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         type="tel"
                         value={profileData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-black mb-3">
+                  </div>                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-3">
                       <MapPin size={16} className="inline mr-2" />
                       Address
                     </label>
@@ -253,41 +246,38 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       type="text"
                       value={profileData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                      className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  </div>                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">City</label>
+                      <label className="block text-sm font-semibold text-foreground mb-3">City</label>
                       <input
                         type="text"
-                        value={profileData.city}                        onChange={(e) => handleInputChange('city', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        value={profileData.city}
+                        onChange={(e) => handleInputChange('city', e.target.value)}
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">State</label>
+                      <label className="block text-sm font-semibold text-foreground mb-3">State</label>
                       <input
                         type="text"
                         value={profileData.state}
                         onChange={(e) => handleInputChange('state', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-black mb-3">Zip Code</label>
+                      <label className="block text-sm font-semibold text-foreground mb-3">Zip Code</label>
                       <input
                         type="text"
                         value={profileData.zipCode}
                         onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                       />
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-black mb-3">
+                  </div>                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-3">
                       <Calendar size={16} className="inline mr-2" />
                       Date of Birth
                     </label>
@@ -295,14 +285,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       type="date"
                       value={profileData.dateOfBirth}
                       onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
-                    />                </div>
+                      className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                    />
+                  </div>
                 </div>
               )}{/* Education Tab */}
               {activeTab === 'education' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-black">Education</h3>
+                <div className="space-y-6">                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-foreground">Education</h3>
                     <button
                       onClick={() => addArrayItem('education', {
                         institution: '',
@@ -312,15 +302,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         endDate: '',
                         gpa: ''
                       })}
-                      className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors font-semibold"
+                      className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-semibold"
                     >
                       <Plus size={16} />
                       Add Education
                     </button>
-                  </div>                  {profileData.education.map((edu, index) => (
-                    <div key={index} className="border-2 border-gray-300 rounded-lg p-6 space-y-6 bg-white">
+                  </div>{profileData.education.map((edu, index) => (                    <div key={index} className="border-2 border-border rounded-lg p-6 space-y-6 bg-card">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-black text-lg">Education {index + 1}</h4>
+                        <h4 className="font-semibold text-foreground text-lg">Education {index + 1}</h4>
                         <button
                           onClick={() => removeArrayItem('education', index)}
                           className="text-red-600 hover:text-red-800 transition-colors p-2 hover:bg-red-50 rounded-full"
@@ -331,68 +320,66 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Institution</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Institution</label>
                           <input
                             type="text"
                             value={edu.institution}
                             onChange={(e) => handleArrayFieldChange('education', index, 'institution', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Degree</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Degree</label>
                           <input
                             type="text"
                             value={edu.degree}
                             onChange={(e) => handleArrayFieldChange('education', index, 'degree', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      </div>                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Field of Study</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Field of Study</label>
                           <input
                             type="text"
                             value={edu.field}
                             onChange={(e) => handleArrayFieldChange('education', index, 'field', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Start Date</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Start Date</label>
                           <input
                             type="date"
                             value={edu.startDate}
                             onChange={(e) => handleArrayFieldChange('education', index, 'startDate', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">End Date</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">End Date</label>
                           <input
                             type="date"
                             value={edu.endDate}
                             onChange={(e) => handleArrayFieldChange('education', index, 'endDate', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-black mb-3">GPA (Optional)</label>
+                        <label className="block text-sm font-semibold text-foreground mb-3">GPA (Optional)</label>
                         <input
                           type="text"
                           value={edu.gpa}
                           onChange={(e) => handleArrayFieldChange('education', index, 'gpa', e.target.value)}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                          className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           placeholder="e.g., 3.8/4.0"
                         />
                       </div>
                     </div>
                   ))}                  {profileData.education.length === 0 && (
-                    <div className="text-center py-12 text-gray-600 bg-white rounded-lg border-2 border-gray-200">
+                    <div className="text-center py-12 text-muted-foreground bg-card rounded-lg border-2 border-border">
                       <p className="text-lg">No education records added yet.</p>
                       <p className="text-sm mt-2">Click "Add Education" to get started.</p>
                     </div>
@@ -400,9 +387,8 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                 </div>
               )}              {/* Work Experience Tab */}
               {activeTab === 'experience' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-black">Work Experience</h3>
+                <div className="space-y-6">                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-foreground">Work Experience</h3>
                     <button
                       onClick={() => addArrayItem('workExperience', {
                         company: '',
@@ -412,15 +398,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         current: false,
                         description: ''
                       })}
-                      className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors font-semibold"
+                      className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-semibold"
                     >
                       <Plus size={16} />
                       Add Experience
                     </button>
-                  </div>                  {profileData.workExperience.map((exp, index) => (
-                    <div key={index} className="border-2 border-gray-300 rounded-lg p-6 space-y-6 bg-white">
+                  </div>{profileData.workExperience.map((exp, index) => (                    <div key={index} className="border-2 border-border rounded-lg p-6 space-y-6 bg-card">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-black text-lg">Experience {index + 1}</h4>
+                        <h4 className="font-semibold text-foreground text-lg">Experience {index + 1}</h4>
                         <button
                           onClick={() => removeArrayItem('workExperience', index)}
                           className="text-red-600 hover:text-red-800 transition-colors p-2 hover:bg-red-50 rounded-full"
@@ -431,85 +416,82 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Company</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Company</label>
                           <input
                             type="text"
                             value={exp.company}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'company', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Position</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Position</label>
                           <input
                             type="text"
                             value={exp.position}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'position', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      </div>                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Start Date</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Start Date</label>
                           <input
                             type="date"
                             value={exp.startDate}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'startDate', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">End Date</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">End Date</label>
                           <input
                             type="date"
                             value={exp.endDate}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'endDate', e.target.value)}
                             disabled={exp.current}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all disabled:bg-gray-100 disabled:text-gray-500"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:bg-muted disabled:text-muted-foreground"
                           />
                           <label className="flex items-center mt-3">
                             <input
                               type="checkbox"
                               checked={exp.current}
                               onChange={(e) => handleArrayFieldChange('workExperience', index, 'current', e.target.checked)}
-                              className="mr-3 h-4 w-4 text-black focus:ring-black border-gray-300 rounded"
+                              className="mr-3 h-4 w-4 text-primary focus:ring-primary border-border rounded"
                             />
-                            <span className="text-sm font-medium text-black">Currently working here</span>
+                            <span className="text-sm font-medium text-foreground">Currently working here</span>
                           </label>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-sm font-semibold text-black mb-3">Description</label>
+                        <label className="block text-sm font-semibold text-foreground mb-3">Description</label>
                         <textarea
                           value={exp.description}
                           onChange={(e) => handleArrayFieldChange('workExperience', index, 'description', e.target.value)}
                           rows={4}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                          className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           placeholder="Describe your responsibilities and achievements..."
                         />
                       </div>
                     </div>
                   ))}                  {profileData.workExperience.length === 0 && (
-                    <div className="text-center py-12 text-gray-600 bg-white rounded-lg border-2 border-gray-200">
+                    <div className="text-center py-12 text-muted-foreground bg-card rounded-lg border-2 border-border">
                       <p className="text-lg">No work experience added yet.</p>
                       <p className="text-sm mt-2">Click "Add Experience" to get started.</p>
                     </div>
                   )}
                 </div>
               )}              {/* Skills Tab */}
-              {activeTab === 'skills' && (
-                <div className="space-y-6">
-                  <h3 className="text-xl font-semibold text-black">Skills</h3>
-                  <div className="bg-white p-6 rounded-lg border-2 border-gray-200">
+              {activeTab === 'skills' && (                <div className="space-y-6">
+                  <h3 className="text-xl font-semibold text-foreground">Skills</h3>
+                  <div className="bg-card p-6 rounded-lg border-2 border-border">
                     <SkillsEditor
                       skills={profileData.skills}
                       onChange={handleSkillsChange}
                       className="w-full"
                     />
-                    <p className="text-sm text-gray-600 mt-4 font-medium">
+                    <p className="text-sm text-muted-foreground mt-4 font-medium">
                       Select skills from the suggestions or type to search. These will help match you with relevant job opportunities.
                     </p>
                     <div className="mt-6 flex justify-end">
@@ -585,9 +567,8 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                               btn.classList.remove('opacity-75');
                             }
                           }
-                        }}
-                        id="skills-confirm-btn"
-                        className="flex items-center px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors font-semibold"
+                        }}                        id="skills-confirm-btn"
+                        className="flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-semibold"
                       >
                         Confirm Skills
                       </button>
@@ -596,9 +577,8 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                 </div>
               )}{/* Certifications Tab */}
               {activeTab === 'certifications' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-xl font-semibold text-black">Certifications</h3>
+                <div className="space-y-6">                  <div className="flex items-center justify-between">
+                    <h3 className="text-xl font-semibold text-foreground">Certifications</h3>
                     <button
                       onClick={() => addArrayItem('certifications', {
                         name: '',
@@ -608,15 +588,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         credentialId: '',
                         url: ''
                       })}
-                      className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors font-semibold"
+                      className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-semibold"
                     >
                       <Plus size={16} />
                       Add Certification
                     </button>
-                  </div>                  {profileData.certifications.map((cert, index) => (
-                    <div key={index} className="border-2 border-gray-300 rounded-lg p-6 space-y-6 bg-white">
+                  </div>{profileData.certifications.map((cert, index) => (                    <div key={index} className="border-2 border-border rounded-lg p-6 space-y-6 bg-card">
                       <div className="flex justify-between items-start">
-                        <h4 className="font-semibold text-black text-lg">Certification {index + 1}</h4>
+                        <h4 className="font-semibold text-foreground text-lg">Certification {index + 1}</h4>
                         <button
                           onClick={() => removeArrayItem('certifications', index)}
                           className="text-red-600 hover:text-red-800 transition-colors p-2 hover:bg-red-50 rounded-full"
@@ -627,70 +606,68 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Certification Name</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Certification Name</label>
                           <input
                             type="text"
                             value={cert.name}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'name', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Issuing Organization</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Issuing Organization</label>
                           <input
                             type="text"
                             value={cert.issuer}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'issuer', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      </div>                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Date Issued</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Date Issued</label>
                           <input
                             type="date"
                             value={cert.dateIssued}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'dateIssued', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Expiry Date (Optional)</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Expiry Date (Optional)</label>
                           <input
                             type="date"
                             value={cert.expiryDate}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'expiryDate', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Credential ID (Optional)</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Credential ID (Optional)</label>
                           <input
                             type="text"
                             value={cert.credentialId}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'credentialId', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-semibold text-black mb-3">Credential URL (Optional)</label>
+                          <label className="block text-sm font-semibold text-foreground mb-3">Credential URL (Optional)</label>
                           <input
                             type="url"
                             value={cert.url}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'url', e.target.value)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-all"
+                            className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                             placeholder="https://..."
                           />
                         </div>
                       </div>
                     </div>
                   ))}                  {profileData.certifications.length === 0 && (
-                    <div className="text-center py-12 text-gray-600 bg-white rounded-lg border-2 border-gray-200">
+                    <div className="text-center py-12 text-muted-foreground bg-card rounded-lg border-2 border-border">
                       <p className="text-lg">No certifications added yet.</p>
                       <p className="text-sm mt-2">Click "Add Certification" to get started.</p>
                     </div>
@@ -700,21 +677,21 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
             </>
           )}
         </div>        {/* Footer */}
-        <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-gray-200 bg-white">
+        <div className="flex items-center justify-end gap-4 p-6 border-t-2 border-border bg-card">
           <button
             onClick={onClose}
-            className="px-6 py-3 text-black border-2 border-gray-300 rounded-md hover:bg-gray-100 hover:border-black transition-colors font-semibold"
+            className="px-6 py-3 text-foreground border-2 border-border rounded-md hover:bg-muted hover:border-foreground transition-colors font-semibold"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
-            className="flex items-center gap-2 px-8 py-3 bg-black text-white rounded-md hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+            className="flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
           >
             {saving ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
                 Saving...
               </>
             ) : (
