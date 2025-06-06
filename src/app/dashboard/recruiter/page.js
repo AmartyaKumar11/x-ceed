@@ -202,61 +202,63 @@ export default function RecruiterDashboardPage() {
     }
   };  return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      <h2 className="text-3xl font-bold mb-6">Recruitment Overview</h2>
+      <h2 className="text-3xl font-bold mb-6 text-foreground">Recruitment Overview</h2>
       
       {/* Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">        
         <div 
-          className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" 
+          className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow cursor-pointer flex items-start" 
           onClick={() => router.push('/dashboard/recruiter/jobs')}
         >
-          <div className="p-2 rounded-full bg-indigo-50 mr-3">
-            <Briefcase className="h-5 w-5 text-indigo-500" />
+          <div className="p-2 rounded-full bg-primary/10 mr-3">
+            <Briefcase className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500">Active Jobs</p>
-            <h3 className="text-xl font-bold">{stats.activeJobs}</h3>
+            <p className="text-xs text-muted-foreground">Active Jobs</p>
+            <h3 className="text-xl font-bold text-card-foreground">{stats.activeJobs}</h3>
           </div>
         </div>
-          <div className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow">
-          <div className="p-2 rounded-full bg-purple-50 mr-3">
+        
+        <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow flex items-start">
+          <div className="p-2 rounded-full bg-purple-500/10 mr-3">
             <FileCheck className="h-5 w-5 text-purple-500" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500">Applications</p>
-            <h3 className="text-xl font-bold">{stats.totalApplications}</h3>
+            <p className="text-xs text-muted-foreground">Applications</p>
+            <h3 className="text-xl font-bold text-card-foreground">{stats.totalApplications}</h3>
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow">
-          <div className="p-2 rounded-full bg-cyan-50 mr-3">
+        <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow flex items-start">
+          <div className="p-2 rounded-full bg-cyan-500/10 mr-3">
             <Users className="h-5 w-5 text-cyan-500" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500">Candidates</p>
-            <h3 className="text-xl font-bold">{stats.totalCandidates}</h3>
+            <p className="text-xs text-muted-foreground">Candidates</p>
+            <h3 className="text-xl font-bold text-card-foreground">{stats.totalCandidates}</h3>
           </div>
         </div>
         
-        <div className="bg-white p-4 rounded-lg border border-gray-200 flex items-start shadow-md hover:shadow-lg transition-shadow">
-          <div className="p-2 rounded-full bg-rose-50 mr-3">
+        <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow flex items-start">
+          <div className="p-2 rounded-full bg-rose-500/10 mr-3">
             <PieChart className="h-5 w-5 text-rose-500" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500">Interviews</p>
-            <h3 className="text-xl font-bold">{stats.interviews}</h3>
+            <p className="text-xs text-muted-foreground">Interviews</p>
+            <h3 className="text-xl font-bold text-card-foreground">{stats.interviews}</h3>
           </div>
         </div>
-      </div>
-        {/* Main Content Cards */}
+      </div>{/* Main Content Cards */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        {/* Active Job Postings */}        <div className="xl:col-span-3 bg-white p-4 rounded-lg border border-gray-200 shadow-md">
+        {/* Active Job Postings */}
+        <div className="xl:col-span-3 bg-card text-card-foreground p-4 rounded-lg border shadow-md">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold flex items-center">
-              <Briefcase className="h-5 w-5 mr-2 text-gray-600" />
+            <h3 className="text-lg font-semibold flex items-center text-card-foreground">
+              <Briefcase className="h-5 w-5 mr-2 text-muted-foreground" />
               Active Job Postings
-            </h3>            <div className="flex items-center gap-2">
+            </h3>
+            <div className="flex items-center gap-2">
               {jobs.length > 0 && (
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-muted-foreground">
                   {jobs.filter(job => job.status === 'active').length} active
                 </span>
               )}
@@ -267,36 +269,40 @@ export default function RecruiterDashboardPage() {
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                  <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-muted rounded w-1/2 mb-2"></div>
+                  <div className="h-3 bg-muted rounded w-1/4"></div>
                 </div>
               ))}
-            </div>          ) : jobs.length === 0 ? (
+            </div>
+          ) : jobs.length === 0 ? (
             <div className="text-center py-8">
-              <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500 mb-2">No jobs posted yet</p>
-              <p className="text-sm text-gray-400 mb-4">Create your first job posting to get started</p>
+              <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-2">No jobs posted yet</p>
+              <p className="text-sm text-muted-foreground mb-4">Create your first job posting to get started</p>
               <button
                 onClick={() => setIsCreateJobDialogOpen(true)}
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 transition-colors text-sm"
               >
                 <Plus className="h-4 w-4" />
                 Create Your First Job
               </button>
-            </div>) : (
-            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            </div>
+          ) : (            <div className="space-y-4 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-muted/20">
               {jobs.filter(job => job.status === 'active').map((job) => (
                 <div 
                   key={job._id} 
-                  className="p-4 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  className="p-4 border border-border/50 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-medium text-gray-900">{job.title}</h4>
-                    <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    <h4 className="font-medium text-card-foreground">{job.title}</h4>
+                    <span className="text-xs bg-green-500/10 text-green-600 dark:text-green-400 px-2 py-1 rounded-full">
                       Active
                     </span>
-                  </div>                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-2">                    <span className="flex items-center gap-1">
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
+                    <span className="flex items-center gap-1">
                       <MapPin className="h-3 w-3" />
                       {getWorkModeIcon(job.workMode)}
                     </span>
@@ -310,10 +316,9 @@ export default function RecruiterDashboardPage() {
                         {job.location}
                       </span>
                     )}
-                  </div>
-                  
+                  </div>                  
                   <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <span>Posted {formatDate(job.createdAt)}</span>
                       <span className="flex items-center gap-1">
                         <FileCheck className="h-3 w-3" />
@@ -324,14 +329,14 @@ export default function RecruiterDashboardPage() {
                         {job.viewsCount || 0} views
                       </span>
                     </div>
-                    <button className="text-xs text-blue-600 flex items-center hover:text-blue-800">
+                    <button className="text-xs text-primary flex items-center hover:text-primary/80">
                       <Edit className="h-3 w-3 mr-1" /> 
                       Edit
                     </button>
                   </div>
                   
                   {job.applicationEnd && (
-                    <div className="mt-2 text-xs text-gray-400">
+                    <div className="mt-2 text-xs text-muted-foreground">
                       Applications close on {formatDate(job.applicationEnd)}
                     </div>
                   )}
@@ -339,45 +344,47 @@ export default function RecruiterDashboardPage() {
               ))}
             </div>
           )}
-        </div>
-          {/* Upcoming Interviews */}        <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-md">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <LineChart className="h-5 w-5 mr-2 text-gray-600" />
+        </div>        {/* Upcoming Interviews */}
+        <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md">
+          <h3 className="text-lg font-semibold mb-4 flex items-center text-card-foreground">
+            <LineChart className="h-5 w-5 mr-2 text-muted-foreground" />
             Upcoming Interviews
           </h3>
-            <div className="space-y-3">
-            <div className="p-3 border border-gray-100 rounded-md hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
+          
+          <div className="space-y-3">
+            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
               <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm">John Smith</h4>
+                <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
+                <h4 className="font-medium text-sm text-card-foreground">John Smith</h4>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Frontend Developer • Today, 2:00 PM</p>
+              <p className="text-xs text-muted-foreground mt-1">Frontend Developer • Today, 2:00 PM</p>
             </div>
             
-            <div className="p-3 border border-gray-100 rounded-md hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
+            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
               <div className="flex items-center">
-                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm">Sarah Johnson</h4>
+                <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
+                <h4 className="font-medium text-sm text-card-foreground">Sarah Johnson</h4>
               </div>
-              <p className="text-xs text-gray-500 mt-1">UI Designer • Today, 4:30 PM</p>
+              <p className="text-xs text-muted-foreground mt-1">UI Designer • Today, 4:30 PM</p>
             </div>
             
-            <div className="p-3 border border-gray-100 rounded-md hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
+            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
               <div className="flex items-center">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm">David Lee</h4>
+                <h4 className="font-medium text-sm text-card-foreground">David Lee</h4>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Product Manager • Tomorrow, 10:00 AM</p>
+              <p className="text-xs text-muted-foreground mt-1">Product Manager • Tomorrow, 10:00 AM</p>
             </div>
             
-            <div className="p-3 border border-gray-100 rounded-md hover:bg-gray-50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
+            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
               <div className="flex items-center">
                 <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm">Emily Chen</h4>
+                <h4 className="font-medium text-sm text-card-foreground">Emily Chen</h4>
               </div>
-              <p className="text-xs text-gray-500 mt-1">Backend Developer • Tomorrow, 1:30 PM</p>
+              <p className="text-xs text-muted-foreground mt-1">Backend Developer • Tomorrow, 1:30 PM</p>
             </div>
-          </div>        </div>
+          </div>
+        </div>
       </div>
       
       <CreateJobDialog

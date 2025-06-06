@@ -1,0 +1,52 @@
+'use client';
+
+import { useTheme } from 'next-themes';
+import { Toggle } from '@/components/ui/toggle';
+import { useEffect, useState } from 'react';
+import { Sun, Moon } from 'lucide-react';
+
+export default function DarkModeToggle() {
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  // Avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 animate-pulse" />
+    );
+  }
+
+  const isDark = resolvedTheme === 'dark';
+  const toggleTheme = () => {
+    setTheme(isDark ? 'light' : 'dark');
+  };
+
+  return (
+    <Toggle
+      pressed={isDark}
+      onPressedChange={toggleTheme}
+      size="lg"
+      className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 ease-in-out group data-[state=on]:bg-gray-200 dark:data-[state=on]:bg-gray-700"
+      aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+    >
+      <div 
+        className="transition-transform duration-500 ease-in-out group-hover:scale-110"
+        style={{
+          transform: isDark ? 'rotate(180deg)' : 'rotate(0deg)',
+          transition: 'transform 0.5s ease-in-out'
+        }}
+      >
+        {isDark ? (
+          <Moon className="h-5 w-5 text-gray-800 dark:text-white" />
+        ) : (
+          <Sun className="h-5 w-5 text-gray-800 dark:text-white" />
+        )}
+      </div>
+    </Toggle>
+  );
+}

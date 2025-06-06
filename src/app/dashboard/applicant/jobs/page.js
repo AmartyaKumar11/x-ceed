@@ -131,13 +131,51 @@ export default function ApplicantJobsPage() {
                       {new Date(selectedJob.createdAt).toLocaleDateString()}
                     </span>
                   </DialogDescription>
-                </div>                <div className="flex items-center gap-2">
-                  <Button 
+                </div>                <div className="flex items-center gap-2">                  <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => {
+                    onClick={async () => {
                       if (selectedJob.jobDescriptionFile) {
-                        window.open(selectedJob.jobDescriptionFile, '_blank');
+                        try {
+                          // Extract filename from URL
+                          const filename = selectedJob.jobDescriptionFile.split('/').pop();
+                          const token = localStorage.getItem('token');
+                          
+                          if (!token) {
+                            console.error('No authentication token found');
+                            // Fallback to opening in new tab
+                            window.open(selectedJob.jobDescriptionFile, '_blank');
+                            return;
+                          }
+
+                          // Use the new download API
+                          const response = await fetch(`/api/download/job-description/${filename}`, {
+                            headers: {
+                              'Authorization': `Bearer ${token}`
+                            }
+                          });
+
+                          if (response.ok) {
+                            // Get the blob and create download link
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${selectedJob.title.replace(/\s+/g, '-')}-job-description.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          } else {
+                            console.error('Failed to download job description');
+                            // Fallback to opening in new tab
+                            window.open(selectedJob.jobDescriptionFile, '_blank');
+                          }
+                        } catch (error) {
+                          console.error('Error downloading job description:', error);
+                          // Fallback to opening in new tab
+                          window.open(selectedJob.jobDescriptionFile, '_blank');
+                        }
                       } else {
                         // Generate a text file with job details if no file is available
                         const jobDetails = `

@@ -173,20 +173,19 @@ export default function NotificationPanel({ isOpen, onClose }) {
         return <Bell size={iconSize} className="text-gray-600" />;
     }
   };
-
   // Get priority badge color
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'urgent':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950 dark:text-red-200 dark:border-red-800';
       case 'high':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-950 dark:text-orange-200 dark:border-orange-800';
       case 'medium':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800';
       case 'low':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -261,13 +260,14 @@ export default function NotificationPanel({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
-
   // Render notification card
   const renderNotificationCard = (notification) => (
     <div
       key={notification._id}
-      className={`p-4 border border-gray-100 rounded-xl transition-all hover:shadow-md cursor-pointer ${
-        !notification.isRead ? 'bg-blue-50 bg-opacity-60 border-blue-200' : 'bg-white bg-opacity-40'
+      className={`p-4 border border-border rounded-xl transition-all hover:shadow-md cursor-pointer ${
+        !notification.isRead 
+          ? 'bg-primary/10 border-primary/20 dark:bg-primary/5' 
+          : 'bg-card/40 hover:bg-card/60 dark:bg-card/20 dark:hover:bg-card/30'
       } ${isUpcomingInterview(notification) ? 'border-l-4 border-l-red-500' : ''}`}
       onClick={() => markAsRead(notification._id)}
     >
@@ -280,7 +280,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className={`text-sm font-semibold text-black ${!notification.isRead ? 'font-bold' : ''}`}>
+            <h3 className={`text-sm font-semibold text-foreground ${!notification.isRead ? 'font-bold' : ''}`}>
               {notification.title}
             </h3>
             <div className="flex items-center gap-2">
@@ -290,16 +290,16 @@ export default function NotificationPanel({ isOpen, onClose }) {
               </span>
               {/* Actions Menu */}
               <div className="relative group">
-                <button className="p-1 hover:bg-gray-200 rounded transition-colors opacity-0 group-hover:opacity-100">
-                  <MoreVertical size={14} className="text-gray-600" />
+                <button className="p-1 hover:bg-accent rounded transition-colors opacity-0 group-hover:opacity-100">
+                  <MoreVertical size={14} className="text-muted-foreground" />
                 </button>
-                <div className="absolute right-0 top-6 bg-white border border-gray-200 rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
+                <div className="absolute right-0 top-6 bg-card border border-border rounded-md shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       snoozeNotification(notification._id);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 w-full text-left"
+                    className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground hover:bg-accent w-full text-left"
                   >
                     <Timer size={12} />
                     Snooze 1hr
@@ -309,7 +309,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
                       e.stopPropagation();
                       deleteNotification(notification._id);
                     }}
-                    className="flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 w-full text-left"
+                    className="flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950 w-full text-left"
                   >
                     <Trash2 size={12} />
                     Delete
@@ -322,26 +322,26 @@ export default function NotificationPanel({ isOpen, onClose }) {
           {/* Company and Position */}
           {notification.company && (
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-gray-900">{notification.company}</span>
+              <span className="text-xs font-medium text-foreground">{notification.company}</span>
               {notification.position && (
                 <>
-                  <span className="text-xs text-gray-400">•</span>
-                  <span className="text-xs text-gray-600">{notification.position}</span>
+                  <span className="text-xs text-muted-foreground">•</span>
+                  <span className="text-xs text-muted-foreground">{notification.position}</span>
                 </>
               )}
             </div>
           )}
 
           {/* Message */}
-          <p className="text-sm text-gray-700 mb-3 leading-relaxed">
+          <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
             {notification.message}
           </p>
 
           {/* Interview Date Warning */}
           {isUpcomingInterview(notification) && (
-            <div className="flex items-center gap-2 mb-3 p-2 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center gap-2 mb-3 p-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
               <Clock size={14} className="text-red-600" />
-              <span className="text-xs font-medium text-red-800">
+              <span className="text-xs font-medium text-red-800 dark:text-red-200">
                 Interview in {Math.ceil((notification.interviewDate - new Date()) / (1000 * 60 * 60 * 24))} day(s)
               </span>
             </div>
@@ -349,11 +349,11 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
           {/* Footer */}
           <div className="flex items-center justify-between">
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-muted-foreground">
               {formatTimestamp(notification.timestamp)}
             </span>
             {notification.actionRequired && (
-              <button className="text-xs bg-black text-white px-3 py-1 rounded-full hover:bg-gray-800 transition-colors">
+              <button className="text-xs bg-foreground text-background px-3 py-1 rounded-full hover:bg-foreground/80 transition-colors">
                 Take Action
               </button>
             )}
@@ -362,32 +362,31 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
         {/* Unread Indicator */}
         {!notification.isRead && (
-          <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-2"></div>
+          <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></div>
         )}
       </div>
     </div>
   );
-
   // Render empty state for each tab
   const renderEmptyState = (type) => {
     const emptyStates = {
       all: {
-        icon: <Bell size={48} className="text-gray-300 mb-4" />,
+        icon: <Bell size={48} className="text-muted-foreground mb-4" />,
         title: "No notifications",
         message: "You're all caught up!"
       },
       applications: {
-        icon: <Briefcase size={48} className="text-gray-300 mb-4" />,
+        icon: <Briefcase size={48} className="text-muted-foreground mb-4" />,
         title: "No application updates",
         message: "Your applications will appear here"
       },
       interviews: {
-        icon: <Calendar size={48} className="text-gray-300 mb-4" />,
+        icon: <Calendar size={48} className="text-muted-foreground mb-4" />,
         title: "No interview updates",
         message: "Your interviews will appear here"
       },
       updates: {
-        icon: <Bell size={48} className="text-gray-300 mb-4" />,
+        icon: <Bell size={48} className="text-muted-foreground mb-4" />,
         title: "No updates",
         message: "Profile views and other updates will appear here"
       }
@@ -396,34 +395,27 @@ export default function NotificationPanel({ isOpen, onClose }) {
     const state = emptyStates[type] || emptyStates.all;
 
     return (
-      <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+      <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
         {state.icon}
         <p className="text-lg font-medium">{state.title}</p>
         <p className="text-sm">{state.message}</p>
       </div>
     );
-  };
-  return (
+  };return (
     <div className="fixed inset-0 z-50">
       {/* Backdrop */}
-      <div className="absolute inset-0 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 backdrop-blur-sm dark:backdrop-blur-md" onClick={onClose} />
       
       {/* Notification Panel */}
       <div 
         ref={panelRef}
-        className="absolute top-0 right-0 h-full w-96 shadow-2xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out rounded-l-3xl overflow-hidden flex flex-col"
-        style={{ 
-          background: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)'
-        }}
+        className="absolute top-0 right-0 h-full w-96 shadow-2xl border-l border-border transform transition-transform duration-300 ease-in-out rounded-l-3xl overflow-hidden flex flex-col bg-background/85 dark:bg-gray-900/85 backdrop-blur-lg"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0" 
-             style={{ background: 'rgba(255, 255, 255, 0.7)' }}>
+        <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0 bg-background/70 dark:bg-gray-900/70">
           <div className="flex items-center gap-3">
-            <Bell size={24} className="text-black" />
-            <h2 className="text-xl font-bold text-black">Notifications</h2>
+            <Bell size={24} className="text-foreground" />
+            <h2 className="text-xl font-bold text-foreground">Notifications</h2>
             {unreadCount > 0 && (
               <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
                 {unreadCount}
@@ -432,19 +424,18 @@ export default function NotificationPanel({ isOpen, onClose }) {
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            className="p-2 hover:bg-accent rounded-full transition-colors"
           >
-            <X size={20} className="text-black" />
+            <X size={20} className="text-foreground" />
           </button>
         </div>
 
         {/* Actions Bar */}
         {unreadCount > 0 && (
-          <div className="p-4 border-b border-gray-200 flex-shrink-0" 
-               style={{ background: 'rgba(255, 255, 255, 0.5)' }}>
+          <div className="p-4 border-b border-border flex-shrink-0 bg-background/50 dark:bg-gray-900/50">
             <button
               onClick={markAllAsRead}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="text-sm text-primary hover:text-primary/80 font-medium"
             >
               Mark all as read
             </button>
@@ -455,20 +446,18 @@ export default function NotificationPanel({ isOpen, onClose }) {
         <div className="flex-1 min-h-0">
           <Tabs defaultValue="all" value={filter} onValueChange={setFilter} className="h-full flex flex-col">
             {/* Tabs List */}
-            <div className="flex-shrink-0 p-4 pb-2" style={{ background: 'rgba(255, 255, 255, 0.5)' }}>
-              <TabsList className="grid w-full grid-cols-4 bg-gray-100">
+            <div className="flex-shrink-0 p-4 pb-2 bg-background/50 dark:bg-gray-900/50">
+              <TabsList className="grid w-full grid-cols-4 bg-muted">
                 <TabsTrigger value="all" className="text-xs">All</TabsTrigger>
                 <TabsTrigger value="applications" className="text-xs">Apps</TabsTrigger>
                 <TabsTrigger value="interviews" className="text-xs">Interviews</TabsTrigger>
                 <TabsTrigger value="updates" className="text-xs">Updates</TabsTrigger>
               </TabsList>
-            </div>
-
-            {/* Tab Content - Scrollable */}
+            </div>            {/* Tab Content - Scrollable */}
             <div className="flex-1 min-h-0 overflow-hidden">
               {/* All Tab */}
               <TabsContent value="all" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50">
                   {filteredNotifications.length === 0 ? (
                     renderEmptyState('all')
                   ) : (
@@ -481,7 +470,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
               {/* Applications Tab */}
               <TabsContent value="applications" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50">
                   {filteredNotifications.length === 0 ? (
                     renderEmptyState('applications')
                   ) : (
@@ -494,7 +483,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
               {/* Interviews Tab */}
               <TabsContent value="interviews" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50">
                   {filteredNotifications.length === 0 ? (
                     renderEmptyState('interviews')
                   ) : (
@@ -507,7 +496,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
               {/* Updates Tab */}
               <TabsContent value="updates" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent hover:scrollbar-thumb-gray-400">
+                <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent hover:scrollbar-thumb-muted-foreground/50">
                   {filteredNotifications.length === 0 ? (
                     renderEmptyState('updates')
                   ) : (

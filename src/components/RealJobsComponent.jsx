@@ -182,14 +182,46 @@ export default function RealJobsComponent({ onJobClick }) {
               <Badge variant="secondary" className="font-normal">
                 {job.level || 'Entry Level'}
               </Badge>
-            </div>          </CardContent>          <CardFooter className="flex flex-wrap gap-2 justify-end">
-            <Button 
+            </div>          </CardContent>          <CardFooter className="flex flex-wrap gap-2 justify-end">            <Button 
               variant="outline" 
               size="sm"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
                 if (job.jobDescriptionFile) {
-                  window.open(job.jobDescriptionFile, '_blank');
+                  try {
+                    // Extract filename from the URL (e.g., "/uploads/job-descriptions/file.pdf")
+                    const filename = job.jobDescriptionFile.split('/').pop();
+                    
+                    // Use the new download API
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/download/job-description/${filename}`, {
+                      method: 'GET',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                    });
+
+                    if (response.ok) {
+                      // Get the blob and create download link
+                      const blob = await response.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${job.title.replace(/\s+/g, '-')}-job-description.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } else {
+                      console.error('Failed to download job description');
+                      // Fallback to opening in new tab
+                      window.open(job.jobDescriptionFile, '_blank');
+                    }
+                  } catch (error) {
+                    console.error('Error downloading job description:', error);
+                    // Fallback to opening in new tab
+                    window.open(job.jobDescriptionFile, '_blank');
+                  }
                 } else {
                   // Generate a text file with job details if no file is available
                   const jobDetails = `
