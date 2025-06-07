@@ -1,4 +1,4 @@
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';
 import { authMiddleware } from '../../../lib/middleware';
 import { validateFile, saveFile, deleteFile } from '../../../lib/fileUpload';
 import clientPromise from '../../../lib/mongodb';

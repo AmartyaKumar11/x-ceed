@@ -1,4 +1,4 @@
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';
 import { authMiddleware } from '../../../lib/middleware';
 import { validateFile, saveFile } from '../../../lib/fileUpload';
 import clientPromise from '../../../lib/mongodb';
@@ -14,18 +14,35 @@ export const config = {
 };
 
 export default async function handler(req, res) {
+  console.log('🔍 =================================');
+  console.log('🔍 Job application API called');
+  console.log('🔍 Method:', req.method);
+  console.log('🔍 Headers:', req.headers);
+  console.log('🔍 =================================');
+  
   if (req.method !== 'POST') {
+    console.log('❌ Method not allowed:', req.method);
     return res.status(405).json({ 
       success: false, 
       message: 'Method not allowed' 
     });
   }
 
-  try {
-    console.log('🔍 Job application submission received');
+  try {console.log('🔍 Job application submission received');
+    console.log('🔍 Request headers:', {
+      authorization: req.headers.authorization,
+      'content-type': req.headers['content-type']
+    });
 
     // Check authentication
     const auth = await authMiddleware(req);
+    console.log('🔍 Authentication result:', {
+      isAuthenticated: auth.isAuthenticated,
+      userType: auth.user?.userType,
+      userId: auth.user?.userId,
+      error: auth.error
+    });
+    
     if (!auth.isAuthenticated) {
       return res.status(auth.status).json({ 
         success: false, 
@@ -35,16 +52,15 @@ export default async function handler(req, res) {
 
     // Only applicants can submit applications
     if (auth.user.userType !== 'applicant') {
+      console.log('❌ User type check failed:', auth.user.userType);
       return res.status(403).json({ 
         success: false, 
         message: 'Only applicants can submit job applications' 
       });
     }
 
-    console.log('✅ User authenticated as applicant:', auth.user.email);
-
-    // Parse the multipart form data
-    const form = new formidable.IncomingForm({
+    console.log('✅ User authenticated as applicant:', auth.user.email);    // Parse the multipart form data
+    const form = new IncomingForm({
       maxFileSize: 10 * 1024 * 1024, // 10MB limit
       keepExtensions: true,
       multiples: false
@@ -59,16 +75,19 @@ export default async function handler(req, res) {
           resolve([fields, files]);
         }
       });
-    });
-
-    console.log('📋 Parsed form data:');
+    });    console.log('📋 Parsed form data:');
     console.log('Fields:', Object.keys(fields));
+    console.log('Fields values:', fields);
     console.log('Files:', Object.keys(files));
 
     // Extract form fields
     const jobId = Array.isArray(fields.jobId) ? fields.jobId[0] : fields.jobId;
     const coverLetter = Array.isArray(fields.coverLetter) ? fields.coverLetter[0] : fields.coverLetter;
     const additionalMessage = Array.isArray(fields.additionalMessage) ? fields.additionalMessage[0] : fields.additionalMessage;
+
+    console.log('🔍 Extracted jobId:', jobId);
+    console.log('🔍 jobId type:', typeof jobId);
+    console.log('🔍 jobId length:', jobId?.length);
 
     // Validate required fields
     if (!jobId) {
@@ -83,32 +102,49 @@ export default async function handler(req, res) {
         success: false, 
         message: 'Invalid job ID format' 
       });
-    }
-
-    // Get the resume file
+    }    // Get the resume file
     let resumeFile;
+    console.log('🔍 Processing resume file...');
+    console.log('🔍 files object:', files);
+    console.log('🔍 files.resume:', files.resume);
+    
     if (files.resume && files.resume.length > 0) {
       resumeFile = files.resume[0];
+      console.log('🔍 Resume file from array:', resumeFile);
     } else if (files.resume && !Array.isArray(files.resume)) {
       resumeFile = files.resume;
+      console.log('🔍 Resume file direct:', resumeFile);
     }
 
+    console.log('🔍 Final resumeFile:', resumeFile);
+    
     if (!resumeFile) {
+      console.log('❌ No resume file found');
       return res.status(400).json({ 
         success: false, 
         message: 'Resume file is required' 
       });
     }
 
+    console.log('🔍 Resume file properties:');
+    console.log('  - originalFilename:', resumeFile.originalFilename);
+    console.log('  - mimetype:', resumeFile.mimetype);
+    console.log('  - size:', resumeFile.size);
+    console.log('  - filepath:', resumeFile.filepath);
+
     // Validate resume file
     const allowedTypes = ['application/pdf'];
+    console.log('🔍 Validating file...');
     const validation = validateFile(resumeFile, allowedTypes);
+    console.log('🔍 Validation result:', validation);
+    
     if (!validation.isValid) {
+      console.log('❌ File validation failed:', validation.error);
       return res.status(400).json({ 
         success: false, 
         message: validation.error 
       });
-    }    console.log('✅ Resume file validation passed');    // Connect to database
+    }console.log('✅ Resume file validation passed');    // Connect to database
     const client = await clientPromise;
     
     // Use consistent database name
@@ -177,37 +213,65 @@ export default async function handler(req, res) {
         success: false, 
         message: 'Applicant not found' 
       });
-    }
-
-    // Save the resume file
+    }    // Save the resume file
     let resumePath;
     try {
+      console.log('🔍 Starting file save process...');
+      
       // Create unique filename with timestamp and user ID
       const timestamp = Date.now();
       const fileExtension = path.extname(resumeFile.originalFilename || '.pdf');
       const safeJobTitle = job.title.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50);
       const filename = `${auth.user.userId}_${safeJobTitle}_${timestamp}${fileExtension}`;
       
+      console.log('🔍 Generated filename:', filename);
+
       // Create upload directory if it doesn't exist
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'application-resumes');
+      console.log('🔍 Upload directory:', uploadDir);
+      
       if (!fs.existsSync(uploadDir)) {
+        console.log('🔍 Creating upload directory...');
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
       // Save file
       const filePath = path.join(uploadDir, filename);
+      console.log('🔍 Target file path:', filePath);
+      console.log('🔍 Source file path:', resumeFile.filepath);
+      
+      // Check if source file exists
+      if (!fs.existsSync(resumeFile.filepath)) {
+        throw new Error(`Source file does not exist: ${resumeFile.filepath}`);
+      }
+      
       const fileBuffer = fs.readFileSync(resumeFile.filepath);
+      console.log('🔍 File buffer length:', fileBuffer.length);
+      
       fs.writeFileSync(filePath, fileBuffer);
+      
+      // Verify the file was written
+      if (!fs.existsSync(filePath)) {
+        throw new Error(`Failed to write file: ${filePath}`);
+      }
+      
+      const savedFileStats = fs.statSync(filePath);
+      console.log('🔍 Saved file size:', savedFileStats.size);
       
       // Store relative path for database
       resumePath = `/uploads/application-resumes/${filename}`;
       
-      console.log('✅ Resume file saved:', resumePath);
+      console.log('✅ Resume file saved successfully:', resumePath);
     } catch (error) {
-      console.error('Error saving resume file:', error);
+      console.error('❌ Error saving resume file:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       return res.status(500).json({ 
         success: false, 
-        message: 'Failed to save resume file' 
+        message: 'Internal server error during resume upload' 
       });
     }
 
@@ -250,12 +314,26 @@ export default async function handler(req, res) {
         appliedAt: application.appliedAt
       }
     });
-
   } catch (error) {
-    console.error('Error submitting application:', error);
+    console.error('❌ CRITICAL ERROR in application submission:', error);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
+    
+    // Provide more specific error messages
+    let errorMessage = 'Internal server error. Please try again.';
+    
+    if (error.message.includes('file') || error.message.includes('upload')) {
+      errorMessage = 'Internal server error during resume upload';
+    } else if (error.message.includes('database') || error.message.includes('mongo')) {
+      errorMessage = 'Database error. Please try again.';
+    } else if (error.message.includes('auth')) {
+      errorMessage = 'Authentication error. Please login again.';
+    }
+    
     return res.status(500).json({ 
       success: false, 
-      message: 'Internal server error. Please try again.' 
+      message: errorMessage
     });
   }
 }

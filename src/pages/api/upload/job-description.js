@@ -1,4 +1,4 @@
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';
 import fs from 'fs';
 import path from 'path';
 import { authMiddleware } from '../../../lib/middleware';

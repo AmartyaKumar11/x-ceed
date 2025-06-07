@@ -1,4 +1,4 @@
-import formidable from 'formidable';
+import { IncomingForm } from 'formidable';
 import { authMiddleware } from '../../../lib/middleware';
 import { validateFile, saveFile } from '../../../lib/fileUpload';
 
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     }
     
     // Parse the multipart form data
-    const form = new formidable.IncomingForm();
+    const form = new IncomingForm();
     form.keepExtensions = true;
     
     const [fields, files] = await new Promise((resolve, reject) => {

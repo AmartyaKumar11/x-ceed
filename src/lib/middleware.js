@@ -5,6 +5,8 @@ import { ObjectId } from 'mongodb';
 
 export async function authMiddleware(req) {
   try {
+    console.log('🔍 Auth middleware called');
+    
     // Try to get the token from different sources in this order:
     // 1. Authorization header
     // 2. Cookie
@@ -13,8 +15,11 @@ export async function authMiddleware(req) {
     let token = null;
       // Check Authorization header
     const authHeader = req.headers['authorization'] || req.headers.Authorization;
+    console.log('🔍 Auth header:', authHeader ? 'Present' : 'Missing');
+    
     if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
+      console.log('🔍 Token extracted from header:', token ? 'YES' : 'NO');
     }
     
     // If no token in Authorization header, check cookies
@@ -36,15 +41,24 @@ export async function authMiddleware(req) {
     if (!token && req.query && req.query.token) {
       token = req.query.token;
     }
-    
-    if (!token) {
+      if (!token) {
+      console.log('❌ No token found in request');
       return {
         isAuthenticated: false,
         error: 'Authentication token is missing',
         status: 401
       };
-    }    // Verify the token
+    }
+
+    console.log('🔍 Token found, verifying...');
+
+    // Verify the token
     const decoded = verify(token, process.env.JWT_SECRET);
+    console.log('🔍 Token decoded:', {
+      userId: decoded.userId,
+      userType: decoded.userType,
+      email: decoded.email
+    });
     
     // Check if the token is expired
     if (decoded.exp && Date.now() >= decoded.exp * 1000) {
