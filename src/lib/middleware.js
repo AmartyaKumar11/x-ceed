@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verify } from 'jsonwebtoken';
+import { jwtVerify } from 'jose';
 import clientPromise from './mongodb';
 import { ObjectId } from 'mongodb';
 
@@ -48,12 +48,23 @@ export async function authMiddleware(req) {
         error: 'Authentication token is missing',
         status: 401
       };
+    }    console.log('🔍 Token found, verifying...');
+
+    // Verify the token using jose library (same as auth.js)
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key-for-jwt-tokens');
+    let decoded;
+    try {
+      const { payload } = await jwtVerify(token, secret);
+      decoded = payload;
+    } catch (verifyError) {
+      console.error('Token verification failed:', verifyError);
+      return {
+        isAuthenticated: false,
+        error: 'Invalid or malformed token',
+        status: 401
+      };
     }
-
-    console.log('🔍 Token found, verifying...');
-
-    // Verify the token
-    const decoded = verify(token, process.env.JWT_SECRET);
+    
     console.log('🔍 Token decoded:', {
       userId: decoded.userId,
       userType: decoded.userType,

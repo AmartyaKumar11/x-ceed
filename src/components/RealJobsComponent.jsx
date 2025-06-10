@@ -12,7 +12,6 @@ import {
   Loader2,
   Download
 } from 'lucide-react';
-import { apiClient } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 
 import {
@@ -30,26 +29,47 @@ export default function RealJobsComponent({ onJobClick }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [applicationDialog, setApplicationDialog] = useState({
+    isOpen: false,
+    selectedJob: null
+  });
 
   useEffect(() => {
     fetchJobs();
   }, []);  const fetchJobs = async () => {
     setLoading(true);
     try {
-      // Call the jobs API to get public jobs from the database
-      const response = await apiClient.get('/api/jobs?public=true');
+      console.log('🔍 RealJobsComponent: Starting fetchJobs...');
+      // Call the jobs API to get public jobs from the database using direct fetch
+      const response = await fetch('/api/jobs?public=true', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      if (response && response.success) {
-        console.log('Fetched jobs:', response.data);
-        setJobs(response.data || []);
+      console.log('📡 RealJobsComponent: Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ RealJobsComponent: Received data:', data);
+        if (data && data.success) {
+          console.log('📊 RealJobsComponent: Setting jobs:', data.data?.length, 'jobs');
+          setJobs(data.data || []);
+        } else {
+          console.error('❌ RealJobsComponent: API returned unsuccessful response:', data);
+          setError('Failed to load jobs. Please try again later.');
+        }
       } else {
-        console.error('Failed to fetch jobs:', response);
+        const errorText = await response.text();
+        console.error('❌ RealJobsComponent: API request failed:', response.status, errorText);
         setError('Failed to load jobs. Please try again later.');
       }
     } catch (error) {
-      console.error('Error fetching jobs:', error);
+      console.error('❌ RealJobsComponent: Error fetching jobs:', error);
       setError('An error occurred while loading jobs.');
     } finally {
+      console.log('🏁 RealJobsComponent: Finished fetchJobs, setting loading to false');
       setLoading(false);
     }
   };
@@ -96,8 +116,8 @@ export default function RealJobsComponent({ onJobClick }) {
       selectedJob: null
     });
   };
-
   if (loading) {
+    console.log('🔄 RealJobsComponent: Currently loading...');
     return (
       <div className="flex flex-col items-center justify-center py-12">
         <Loader2 className="h-12 w-12 animate-spin text-muted-foreground mb-4" />
@@ -107,6 +127,7 @@ export default function RealJobsComponent({ onJobClick }) {
   }
 
   if (error) {
+    console.log('❌ RealJobsComponent: Error state:', error);
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
@@ -118,8 +139,8 @@ export default function RealJobsComponent({ onJobClick }) {
       </div>
     );
   }
-
   if (jobs.length === 0) {
+    console.log('📭 RealJobsComponent: No jobs to display');
     return (      <div className="flex flex-col items-center justify-center py-16 text-center">
         <FileText className="h-16 w-16 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium text-foreground">No jobs available</h3>
@@ -128,7 +149,10 @@ export default function RealJobsComponent({ onJobClick }) {
         </p>
       </div>
     );
-  }  return (
+  }
+
+  console.log('🎯 RealJobsComponent: About to render', jobs.length, 'jobs');
+  console.log('📋 RealJobsComponent: Jobs array:', jobs.map(job => ({ id: job._id, title: job.title })));return (
     <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
         {jobs.map((job) => (<Card 

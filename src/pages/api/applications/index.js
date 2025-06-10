@@ -3,22 +3,16 @@ import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
-  console.log('🔥🔥🔥 APPLICATIONS API CALLED!');
-  console.log('🔥 Method:', req.method);
-  console.log('🔥 URL:', req.url);
-  console.log('🔥 Headers:', req.headers);
-  console.log('🔥 Request body:', req.body);
-  console.log('🔥 Timestamp:', new Date().toISOString());
+  console.log('Applications API called:', req.method);
   
   // Check authentication first
   const auth = await authMiddleware(req);
   if (!auth.isAuthenticated) {
     return res.status(auth.status).json({ message: auth.error });
   }
-  
-  // Connect to the database
+    // Connect to the database
   const client = await clientPromise;
-  const db = client.db();
+  const db = client.db('x-ceed-db');
   
   // Handle different request methods
   switch (req.method) {
@@ -32,27 +26,25 @@ export default async function handler(req, res) {
           query = { applicantId: auth.user.userId };
         } else if (auth.user.userType === 'recruiter') {
           // Recruiters can filter applications
-          const { jobId, status } = req.query;
-          
-          if (jobId) {
+          const { jobId, status } = req.query;          if (jobId) {
             // Verify the recruiter owns this job
             const job = await db.collection('jobs').findOne({ 
               _id: new ObjectId(jobId),
-              recruiterId: auth.user.userId 
+              recruiterId: auth.user.userId.toString() 
             });
             
             if (!job) {
+              console.log('❌ Job not found or permission denied');
               return res.status(403).json({ 
                 success: false, 
                 message: 'You do not have permission to view applications for this job' 
-              });
-            }
+              });            }
             
             query.jobId = jobId;
           } else {
             // If no specific job ID, get all jobs from this recruiter
             const recruiterJobs = await db.collection('jobs')
-              .find({ recruiterId: auth.user.userId })
+              .find({ recruiterId: auth.user.userId.toString() })
               .project({ _id: 1 })
               .toArray();
             
@@ -86,10 +78,9 @@ export default async function handler(req, res) {
         }
         
         console.log('Query:', query, 'Sort:', sortOptions, 'Page:', page, 'Limit:', limit);
-          
-        // Get applications with applicant details for recruiters
+            // Get applications with applicant details for recruiters
         let applications;
-          if (auth.user.userType === 'recruiter') {
+        if (auth.user.userType === 'recruiter') {
           // For recruiters, include detailed applicant and job information
           applications = await db.collection('applications')
             .aggregate([
@@ -167,39 +158,19 @@ export default async function handler(req, res) {
           return res.status(403).json({ message: 'Only applicants can apply for jobs' });
         }
           const { jobId, coverLetter } = req.body;
-        
-        console.log('🔍 Application submission debugging:');
-        console.log('  - Received jobId:', jobId);
-        console.log('  - jobId type:', typeof jobId);
-        console.log('  - jobId length:', jobId?.length);
-        console.log('  - ObjectId.isValid(jobId):', ObjectId.isValid(jobId));
-        
-        // Validate required fields
+          // Validate required fields
         if (!jobId) {
           return res.status(400).json({ message: 'Job ID is required' });
         }
         
         // Validate ObjectId format
         if (!ObjectId.isValid(jobId)) {
-          console.log('❌ Invalid ObjectId format:', jobId);
           return res.status(400).json({ message: 'Invalid job ID format' });
         }
-        
-        // Check if the job exists
-        console.log('🔍 Looking for job with _id:', jobId);
+          // Check if the job exists
         const job = await db.collection('jobs').findOne({ _id: new ObjectId(jobId) });
-        console.log('🔍 Job lookup result:', job ? 'Found' : 'Not found');
         
         if (!job) {
-          console.log('❌ Job not found for ID:', jobId);
-          // Let's also check if there are any jobs in the collection
-          const totalJobs = await db.collection('jobs').countDocuments();
-          console.log('📊 Total jobs in collection:', totalJobs);
-          
-          // List a few job IDs for debugging
-          const sampleJobs = await db.collection('jobs').find({}).limit(3).project({ _id: 1, title: 1 }).toArray();
-          console.log('📋 Sample jobs in database:', sampleJobs);
-          
           return res.status(404).json({ message: 'Job not found' });
         }
         

@@ -15,98 +15,87 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('🔍 Job description upload request received');
-
     // Verify authentication
     const auth = await authMiddleware(req);
     if (!auth.isAuthenticated) {
-      console.log('❌ Authentication failed:', auth.error);
       return res.status(auth.status).json({ message: auth.error });
     }
 
     // Verify user is a recruiter
     if (auth.user.userType !== 'recruiter') {
-      console.log('❌ User is not a recruiter:', auth.user.userType);
       return res.status(403).json({ message: 'Only recruiters can upload job descriptions' });
     }
-
-    console.log('✅ User authenticated as recruiter:', auth.user.email);
 
     // Create upload directory if it doesn't exist
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'job-descriptions');
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
-      console.log('📁 Created upload directory:', uploadDir);
     }
 
-    // Configure formidable
-    const form = formidable({
-      uploadDir,
+    // Parse the form data
+    const form = new IncomingForm({
+      uploadDir: uploadDir,
       keepExtensions: true,
-      maxFileSize: 10 * 1024 * 1024, // 10MB
-      filter: ({ mimetype }) => {
-        return mimetype && mimetype.includes('pdf');
-      },
+      maxFileSize: 10 * 1024 * 1024, // 10MB limit
     });
 
-    console.log('📄 Processing file upload...');
+    return new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) {
+          return res.status(400).json({ message: 'File upload failed', error: err.message });
+        }
 
-    const [fields, files] = await form.parse(req);
-    console.log('📄 Form parsed. Files:', Object.keys(files));
+        const file = files.file;
+        if (!file) {
+          return res.status(400).json({ message: 'No file uploaded' });
+        }
 
-    if (!files.file || files.file.length === 0) {
-      console.log('❌ No file uploaded');
-      return res.status(400).json({ message: 'No file uploaded' });
-    }
+        // Handle array or single file
+        const uploadedFile = Array.isArray(file) ? file[0] : file;
 
-    const file = Array.isArray(files.file) ? files.file[0] : files.file;
-    console.log('📄 File details:', {
-      originalFilename: file.originalFilename,
-      mimetype: file.mimetype,
-      size: file.size,
-      filepath: file.filepath
-    });
+        // Validate file type
+        const allowedTypes = [
+          'application/pdf',
+          'application/msword', 
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/plain'
+        ];
 
-    // Validate file type
-    if (!file.mimetype || !file.mimetype.includes('pdf')) {
-      console.log('❌ Invalid file type:', file.mimetype);
-      // Clean up uploaded file
-      fs.unlinkSync(file.filepath);
-      return res.status(400).json({ message: 'Only PDF files are allowed' });
-    }
+        if (!allowedTypes.includes(uploadedFile.mimetype)) {
+          return res.status(400).json({ 
+            message: 'Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed.' 
+          });
+        }
 
-    // Generate unique filename
-    const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substring(7);
-    const fileName = `job_desc_${timestamp}_${randomString}.pdf`;
-    const finalPath = path.join(uploadDir, fileName);
+        // Generate unique filename
+        const timestamp = Date.now();
+        const originalName = uploadedFile.originalFilename || uploadedFile.newFilename;
+        const extension = path.extname(originalName);
+        const filename = `${auth.user.userId}_job_description_${timestamp}${extension}`;
+        const finalPath = path.join(uploadDir, filename);
 
-    // Move file to final location
-    fs.renameSync(file.filepath, finalPath);
-    console.log('✅ File saved to:', finalPath);
+        // Move file to final location
+        fs.renameSync(uploadedFile.filepath, finalPath);
 
-    // Return file URL
-    const fileUrl = `/uploads/job-descriptions/${fileName}`;
-    
-    console.log('✅ Job description upload successful:', fileUrl);
+        // Return success response with file URL
+        const fileUrl = `/uploads/job-descriptions/${filename}`;
 
-    return res.status(200).json({
-      success: true,
-      message: 'Job description uploaded successfully',
-      data: {
-        filename: fileName,
-        originalName: file.originalFilename,
-        size: file.size,
-        url: fileUrl
-      }
+        res.status(200).json({
+          message: 'Job description uploaded successfully',
+          fileUrl,
+          filename,
+          originalName: originalName
+        });
+
+        resolve();
+      });
     });
 
   } catch (error) {
-    console.error('❌ Job description upload error:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to upload job description',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    console.error('Job description upload error:', error);
+    return res.status(500).json({ 
+      message: 'Internal server error', 
+      error: error.message 
     });
   }
 }

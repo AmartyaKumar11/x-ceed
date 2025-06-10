@@ -132,13 +132,21 @@ export const clientAuth = {
       console.error('Logout failed:', error);
     }
   },
-  
-  /**
+    /**
    * Checks if the user is authenticated
    * @returns {boolean} - Whether the user is authenticated
    */
   isAuthenticated() {
     return !!this.getUser();
+  },
+  
+  /**
+   * Gets the user role/type
+   * @returns {string|null} - The user role ('applicant' or 'recruiter') or null if not authenticated
+   */
+  getUserRole() {
+    const user = this.getUser();
+    return user?.userType || null;
   },
   
   /**

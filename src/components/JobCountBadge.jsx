@@ -1,17 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { apiClient } from '@/lib/api';
 
 export default function JobCountBadge() {
   const [count, setCount] = useState('...');
     useEffect(() => {
     const fetchJobCount = async () => {
       try {
-        const response = await apiClient.get('/api/jobs?public=true');
-        if (response && response.success) {
-          setCount(response.data.length);
+        const response = await fetch('/api/jobs?public=true', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.success) {
+            setCount(data.data.length);
+          } else {
+            setCount('?');
+          }
         } else {
+          console.error('Failed to fetch job count:', response.status);
           setCount('?');
         }
       } catch (error) {

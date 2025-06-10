@@ -24,7 +24,6 @@ import {
   Mail
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api';
 import { formatDistanceToNow } from 'date-fns';
 
 import {
@@ -96,18 +95,37 @@ export default function RecruiterJobsPage() {
   useEffect(() => {
     fetchJobs();
   }, []);
-
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      // Call the jobs API to get recruiter's jobs
-      const response = await apiClient.get('/api/jobs');
+      // Get auth token
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        return;
+      }
+
+      // Call the jobs API to get recruiter's jobs using direct fetch
+      const response = await fetch('/api/jobs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
-      if (response && response.success) {
-        console.log('Fetched recruiter jobs:', response.data);
-        setJobs(response.data || []);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          console.log('Fetched recruiter jobs:', data.data);
+          setJobs(data.data || []);
+        } else {
+          console.error('Failed to fetch jobs:', data);
+          setError('Failed to load jobs. Please try again later.');
+        }
       } else {
-        console.error('Failed to fetch jobs:', response);
+        const errorText = await response.text();
+        console.error('API request failed:', response.status, errorText);
         setError('Failed to load jobs. Please try again later.');
       }
     } catch (error) {
@@ -122,23 +140,40 @@ export default function RecruiterJobsPage() {
     setJobToClose(jobId);
     setIsConfirmCloseJobDialogOpen(true);
   };
-
   const handleCloseJob = async () => {
     if (!jobToClose) return;
 
     try {
-      const response = await apiClient.put('/api/jobs', {
-        jobId: jobToClose,
-        status: 'closed'
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      const response = await fetch('/api/jobs', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          jobId: jobToClose,
+          status: 'closed'
+        })
       });
 
-      if (response && response.success) {
-        // Update the jobs list
-        setJobs(jobs.map(job => 
-          job._id === jobToClose ? { ...job, status: 'closed' } : job
-        ));
-        setIsConfirmCloseJobDialogOpen(false);
-        setJobToClose(null);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          // Update the jobs list
+          setJobs(jobs.map(job => 
+            job._id === jobToClose ? { ...job, status: 'closed' } : job
+          ));
+          setIsConfirmCloseJobDialogOpen(false);
+          setJobToClose(null);
+        } else {
+          alert('Failed to close job. Please try again.');
+        }
       } else {
         alert('Failed to close job. Please try again.');
       }
@@ -167,46 +202,59 @@ export default function RecruiterJobsPage() {
 
       // Add status filter if not 'all'
       if (filterStatus !== 'all') {
-        url += `&status=${filterStatus}`;
-      }
+        url += `&status=${filterStatus}`;      }
       
       try {
         // Ensure we have a valid token before making the API call
         const token = localStorage.getItem('token');
         if (!token) {
-          console.warn('No authentication token found, using mock data');
-          const mockCandidates = generateMockCandidates(jobId);
-          setJobCandidates(mockCandidates);
-          setTotalCandidates(mockCandidates.length);
+          console.error('❌ No authentication token found');
+          setJobCandidates([]);
+          setTotalCandidates(0);
           return;
         }
         
-        const response = await apiClient.get(url);
+        console.log(`🔍 Fetching candidates for job ${jobId}...`);
+        console.log(`📡 URL: ${url}`);
         
-        if (response && response.success) {
-          console.log('Fetched job candidates:', response.data);
-          setJobCandidates(response.data || []);
-          setTotalCandidates(response.pagination ? response.pagination.total : 0);
+        // Use direct fetch instead of broken apiClient
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log(`📊 Response status: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Fetched job candidates:', data);
+          
+          if (data.success) {
+            setJobCandidates(data.data || []);
+            setTotalCandidates(data.pagination ? data.pagination.total : (data.data?.length || 0));
+          } else {
+            console.error('❌ API returned error:', data.message);
+            setJobCandidates([]);
+            setTotalCandidates(0);
+          }
         } else {
-          console.error('API returned error:', response);
-          // If API fails, use mock data for demonstration
-          const mockCandidates = generateMockCandidates(jobId);
-          setJobCandidates(mockCandidates);
-          setTotalCandidates(mockCandidates.length);
+          const errorText = await response.text();
+          console.error('❌ API request failed:', response.status, errorText);
+          setJobCandidates([]);
+          setTotalCandidates(0);
         }
       } catch (apiError) {
-        console.error('API error:', apiError);
-        // Use mock data for API errors
-        const mockCandidates = generateMockCandidates(jobId);
-        setJobCandidates(mockCandidates);
-        setTotalCandidates(mockCandidates.length);
+        console.error('❌ API error:', apiError);
+        setJobCandidates([]);
+        setTotalCandidates(0);
       }
     } catch (error) {
-      console.error('Error in fetchJobCandidates:', error);
-      // Use mock data on error
-      const mockCandidates = generateMockCandidates(jobId);
-      setJobCandidates(mockCandidates);
-      setTotalCandidates(mockCandidates.length);
+      console.error('❌ Error in fetchJobCandidates:', error);
+      setJobCandidates([]);
+      setTotalCandidates(0);
     } finally {
       setLoadingCandidates(false);
     }
@@ -364,34 +412,54 @@ export default function RecruiterJobsPage() {
     setUpdateStatusSuccess(false);
     
     try {
-      const response = await apiClient.patch(`/api/applications/${applicationId}`, {
-        status
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUpdateStatusMessage('Authentication required. Please log in again.');
+        setUpdateStatusSuccess(false);
+        return;
+      }
+
+      const response = await fetch(`/api/applications/${applicationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
       });
       
-      if (response && response.success) {
-        // Update the candidate in the local state
-        setJobCandidates(prev => 
-          prev.map(candidate => 
-            candidate._id === applicationId ? { ...candidate, status } : candidate
-          )
-        );
-        
-        // If we're viewing candidate details, update the selected candidate too
-        if (selectedCandidate && selectedCandidate._id === applicationId) {
-          setSelectedCandidate(prev => ({ ...prev, status }));
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          // Update the candidate in the local state
+          setJobCandidates(prev => 
+            prev.map(candidate => 
+              candidate._id === applicationId ? { ...candidate, status } : candidate
+            )
+          );
           
-          // Show a success message in the UI
-          setUpdateStatusMessage(`Status successfully updated to ${status}`);
-          setUpdateStatusSuccess(true);
-          
-          // Clear the message after 5 seconds
-          setTimeout(() => {
-            setUpdateStatusMessage('');
-            setUpdateStatusSuccess(false);
-          }, 5000);
+          // If we're viewing candidate details, update the selected candidate too
+          if (selectedCandidate && selectedCandidate._id === applicationId) {
+            setSelectedCandidate(prev => ({ ...prev, status }));
+            
+            // Show a success message in the UI
+            setUpdateStatusMessage(`Status successfully updated to ${status}`);
+            setUpdateStatusSuccess(true);
+            
+            // Clear the message after 5 seconds
+            setTimeout(() => {
+              setUpdateStatusMessage('');
+              setUpdateStatusSuccess(false);
+            }, 5000);
+          }
+        } else {
+          console.error('Failed to update application status:', data);
+          setUpdateStatusMessage('Failed to update application status. Please try again.');
+          setUpdateStatusSuccess(false);
         }
       } else {
-        console.error('Failed to update application status:', response);
+        const errorText = await response.text();
+        console.error('API request failed:', response.status, errorText);
         setUpdateStatusMessage('Failed to update application status. Please try again.');
         setUpdateStatusSuccess(false);
       }
@@ -403,25 +471,72 @@ export default function RecruiterJobsPage() {
       setUpdatingApplication(false);
     }
   };
+
+  // Helper function to get applicant data consistently
+  const getApplicantData = (candidate) => {
+    return candidate?.applicant || candidate?.applicantDetails;
+  };
+
+  // Helper function to get applicant full name
+  const getApplicantFullName = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    if (applicantData?.firstName && applicantData?.lastName) {
+      return `${applicantData.firstName} ${applicantData.lastName}`;
+    }
+    return applicantData?.personal?.name || 'Candidate';
+  };
+  // Helper function to get applicant email
+  const getApplicantEmail = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    return applicantData?.email || applicantData?.personal?.email || 'N/A';
+  };
+
+  // Helper function to get applicant phone
+  const getApplicantPhone = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    return applicantData?.phone || applicantData?.personal?.phone || 'Not provided';
+  };
+
+  // Helper function to get applicant location
+  const getApplicantLocation = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    if (applicantData?.city && applicantData?.state) {
+      return `${applicantData.city}, ${applicantData.state}`;
+    }
+    if (applicantData?.personal?.address) {
+      return applicantData.personal.address;
+    }
+    return 'Not provided';
+  };
+
+  // Helper function to get applicant skills
+  const getApplicantSkills = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    return applicantData?.skills || applicantData?.professional?.skills || [];
+  };
   const openEmailDialog = (type) => {
     let subject = '';
     let body = '';
     
+    // Handle both mock data (applicant) and real API data (applicantDetails)
+    const applicantData = selectedCandidate.applicant || selectedCandidate.applicantDetails;
+    const applicantName = applicantData?.firstName || applicantData?.personal?.name || 'Candidate';
+    
     if (type === 'interview') {
       subject = `Interview Invitation for ${selectedJob?.title} Position`;
-      body = `Dear ${selectedCandidate.applicant.firstName},\n\nWe are pleased to invite you for an interview for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nPlease let us know your availability for an interview in the coming week.\n\nBest regards,\nRecruitment Team`;
+      body = `Dear ${applicantName},\n\nWe are pleased to invite you for an interview for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nPlease let us know your availability for an interview in the coming week.\n\nBest regards,\nRecruitment Team`;
     } else if (type === 'accepted') {
       subject = `Congratulations! Your Application for ${selectedJob?.title} Position`;
-      body = `Dear ${selectedCandidate.applicant.firstName},\n\nCongratulations! We are pleased to inform you that we would like to move forward with your application for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nWe will be in touch shortly with the next steps.\n\nBest regards,\nRecruitment Team`;
+      body = `Dear ${applicantName},\n\nCongratulations! We are pleased to inform you that we would like to move forward with your application for the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nWe will be in touch shortly with the next steps.\n\nBest regards,\nRecruitment Team`;
     } else if (type === 'rejected') {
       subject = `Regarding Your Application for ${selectedJob?.title} Position`;
-      body = `Dear ${selectedCandidate.applicant.firstName},\n\nThank you for your interest in the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nAfter careful consideration, we regret to inform you that we have decided to pursue other candidates whose qualifications more closely align with our current needs.\n\nWe appreciate your interest in our company and wish you success in your job search.\n\nBest regards,\nRecruitment Team`;
+      body = `Dear ${applicantName},\n\nThank you for your interest in the ${selectedJob?.title} position at ${selectedJob?.companyName || 'our company'}.\n\nAfter careful consideration, we regret to inform you that we have decided to pursue other candidates whose qualifications more closely align with our current needs.\n\nWe appreciate your interest in our company and wish you success in your job search.\n\nBest regards,\nRecruitment Team`;
     }
-    
-    setEmailSubject(subject);
+      setEmailSubject(subject);
     setEmailBody(body);
     setEmailDialogOpen(true);
-  };  const handleSendEmailNotification = async () => {
+  };
+  const handleSendEmailNotification = async () => {
     if (!selectedCandidate || !emailSubject.trim() || !emailBody.trim()) {
       setUpdateStatusMessage('Please fill in both subject and message fields.');
       setUpdateStatusSuccess(false);
@@ -433,75 +548,112 @@ export default function RecruiterJobsPage() {
     setUpdateStatusSuccess(false);
     
     try {
+      // Handle both mock data (applicant) and real API data (applicantDetails)
+      const applicantData = selectedCandidate.applicant || selectedCandidate.applicantDetails;
+      const applicantEmail = applicantData?.email || 'no-email@example.com';
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUpdateStatusMessage('Authentication required. Please log in again.');
+        setUpdateStatusSuccess(false);
+        return;
+      }
+      
       // Send email via API
-      const response = await apiClient.post('/api/email/send', {
-        to: selectedCandidate.applicant.email,
-        subject: emailSubject,
-        body: emailBody
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          to: applicantEmail,
+          subject: emailSubject,
+          body: emailBody
+        })
       });
 
-      if (response && response.success) {
-        // Show success message
-        setUpdateStatusMessage('Email sent successfully!');
-        setUpdateStatusSuccess(true);
-        
-        // Update candidate status based on email type if it's a status notification
-        let statusToUpdate = null;
-        
-        if (emailSubject.includes('Interview Invitation') && selectedCandidate.status !== 'interview') {
-          statusToUpdate = 'interview';
-        } else if (emailSubject.includes('Congratulations') && selectedCandidate.status !== 'accepted') {
-          statusToUpdate = 'accepted';
-        } else if (emailSubject.includes('Regarding Your Application') && !emailSubject.includes('Congratulations') && selectedCandidate.status !== 'rejected') {
-          statusToUpdate = 'rejected';
-        }
-        
-        // If status needs to be updated, do it after email is sent
-        if (statusToUpdate) {
-          // Update the status
-          try {
-            const statusResponse = await apiClient.patch(`/api/applications/${selectedCandidate._id}`, {
-              status: statusToUpdate
-            });
-            
-            if (statusResponse && statusResponse.success) {
-              // Update local state
-              setJobCandidates(prev => 
-                prev.map(candidate => 
-                  candidate._id === selectedCandidate._id ? { ...candidate, status: statusToUpdate } : candidate
-                )
-              );
-              setSelectedCandidate(prev => ({ ...prev, status: statusToUpdate }));
-              
-              setUpdateStatusMessage(`Email sent and status updated to ${statusToUpdate}!`);
-            }
-          } catch (statusError) {
-            console.error('Error updating status after email:', statusError);
-            setUpdateStatusMessage('Email sent successfully, but failed to update status. Please update manually.');
-          }
-        }
-        
-        // Close dialog after delay
-        setTimeout(() => {
-          setEmailDialogOpen(false);
-          setEmailSubject('');
-          setEmailBody('');
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          // Show success message
+          setUpdateStatusMessage('Email sent successfully!');
+          setUpdateStatusSuccess(true);
           
-          // Switch to status tab to show the status update
+          // Update candidate status based on email type if it's a status notification
+          let statusToUpdate = null;
+          
+          if (emailSubject.includes('Interview Invitation') && selectedCandidate.status !== 'interview') {
+            statusToUpdate = 'interview';
+          } else if (emailSubject.includes('Congratulations') && selectedCandidate.status !== 'accepted') {
+            statusToUpdate = 'accepted';
+          } else if (emailSubject.includes('Regarding Your Application') && !emailSubject.includes('Congratulations') && selectedCandidate.status !== 'rejected') {
+            statusToUpdate = 'rejected';
+          }
+          
+          // If status needs to be updated, do it after email is sent
           if (statusToUpdate) {
-            setActiveDetailsSection('status');
+            // Update the status
+            try {
+              const statusResponse = await fetch(`/api/applications/${selectedCandidate._id}`, {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ status: statusToUpdate })
+              });
+              
+              if (statusResponse.ok) {
+                const statusData = await statusResponse.json();
+                if (statusData && statusData.success) {
+                  // Update local state
+                  setJobCandidates(prev => 
+                    prev.map(candidate => 
+                      candidate._id === selectedCandidate._id ? { ...candidate, status: statusToUpdate } : candidate
+                    )
+                  );
+                  setSelectedCandidate(prev => ({ ...prev, status: statusToUpdate }));
+                  
+                  setUpdateStatusMessage(`Email sent and status updated to ${statusToUpdate}!`);
+                }
+              } else {
+                console.error('Failed to update status after email');
+                setUpdateStatusMessage('Email sent successfully, but failed to update status. Please update manually.');
+              }
+            } catch (statusError) {
+              console.error('Error updating status after email:', statusError);
+              setUpdateStatusMessage('Email sent successfully, but failed to update status. Please update manually.');
+            }
           }
           
-          // Clear message after additional delay
+          // Close dialog after delay
           setTimeout(() => {
-            setUpdateStatusMessage('');
-            setUpdateStatusSuccess(false);
-          }, 3000);
-        }, 2000);
-        
+            setEmailDialogOpen(false);
+            setEmailSubject('');
+            setEmailBody('');
+            
+            // Switch to status tab to show the status update
+            if (statusToUpdate) {
+              setActiveDetailsSection('status');
+            }
+            
+            // Clear message after additional delay
+            setTimeout(() => {
+              setUpdateStatusMessage('');
+              setUpdateStatusSuccess(false);
+            }, 3000);
+          }, 2000);
+          
+        } else {
+          console.error('Failed to send email:', data);
+          setUpdateStatusMessage(data?.message || 'Failed to send email. Please try again.');
+          setUpdateStatusSuccess(false);
+        }
       } else {
-        console.error('Failed to send email:', response);
-        setUpdateStatusMessage(response?.message || 'Failed to send email. Please try again.');
+        const errorText = await response.text();
+        console.error('Failed to send email:', response.status, errorText);
+        setUpdateStatusMessage('Failed to send email. Please try again.');
         setUpdateStatusSuccess(false);
       }
     } catch (error) {
@@ -558,11 +710,29 @@ export default function RecruiterJobsPage() {
         return <Badge variant="secondary" className="bg-muted text-muted-foreground">{status}</Badge>;
     }
   };
-  
-  // Function to filter candidates based on search query
+    // Function to filter candidates based on search query
   const filteredCandidates = jobCandidates.filter(candidate => {
-    const fullName = `${candidate.applicant.firstName} ${candidate.applicant.lastName}`.toLowerCase();
-    const email = candidate.applicant.email.toLowerCase();
+    // Handle both mock data (applicant) and real API data (applicantDetails)
+    const applicantData = candidate.applicant || candidate.applicantDetails;
+    
+    if (!applicantData) {
+      return false; // Skip candidates without applicant data
+    }
+    
+    // Get name - handle different structures
+    let fullName = '';
+    if (applicantData.firstName && applicantData.lastName) {
+      // Mock data structure
+      fullName = `${applicantData.firstName} ${applicantData.lastName}`.toLowerCase();
+    } else if (applicantData.personal?.name) {
+      // Real API data structure
+      fullName = applicantData.personal.name.toLowerCase();
+    } else if (applicantData.name) {
+      // Alternative structure
+      fullName = applicantData.name.toLowerCase();
+    }
+    
+    const email = (applicantData.email || '').toLowerCase();
     const query = searchQuery.toLowerCase();
     
     return fullName.includes(query) || email.includes(query);
@@ -820,10 +990,25 @@ export default function RecruiterJobsPage() {
                   >
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>                    <div className="flex items-center gap-2">
                       <h4 className="font-medium text-base text-foreground">
-                        {candidate.applicant.firstName} {candidate.applicant.lastName}
+                        {(() => {
+                          const applicantData = candidate.applicant || candidate.applicantDetails;
+                          if (applicantData?.firstName && applicantData?.lastName) {
+                            return `${applicantData.firstName} ${applicantData.lastName}`;
+                          } else if (applicantData?.personal?.name) {
+                            return applicantData.personal.name;
+                          } else if (applicantData?.name) {
+                            return applicantData.name;
+                          }
+                          return 'Unnamed Candidate';
+                        })()}
                       </h4>
                       {getStatusBadge(candidate.status)}
-                    </div><div className="text-muted-foreground text-sm">{candidate.applicant.email}</div>
+                    </div><div className="text-muted-foreground text-sm">
+                      {(() => {
+                        const applicantData = candidate.applicant || candidate.applicantDetails;
+                        return applicantData?.email || 'No email provided';
+                      })()}
+                    </div>
                     <div className="text-muted-foreground text-xs mt-1">
                       Applied {formatPostedDate(candidate.createdAt)}
                     </div>
@@ -929,10 +1114,9 @@ export default function RecruiterJobsPage() {
       {/* Candidate Details Dialog */}
       {selectedCandidate && (
         <Dialog open={candidateDetailsDialogOpen} onOpenChange={setCandidateDetailsDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">            <DialogHeader>
               <DialogTitle className="text-xl">
-                {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName}
+                {getApplicantFullName(selectedCandidate)}
               </DialogTitle>
               <DialogDescription className="flex items-center gap-2">
                 <span>Application for {selectedJob?.title}</span>
@@ -946,40 +1130,36 @@ export default function RecruiterJobsPage() {
                 <h3 className="font-semibold text-lg mb-3">Personal Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  <div>
                     <h4 className="text-sm text-muted-foreground">Email</h4>
-                    <p>{selectedCandidate.applicant.email}</p>
-                  </div>
-                  <div>
+                    <p>{getApplicantEmail(selectedCandidate)}</p>
+                  </div>                  <div>
                     <h4 className="text-sm text-muted-foreground">Phone</h4>
-                    <p>{selectedCandidate.applicant.phone || 'Not provided'}</p>
+                    <p>{getApplicantPhone(selectedCandidate)}</p>
                   </div>
                   <div>
                     <h4 className="text-sm text-muted-foreground">Location</h4>
-                    <p>
-                      {selectedCandidate.applicant.city && selectedCandidate.applicant.state
-                        ? `${selectedCandidate.applicant.city}, ${selectedCandidate.applicant.state}`
-                        : 'Not provided'}
-                    </p>
+                    <p>{getApplicantLocation(selectedCandidate)}</p>
                   </div>
                   <div>
                     <h4 className="text-sm text-muted-foreground">Application Date</h4>
                     <p>{new Date(selectedCandidate.appliedAt).toLocaleDateString()}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Skills */}
-              {selectedCandidate.applicant.skills && selectedCandidate.applicant.skills.length > 0 && (
-                <div>
-                  <h3 className="font-semibold text-lg mb-3">Skills</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCandidate.applicant.skills.map((skill, i) => (
-                      <Badge key={i} variant="secondary">
-                        {skill.name || skill}
-                      </Badge>
-                    ))}
+              </div>              {/* Skills */}
+              {(() => {
+                const skills = getApplicantSkills(selectedCandidate);
+                return skills && skills.length > 0 && (
+                  <div>
+                    <h3 className="font-semibold text-lg mb-3">Skills</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {skills.map((skill, i) => (
+                        <Badge key={i} variant="secondary">
+                          {skill.name || skill}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Application Details */}
               <div>
@@ -989,14 +1169,46 @@ export default function RecruiterJobsPage() {
                     {selectedCandidate.message || 'No message provided.'}
                   </p>
                 </div>
-              </div>
-
-              {/* Resume */}
-              {selectedCandidate.resumeUrl && (
+              </div>              {/* Resume */}
+              {(selectedCandidate.resumePath || selectedCandidate.resumeUrl) && (
                 <div>
                   <h3 className="font-semibold text-lg mb-3">Resume</h3>
                   <Button 
-                    onClick={() => window.open(selectedCandidate.resumeUrl, '_blank')}
+                    onClick={async () => {
+                      try {
+                        // Extract filename from resumePath
+                        const resumePath = selectedCandidate.resumePath || selectedCandidate.resumeUrl;
+                        const filename = resumePath.split('/').pop();
+                        
+                        // Use the new secure download API
+                        const token = localStorage.getItem('token');
+                        const response = await fetch(`/api/download/resume/${filename}`, {
+                          method: 'GET',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                          },
+                        });
+
+                        if (response.ok) {
+                          // Get the blob and create download link
+                          const blob = await response.blob();
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `${getApplicantFullName(selectedCandidate).replace(' ', '-')}-resume.pdf`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        } else {
+                          console.error('Failed to download resume');
+                          alert('Failed to download resume. Please try again.');
+                        }
+                      } catch (error) {
+                        console.error('Error downloading resume:', error);
+                        alert('An error occurred while downloading the resume.');
+                      }
+                    }}
                     className="flex items-center gap-2"
                   >
                     <Download className="h-4 w-4" />
@@ -1326,9 +1538,8 @@ export default function RecruiterJobsPage() {
               <DialogTitle className="text-xl">
                 Send Email to Candidate
               </DialogTitle>
-              <DialogDescription>
-                {selectedCandidate && (
-                  <span>Sending to {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName} ({selectedCandidate.applicant.email})</span>
+              <DialogDescription>                {selectedCandidate && (
+                  <span>Sending to {getApplicantFullName(selectedCandidate)} ({getApplicantEmail(selectedCandidate)})</span>
                 )}
               </DialogDescription>
             </DialogHeader>
@@ -1344,9 +1555,9 @@ export default function RecruiterJobsPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">                  <div className="flex flex-col">
                     <span className="text-muted-foreground mb-1">Recipient</span>
                     <span className="font-medium text-blue-900">
-                      {selectedCandidate.applicant.firstName} {selectedCandidate.applicant.lastName}
+                      {getApplicantFullName(selectedCandidate)}
                     </span>
-                    <span className="text-blue-700">{selectedCandidate.applicant.email}</span>
+                    <span className="text-blue-700">{getApplicantEmail(selectedCandidate)}</span>
                   </div>
                   
                   <div className="flex flex-col">

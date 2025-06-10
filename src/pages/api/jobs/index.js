@@ -124,8 +124,7 @@ export default async function handler(req, res) {
       });
     } else if (req.method === 'GET') {
       // Handle public job listings vs. recruiter-specific job listings
-      const isPublic = req.query.public === 'true';
-        if (!isPublic) {
+      const isPublic = req.query.public === 'true';      if (!isPublic) {
         // If not public, verify authentication for recruiter-specific listings
         const auth = await authMiddleware(req);
         if (!auth.isAuthenticated) {
@@ -183,17 +182,19 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           data: jobsWithStats
-        });
-      } else {
+        });      } else {
         // Public jobs listing - show only active jobs
         const jobs = await db.collection('jobs')
-          .find({ status: 'active' })
+          .find({ 
+            status: 'active'
+            // Removed isPublic requirement since jobs don't have this field yet
+          })
           .sort({ createdAt: -1 })
           .toArray();
 
         return res.status(200).json({
           success: true,
-          data: jobs
+          data: jobs  // Changed from 'jobs' to 'data' to match component expectation
         });
       }
     } else if (req.method === 'PUT') {

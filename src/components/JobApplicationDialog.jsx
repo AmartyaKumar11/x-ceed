@@ -76,14 +76,26 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
       applicationFormData.append('jobId', job._id);
       applicationFormData.append('coverLetter', formData.coverLetter);
       applicationFormData.append('additionalMessage', formData.additionalMessage);
-      applicationFormData.append('resume', resumeFile);
-
-      console.log('🔍 FormData contents:');
+      applicationFormData.append('resume', resumeFile);      console.log('🔍 FormData contents:');
       for (let [key, value] of applicationFormData.entries()) {
-        console.log(`  ${key}:`, typeof value === 'object' ? 'File object' : value);
+        if (typeof value === 'object' && value instanceof File) {
+          console.log(`  ${key}:`, {
+            name: value.name,
+            size: value.size,
+            type: value.type,
+            lastModified: value.lastModified
+          });
+        } else {
+          console.log(`  ${key}:`, value);
+        }
       }
 
+      console.log('🔍 About to submit application...');
+      console.log('🔍 Token available:', localStorage.getItem('token') ? 'YES' : 'NO');
+      console.log('🔍 URL:', '/api/applications/submit');
+
       // Submit application
+      console.log('🔍 Making fetch request...');
       const response = await fetch('/api/applications/submit', {
         method: 'POST',
         headers: {
@@ -92,7 +104,22 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         body: applicationFormData
       });
 
-      const result = await response.json();
+      console.log('🔍 Response received!');
+      console.log('🔍 Response status:', response.status);
+      console.log('🔍 Response ok:', response.ok);
+      console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      const responseText = await response.text();
+      console.log('🔍 Response text:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log('🔍 Parsed result:', result);
+      } catch (parseError) {
+        console.error('🔍 JSON parse error:', parseError);
+        throw new Error(`Server returned invalid JSON: ${responseText}`);
+      }
 
       if (!response.ok) {
         throw new Error(result.message || 'Failed to submit application');

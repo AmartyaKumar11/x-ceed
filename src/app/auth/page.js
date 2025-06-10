@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from "next/link";
 import styles from './auth.module.css';
+import { clientAuth } from '@/lib/auth';
 
 // Import shadcn components
 import { Button } from "@/components/ui/button";
@@ -45,10 +46,19 @@ export default function AuthPage() {
         if (!response.ok) {
           alert(result.message || 'Login failed');
           return;
-        }
-
-        // Store authentication data in localStorage
+        }        // Store authentication data using clientAuth
         if (typeof window !== 'undefined') {
+          // Store user data using the clientAuth method
+          clientAuth.setUser({
+            _id: result.user._id,
+            email: result.user.email,
+            userType: result.user.userType,
+            token: result.token,
+            personal: result.user.personal,
+            recruiter: result.user.recruiter
+          });
+          
+          // Also store individual items for backward compatibility (if needed elsewhere)
           localStorage.setItem('token', result.token);
           localStorage.setItem('userRole', result.user.userType);
           localStorage.setItem('userId', result.user._id);

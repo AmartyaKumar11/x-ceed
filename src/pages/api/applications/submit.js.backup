@@ -20,7 +20,6 @@ export default async function handler(req, res) {
       message: 'Method not allowed' 
     });
   }
-  
   try {
     // Check authentication
     const auth = await authMiddleware(req);
@@ -40,7 +39,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Parse the multipart form data
+    console.log('✅ User authenticated as applicant:', auth.user.email);    // Parse the multipart form data
     const form = new IncomingForm({
       maxFileSize: 10 * 1024 * 1024, // 10MB limit
       keepExtensions: true,
@@ -56,12 +55,19 @@ export default async function handler(req, res) {
           resolve([fields, files]);
         }
       });
-    });
+    });    console.log('📋 Parsed form data:');
+    console.log('Fields:', Object.keys(fields));
+    console.log('Fields values:', fields);
+    console.log('Files:', Object.keys(files));
 
     // Extract form fields
     const jobId = Array.isArray(fields.jobId) ? fields.jobId[0] : fields.jobId;
     const coverLetter = Array.isArray(fields.coverLetter) ? fields.coverLetter[0] : fields.coverLetter;
     const additionalMessage = Array.isArray(fields.additionalMessage) ? fields.additionalMessage[0] : fields.additionalMessage;
+
+    console.log('🔍 Extracted jobId:', jobId);
+    console.log('🔍 jobId type:', typeof jobId);
+    console.log('🔍 jobId length:', jobId?.length);
 
     // Validate required fields
     if (!jobId) {
@@ -76,35 +82,49 @@ export default async function handler(req, res) {
         success: false, 
         message: 'Invalid job ID format' 
       });
-    }
-
-    // Get the resume file
+    }    // Get the resume file
     let resumeFile;
+    console.log('🔍 Processing resume file...');
+    console.log('🔍 files object:', files);
+    console.log('🔍 files.resume:', files.resume);
+    
     if (files.resume && files.resume.length > 0) {
       resumeFile = files.resume[0];
+      console.log('🔍 Resume file from array:', resumeFile);
     } else if (files.resume && !Array.isArray(files.resume)) {
       resumeFile = files.resume;
+      console.log('🔍 Resume file direct:', resumeFile);
     }
+
+    console.log('🔍 Final resumeFile:', resumeFile);
     
     if (!resumeFile) {
+      console.log('❌ No resume file found');
       return res.status(400).json({ 
         success: false, 
         message: 'Resume file is required' 
       });
     }
 
+    console.log('🔍 Resume file properties:');
+    console.log('  - originalFilename:', resumeFile.originalFilename);
+    console.log('  - mimetype:', resumeFile.mimetype);
+    console.log('  - size:', resumeFile.size);
+    console.log('  - filepath:', resumeFile.filepath);
+
     // Validate resume file
     const allowedTypes = ['application/pdf'];
+    console.log('🔍 Validating file...');
     const validation = validateFile(resumeFile, allowedTypes);
+    console.log('🔍 Validation result:', validation);
     
     if (!validation.isValid) {
+      console.log('❌ File validation failed:', validation.error);
       return res.status(400).json({ 
         success: false, 
         message: validation.error 
       });
-    }
-
-    // Connect to database
+    }console.log('✅ Resume file validation passed');    // Connect to database
     const client = await clientPromise;
     
     // Use consistent database name
@@ -112,18 +132,31 @@ export default async function handler(req, res) {
     const dbName = uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
     const db = client.db(dbName);
 
+    console.log('🔍 Using database:', dbName);
+    console.log('🔍 Looking for job with ID:', jobId);
+    console.log('🔍 ObjectId valid:', ObjectId.isValid(jobId));
+
+    // First, let's check if the job exists at all (without status filter)
+    const jobExists = await db.collection('jobs').findOne({ 
+      _id: new ObjectId(jobId)
+    });
+
+    console.log('🔍 Job exists (any status):', !!jobExists);
+    if (jobExists) {
+      console.log('🔍 Job status:', jobExists.status);
+      console.log('🔍 Job title:', jobExists.title);
+    }
+
     // Check if the job exists and is active
     const job = await db.collection('jobs').findOne({ 
       _id: new ObjectId(jobId),
       status: 'active'
     });
 
+    console.log('🔍 Job with active status:', !!job);
+
     if (!job) {
-      // Check if job exists with different status
-      const jobExists = await db.collection('jobs').findOne({ 
-        _id: new ObjectId(jobId)
-      });
-      
+      // More detailed error message
       if (jobExists) {
         return res.status(404).json({ 
           success: false, 
@@ -160,26 +193,32 @@ export default async function handler(req, res) {
         success: false, 
         message: 'Applicant not found' 
       });
-    }
-
-    // Save the resume file
+    }    // Save the resume file
     let resumePath;
     try {
+      console.log('🔍 Starting file save process...');
+      
       // Create unique filename with timestamp and user ID
       const timestamp = Date.now();
       const fileExtension = path.extname(resumeFile.originalFilename || '.pdf');
       const safeJobTitle = job.title.replace(/[^a-zA-Z0-9]/g, '-').substring(0, 50);
       const filename = `${auth.user.userId}_${safeJobTitle}_${timestamp}${fileExtension}`;
+      
+      console.log('🔍 Generated filename:', filename);
 
       // Create upload directory if it doesn't exist
       const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'application-resumes');
+      console.log('🔍 Upload directory:', uploadDir);
       
       if (!fs.existsSync(uploadDir)) {
+        console.log('🔍 Creating upload directory...');
         fs.mkdirSync(uploadDir, { recursive: true });
       }
 
       // Save file
       const filePath = path.join(uploadDir, filename);
+      console.log('🔍 Target file path:', filePath);
+      console.log('🔍 Source file path:', resumeFile.filepath);
       
       // Check if source file exists
       if (!fs.existsSync(resumeFile.filepath)) {
@@ -187,6 +226,8 @@ export default async function handler(req, res) {
       }
       
       const fileBuffer = fs.readFileSync(resumeFile.filepath);
+      console.log('🔍 File buffer length:', fileBuffer.length);
+      
       fs.writeFileSync(filePath, fileBuffer);
       
       // Verify the file was written
@@ -194,11 +235,20 @@ export default async function handler(req, res) {
         throw new Error(`Failed to write file: ${filePath}`);
       }
       
+      const savedFileStats = fs.statSync(filePath);
+      console.log('🔍 Saved file size:', savedFileStats.size);
+      
       // Store relative path for database
       resumePath = `/uploads/application-resumes/${filename}`;
       
+      console.log('✅ Resume file saved successfully:', resumePath);
     } catch (error) {
-      console.error('Error saving resume file:', error);
+      console.error('❌ Error saving resume file:', error);
+      console.error('❌ Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
       return res.status(500).json({ 
         success: false, 
         message: 'Internal server error during resume upload' 
@@ -232,6 +282,8 @@ export default async function handler(req, res) {
 
     const result = await db.collection('applications').insertOne(application);
 
+    console.log('✅ Application created successfully with ID:', result.insertedId);
+
     return res.status(201).json({ 
       success: true,
       message: 'Application submitted successfully',
@@ -243,7 +295,10 @@ export default async function handler(req, res) {
       }
     });
   } catch (error) {
-    console.error('Error in application submission:', error);
+    console.error('❌ CRITICAL ERROR in application submission:', error);
+    console.error('❌ Error name:', error.name);
+    console.error('❌ Error message:', error.message);
+    console.error('❌ Error stack:', error.stack);
     
     // Provide more specific error messages
     let errorMessage = 'Internal server error. Please try again.';

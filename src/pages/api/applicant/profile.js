@@ -18,21 +18,15 @@ export default async function handler(req, res) {
   const client = await clientPromise;
   const db = client.db();
   
-  switch (req.method) {
-    case 'GET':
-      try {
-        console.log('🔍 GET Profile - User ID from auth:', auth.user.userId);
-        console.log('🔍 GET Profile - Auth user has details:', !!auth.user.details);
-        
+  switch (req.method) {    case 'GET':
+      try {        
         // Use the user data from auth middleware instead of querying again
         let user;
         if (auth.user.details) {
           // User data is already available from middleware
           user = auth.user.details;
-          console.log('✅ Using user data from auth middleware');
         } else {
           // Fallback to database query if not available
-          console.log('🔍 Fallback: Querying database for user');
           user = await db.collection('users').findOne(
             { _id: new ObjectId(auth.user.userId) },
             { 
@@ -41,11 +35,6 @@ export default async function handler(req, res) {
               } 
             }
           );
-        }
-
-        console.log('🔍 GET Profile - User found:', !!user);
-        if (user) {
-          console.log('🔍 GET Profile - User email:', user.email);
         }
 
         if (!user) {
@@ -143,10 +132,8 @@ export default async function handler(req, res) {
           console.log('🔄 PUT Profile - Processing update for userId:', auth.user.userId);
         console.log('🔄 PUT Profile - Update data:', JSON.stringify(updateData, null, 2));
         
-        try {
-          // Validate ObjectId format
+        try {          // Validate ObjectId format
           const userObjectId = new ObjectId(auth.user.userId);
-          console.log('✅ PUT Profile - Valid ObjectId created:', userObjectId);
           
           // Update the user profile
           const result = await db.collection('users').updateOne(
@@ -154,26 +141,17 @@ export default async function handler(req, res) {
             { $set: updateData }
           );
 
-          console.log('🔍 PUT Profile - Update result:', {
-            acknowledged: result.acknowledged,
-            modifiedCount: result.modifiedCount,
-            matchedCount: result.matchedCount
-          });
-
           if (result.matchedCount === 0) {
-            console.log('❌ PUT Profile - User not found for ID:', auth.user.userId);
             return res.status(404).json({ success: false, message: 'User not found' });
           }
 
           if (result.modifiedCount === 0) {
-            console.log('ℹ️ PUT Profile - No changes detected');
             return res.status(200).json({ 
               success: true, 
               message: 'No changes were made to the profile' 
             });
           }
 
-          console.log('✅ PUT Profile - Update successful');
           return res.status(200).json({ 
             success: true, 
             message: 'Profile updated successfully' 

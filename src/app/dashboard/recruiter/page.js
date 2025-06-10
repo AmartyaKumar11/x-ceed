@@ -13,10 +13,9 @@ import {
   MapPin,
   DollarSign,
   Calendar,
-  Eye,
-  Plus
+  Eye,  Plus
 } from 'lucide-react';
-import { apiClient, authAPI } from '@/lib/api';
+import { clientAuth } from '@/lib/auth';
 import CreateJobDialog from '@/components/CreateJobDialog';
 
 export default function RecruiterDashboardPage() {
@@ -51,18 +50,17 @@ export default function RecruiterDashboardPage() {
       return () => window.removeEventListener('hashchange', handleHashChange);
     }
   }, []);
-
   const checkAuthAndFetchData = async () => {
     try {
       // Check if user is authenticated
-      if (!authAPI.isAuthenticated()) {
+      if (!clientAuth.isAuthenticated()) {
         console.log('User not authenticated, redirecting to login');
         router.push('/auth');
         return;
       }
 
       // Check if user is a recruiter
-      const userRole = authAPI.getUserRole();
+      const userRole = clientAuth.getUserRole();
       if (userRole !== 'recruiter') {
         console.log('User is not a recruiter, redirecting to appropriate dashboard');
         if (userRole === 'applicant') {
@@ -80,79 +78,49 @@ export default function RecruiterDashboardPage() {
       router.push('/auth');
     }
   };
-
   const fetchJobs = async () => {
     try {
-      const response = await apiClient.get('/api/jobs');
-      if (response.success) {
-        setJobs(response.data);
-        calculateStats(response.data);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.error('No authentication token found');
+        setJobs([]);
+        calculateStats([]);
+        return;
+      }
+
+      const response = await fetch('/api/jobs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.success) {
+          console.log('Fetched recruiter jobs for dashboard:', data.data);
+          setJobs(data.data || []);
+          calculateStats(data.data || []);
+        } else {
+          console.error('Failed to fetch jobs:', data);
+          setJobs([]);
+          calculateStats([]);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('API request failed:', response.status, errorText);
+        setJobs([]);
+        calculateStats([]);
       }
     } catch (error) {
       console.error('Error fetching jobs:', error);
-      // Fallback to mock data
-      loadMockData();
-    } finally {
+      setJobs([]);
+      calculateStats([]);    } finally {
       setLoading(false);
     }
   };
 
-  const loadMockData = () => {
-    const mockJobs = [
-      {
-        _id: '1',
-        title: 'Senior Frontend Developer',
-        department: 'engineering',
-        level: 'senior',
-        workMode: 'remote',
-        jobType: 'full-time',
-        salaryMin: 120000,
-        salaryMax: 150000,
-        currency: 'USD',
-        status: 'active',
-        applicationsCount: 12,
-        viewsCount: 45,
-        createdAt: new Date('2025-05-15'),
-        applicationEnd: new Date('2025-06-15')
-      },
-      {
-        _id: '2',
-        title: 'UI/UX Designer',
-        department: 'design',
-        level: 'mid',
-        workMode: 'onsite',
-        location: 'New York, NY',
-        jobType: 'full-time',
-        salaryMin: 90000,
-        salaryMax: 110000,
-        currency: 'USD',
-        status: 'active',
-        applicationsCount: 8,
-        viewsCount: 32,
-        createdAt: new Date('2025-05-18'),
-        applicationEnd: new Date('2025-06-18')
-      },
-      {
-        _id: '3',
-        title: 'Product Manager',
-        department: 'product',
-        level: 'senior',
-        workMode: 'hybrid',
-        location: 'San Francisco, CA',
-        jobType: 'full-time',
-        salaryMin: 130000,
-        salaryMax: 160000,
-        currency: 'USD',
-        status: 'active',
-        applicationsCount: 5,
-        viewsCount: 28,
-        createdAt: new Date('2025-05-20'),
-        applicationEnd: new Date('2025-06-20')
-      }
-    ];
-    setJobs(mockJobs);
-    calculateStats(mockJobs);
-  };
   const calculateStats = (jobsData) => {
     const activeJobs = jobsData.filter(job => job.status === 'active').length;
     const totalApplications = jobsData.reduce((sum, job) => sum + (job.applicationsCount || 0), 0);
