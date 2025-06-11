@@ -14,25 +14,49 @@ import {
   Trash2
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { apiClient } from '../lib/api';
 
-export default function NotificationPanel({ isOpen, onClose }) {
+export default function NotificationPanel({ isOpen, onClose, onNotificationRead }) {
   const [notifications, setNotifications] = useState([]);
   const [filter, setFilter] = useState('all'); // all, applications, interviews, updates
-  const panelRef = useRef(null);
-
-  // Load notifications from API
+  const panelRef = useRef(null);  // Load notifications from API
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await apiClient.get('/api/notifications');
-        if (response.success) {
-          setNotifications(response.data);
-        } else {
-          // Fallback to mock data if API fails
-          console.warn('Failed to fetch notifications, using mock data');
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No token found, using mock data');
           loadMockNotifications();
+          return;
         }
+
+        console.log('Fetching notifications with token...');
+        const response = await fetch('/api/notifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        console.log('API Response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('API Response data:', data);
+          
+          if (data.success && data.data) {
+            console.log('Successfully fetched', data.data.length, 'notifications from API');
+            setNotifications(data.data);
+            return;
+          } else {
+            console.warn('API response successful but no data:', data);
+          }
+        } else {
+          console.warn('API response not ok:', response.status, await response.text());
+        }
+        
+        // If we get here, the API didn't return valid data
+        console.warn('Falling back to mock data');
+        loadMockNotifications();
       } catch (error) {
         console.error('Error fetching notifications:', error);
         // Fallback to mock data
@@ -48,9 +72,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Application Accepted!',
           message: 'Your application for Senior Frontend Developer at TechCorp has been accepted. They want to schedule an interview.',
           company: 'TechCorp',
-          position: 'Senior Frontend Developer',
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-          isRead: false,
+          position: 'Senior Frontend Developer',          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+          read: false,
           priority: 'high',
           actionRequired: true
         },
@@ -60,9 +83,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Interview Scheduled',
           message: 'Your interview with DataFlow Inc. is scheduled for tomorrow at 2:00 PM. Please join the video call using the link provided.',
           company: 'DataFlow Inc.',
-          position: 'Full Stack Developer',
-          timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-          isRead: false,
+          position: 'Full Stack Developer',          timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
+          read: false,
           priority: 'urgent',
           interviewDate: new Date(Date.now() + 22 * 60 * 60 * 1000), // tomorrow
           actionRequired: true
@@ -73,9 +95,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Application Update',
           message: 'Thank you for your interest in the UI/UX Designer position at CreativeStudio. After careful consideration, we have decided to move forward with other candidates.',
           company: 'CreativeStudio',
-          position: 'UI/UX Designer',
-          timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-          isRead: true,
+          position: 'UI/UX Designer',          timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+          read: true,
           priority: 'low',
           actionRequired: false
         },
@@ -85,9 +106,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Interview Reminder',
           message: 'Reminder: You have an interview with StartupXYZ in 2 hours. Make sure you have prepared your portfolio and tested your camera/microphone.',
           company: 'StartupXYZ',
-          position: 'Product Designer',
-          timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-          isRead: false,
+          position: 'Product Designer',          timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
+          read: false,
           priority: 'urgent',
           interviewDate: new Date(Date.now() + 2 * 60 * 60 * 1000), // in 2 hours
           actionRequired: true
@@ -97,9 +117,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           type: 'profile_view',
           title: 'Profile Viewed',
           message: 'A recruiter from InnovateTech viewed your profile and showed interest in your background.',
-          company: 'InnovateTech',
-          timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-          isRead: true,
+          company: 'InnovateTech',          timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+          read: true,
           priority: 'medium',
           actionRequired: false
         },
@@ -109,9 +128,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Great News!',
           message: 'CloudTech Solutions loved your portfolio and wants to move forward with your application for the React Developer position.',
           company: 'CloudTech Solutions',
-          position: 'React Developer',
-          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
-          isRead: false,
+          position: 'React Developer',          timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+          read: false,
           priority: 'high',
           actionRequired: true
         },
@@ -121,9 +139,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           title: 'Final Round Interview',
           message: 'Congratulations! You\'ve been selected for the final round interview with TechGiant Corp. The interview is scheduled for next week.',
           company: 'TechGiant Corp',
-          position: 'Senior Software Engineer',
-          timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-          isRead: true,
+          position: 'Senior Software Engineer',          timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+          read: true,
           priority: 'high',
           interviewDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // in 5 days
           actionRequired: true
@@ -132,9 +149,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
           _id: '8',
           type: 'profile_view',
           title: 'Profile Interest',
-          message: 'Multiple recruiters from top tech companies have viewed your profile this week. Consider updating your skills section.',
-          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          isRead: false,
+          message: 'Multiple recruiters from top tech companies have viewed your profile this week. Consider updating your skills section.',          timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+          read: false,
           priority: 'medium',
           actionRequired: false
         }
@@ -214,14 +230,34 @@ export default function NotificationPanel({ isOpen, onClose }) {
     const daysDiff = timeDiff / (1000 * 60 * 60 * 24);
     return daysDiff <= 2 && daysDiff > 0;
   };
-
   // Handle notification actions
-  const markAsRead = (id) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif._id === id ? { ...notif, isRead: true } : notif
-      )
-    );
+  const markAsRead = async (id) => {
+    try {      // Update UI immediately
+      setNotifications(prev => 
+        prev.map(notif => 
+          notif._id === id ? { ...notif, read: true } : notif
+        )
+      );
+
+      // Make API call to mark as read
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch(`/api/notifications/${id}/read`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Trigger callback to update notification count
+        if (onNotificationRead) {
+          onNotificationRead();
+        }
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
   };
 
   const snoozeNotification = (id) => {
@@ -235,9 +271,30 @@ export default function NotificationPanel({ isOpen, onClose }) {
   const deleteNotification = (id) => {
     setNotifications(prev => prev.filter(notif => notif._id !== id));
   };
+  const markAllAsRead = async () => {
+    try {
+      // Update UI immediately
+      setNotifications(prev => prev.map(notif => ({ ...notif, read: true })));
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(notif => ({ ...notif, isRead: true })));
+      // Make API call to mark all as read
+      const token = localStorage.getItem('token');
+      if (token) {
+        await fetch('/api/notifications/mark-all-read', {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        // Trigger callback to update notification count
+        if (onNotificationRead) {
+          onNotificationRead();
+        }
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   // Close panel when clicking outside
@@ -259,13 +316,12 @@ export default function NotificationPanel({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
   // Render notification card
   const renderNotificationCard = (notification) => (
     <div
-      key={notification._id}
-      className={`p-4 border border-border rounded-xl transition-all hover:shadow-md cursor-pointer ${
-        !notification.isRead 
+      key={notification._id}      className={`p-4 border border-border rounded-xl transition-all hover:shadow-md cursor-pointer ${
+        !notification.read 
           ? 'bg-primary/10 border-primary/20 dark:bg-primary/5' 
           : 'bg-card/40 hover:bg-card/60 dark:bg-card/20 dark:hover:bg-card/30'
       } ${isUpcomingInterview(notification) ? 'border-l-4 border-l-red-500' : ''}`}
@@ -280,7 +336,7 @@ export default function NotificationPanel({ isOpen, onClose }) {
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className={`text-sm font-semibold text-foreground ${!notification.isRead ? 'font-bold' : ''}`}>
+            <h3 className={`text-sm font-semibold text-foreground ${!notification.read ? 'font-bold' : ''}`}>
               {notification.title}
             </h3>
             <div className="flex items-center gap-2">
@@ -358,10 +414,8 @@ export default function NotificationPanel({ isOpen, onClose }) {
               </button>
             )}
           </div>
-        </div>
-
-        {/* Unread Indicator */}
-        {!notification.isRead && (
+        </div>        {/* Unread Indicator */}
+        {!notification.read && (
           <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></div>
         )}
       </div>

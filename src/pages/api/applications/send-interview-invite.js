@@ -102,15 +102,26 @@ export default async function handler(req, res) {
         } 
       }
     );
-    
-    // Create a notification for the applicant
+      // Create a notification for the applicant
     const notification = {
-      userId: applicant._id.toString(),
+      userId: applicant._id, // Store as ObjectId, not string
       type: 'interview_invitation',
-      title: 'Interview Invitation',
-      message: `You've been invited to an interview for ${job.title} at ${job.company}!`,
+      title: '📅 Interview Invitation',
+      message: `You've been invited to an interview for ${job.title} at ${job.company}! Please check your email for details.`,
+      company: job.company,
+      position: job.title,
+      timestamp: new Date(),
       read: false,
-      createdAt: new Date()
+      priority: 'urgent',
+      actionRequired: true,
+      interviewDate: new Date(interviewDate),
+      metadata: {
+        applicationId: applicationId,
+        jobId: job._id.toString(),
+        location: location,
+        isVirtual: isVirtual,
+        additionalNotes: additionalNotes
+      }
     };
     
     await db.collection('notifications').insertOne(notification);

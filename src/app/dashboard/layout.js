@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Sidebar from '@/components/Sidebar';
+import FloatingNotificationBell from '@/components/FloatingNotificationBell';
 
 export default function DashboardLayout({ children }) {
   const pathname = usePathname();
@@ -31,6 +32,9 @@ export default function DashboardLayout({ children }) {
       <main className="container mx-auto py-6 px-4">
         {children}
       </main>
+
+      {/* Floating Notification Bell - Only show for applicants */}
+      {isApplicant && <FloatingNotificationBell />}
     </div>
   );
 }

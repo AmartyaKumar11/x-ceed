@@ -1,27 +1,37 @@
-import { connectToDatabase } from '../../../lib/mongodb';
+import clientPromise from '../../../lib/mongodb';
+import { authMiddleware } from '../../../lib/middleware';
 import { verifyToken } from '../../../lib/auth';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
-  try {
-    if (req.method === 'GET') {
-      // Verify authentication
-      const token = req.headers.authorization?.replace('Bearer ', '');
-      if (!token) {
-        return res.status(401).json({ success: false, message: 'No token provided' });
-      }
+  try {    if (req.method === 'GET') {
+      // Check authentication
+      const auth = await authMiddleware(req);
+      if (!auth.isAuthenticated) {
+        return res.status(auth.status).json({ 
+          success: false, 
+          message: auth.error 
+        });
+      }      console.log('Fetching notifications for userId:', auth.user.userId);
 
-      const decoded = verifyToken(token);
-      if (!decoded) {
-        return res.status(401).json({ success: false, message: 'Invalid token' });
+      const client = await clientPromise;
+      const db = client.db('x-ceed-db');
+      
+      // Convert userId to ObjectId for database query
+      let userIdQuery;
+      try {
+        userIdQuery = new ObjectId(auth.user.userId);
+      } catch (error) {
+        // If conversion fails, use the string as is
+        userIdQuery = auth.user.userId;
       }
-
-      const { db } = await connectToDatabase();
+      
+      console.log('Using userIdQuery:', userIdQuery);
       
       // Get notifications for the user
       const notifications = await db.collection('notifications')
         .find({ 
-          userId: decoded.userId,
+          userId: userIdQuery,
           $or: [
             { deleted: { $ne: true } },
             { deleted: { $exists: false } }
@@ -30,6 +40,8 @@ export default async function handler(req, res) {
         .sort({ timestamp: -1 })
         .limit(50)
         .toArray();
+        
+      console.log('Found notifications:', notifications.length);
 
       // Process notifications to check for upcoming interviews
       const processedNotifications = notifications.map(notification => {
@@ -63,15 +75,14 @@ export default async function handler(req, res) {
       const decoded = verifyToken(token);
       if (!decoded) {
         return res.status(401).json({ success: false, message: 'Invalid token' });
-      }
-
-      const { notificationId, action, data } = req.body;
+      }      const { notificationId, action, data } = req.body;
 
       if (!notificationId || !action) {
         return res.status(400).json({ success: false, message: 'Notification ID and action are required' });
       }
 
-      const { db } = await connectToDatabase();
+      const client = await clientPromise;
+      const db = client.db('x-ceed-db');
 
       let updateData = {};
       
@@ -131,16 +142,15 @@ export default async function handler(req, res) {
         actionRequired = false,
         interviewDate,
         metadata = {}
-      } = req.body;
-
-      if (!type || !title || !message) {
+      } = req.body;      if (!type || !title || !message) {
         return res.status(400).json({ 
           success: false, 
           message: 'Type, title, and message are required' 
         });
       }
 
-      const { db } = await connectToDatabase();
+      const client = await clientPromise;
+      const db = client.db('x-ceed-db');
 
       const notification = {
         userId: decoded.userId,

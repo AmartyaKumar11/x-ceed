@@ -60,6 +60,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import InterviewSchedulingDialog from "@/components/InterviewSchedulingDialog";
 
 export default function RecruiterJobsPage() {
   const router = useRouter();
@@ -86,11 +87,14 @@ export default function RecruiterJobsPage() {
   const [jobToClose, setJobToClose] = useState(null);
   const [updatingApplication, setUpdatingApplication] = useState(false);
   const [updateStatusMessage, setUpdateStatusMessage] = useState('');
-  const [updateStatusSuccess, setUpdateStatusSuccess] = useState(false);
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [updateStatusSuccess, setUpdateStatusSuccess] = useState(false);  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
+  
+  // Interview scheduling dialog state
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
+  const [candidateForInterview, setCandidateForInterview] = useState(null);
 
   useEffect(() => {
     fetchJobs();
@@ -407,6 +411,19 @@ export default function RecruiterJobsPage() {
     setSelectedCandidate(candidate);
     setCandidateDetailsDialogOpen(true);
   };  const handleUpdateApplicationStatus = async (applicationId, status) => {
+    // If status is interview, open the interview scheduling dialog instead
+    if (status === 'interview') {
+      const candidate = jobCandidates.find(c => c._id === applicationId) || selectedCandidate;
+      console.log('🔍 Found candidate for interview:', candidate);
+      console.log('🔍 Candidate _id:', candidate?._id);
+      console.log('🔍 Application ID passed:', applicationId);
+      if (candidate) {
+        setCandidateForInterview(candidate);
+        setInterviewDialogOpen(true);
+      }
+      return;
+    }
+
     setUpdatingApplication(true);
     setUpdateStatusMessage('');
     setUpdateStatusSuccess(false);
@@ -468,7 +485,68 @@ export default function RecruiterJobsPage() {
       setUpdateStatusMessage('An error occurred while updating application status.');
       setUpdateStatusSuccess(false);
     } finally {
-      setUpdatingApplication(false);
+      setUpdatingApplication(false);    }
+  };
+  // Handle interview scheduling
+  const handleScheduleInterview = async (interviewData) => {
+    try {
+      console.log('🔍 handleScheduleInterview called with data:', interviewData);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication required. Please log in again.');
+      }
+
+      console.log('🔍 Sending request to schedule-interview API...');
+
+      // First, schedule the interview via API
+      const response = await fetch('/api/applications/schedule-interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(interviewData)
+      });
+
+      console.log('🔍 API response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log('🔍 API error response:', errorData);
+        throw new Error(errorData.message || 'Failed to schedule interview');
+      }
+
+      const result = await response.json();
+
+      // Update the application status to "interview" and local state
+      setJobCandidates(prev => 
+        prev.map(candidate => 
+          candidate._id === interviewData.applicationId 
+            ? { ...candidate, status: 'interview' } 
+            : candidate
+        )
+      );
+
+      // If viewing candidate details, update selected candidate
+      if (selectedCandidate && selectedCandidate._id === interviewData.applicationId) {
+        setSelectedCandidate(prev => ({ ...prev, status: 'interview' }));
+      }
+
+      // Show success message
+      setUpdateStatusMessage('Interview scheduled successfully! The candidate has been notified.');
+      setUpdateStatusSuccess(true);
+
+      // Clear success message after delay
+      setTimeout(() => {
+        setUpdateStatusMessage('');
+        setUpdateStatusSuccess(false);
+      }, 5000);
+
+      return result;
+    } catch (error) {
+      console.error('Error scheduling interview:', error);
+      throw error;
     }
   };
 
@@ -1682,10 +1760,21 @@ export default function RecruiterJobsPage() {
                   Send Email
                 </Button>
               </div>
-            </DialogFooter>
-          </DialogContent>
+            </DialogFooter>          </DialogContent>
         </Dialog>
       )}
+      
+      {/* Interview Scheduling Dialog */}
+      <InterviewSchedulingDialog
+        isOpen={interviewDialogOpen}
+        onClose={() => {
+          setInterviewDialogOpen(false);
+          setCandidateForInterview(null);
+        }}
+        candidate={candidateForInterview}
+        job={selectedJob}
+        onScheduleInterview={handleScheduleInterview}
+      />
     </div>
   );
 }

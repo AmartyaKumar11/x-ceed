@@ -124,20 +124,72 @@ export default async function handler(req, res) {
         // Get the updated application
         const updatedApplication = await db.collection('applications').findOne({
           _id: new ObjectId(id)
-        });
-        
-        // Add notification for the applicant if status is changed
+        });        // Add notification for the applicant if status is changed
         if (status) {
+          let notificationTitle, notificationMessage, notificationType, priority;
+          
+          // Create specific notifications based on status
+          switch (status) {
+            case 'accepted':
+              notificationTitle = '🎉 Application Accepted!';
+              notificationMessage = `Congratulations! Your application for ${job.title} at ${job.company} has been accepted. You will hear from the recruiter soon with next steps.`;
+              notificationType = 'application_accepted';
+              priority = 'high';
+              break;
+              
+            case 'rejected':
+              notificationTitle = 'Application Update';
+              notificationMessage = `Thank you for your interest in the ${job.title} position at ${job.company}. After careful consideration, we have decided to move forward with other candidates. We encourage you to apply for other positions that match your skills.`;
+              notificationType = 'application_rejected';
+              priority = 'medium';
+              break;
+              
+            case 'interview':
+              notificationTitle = '📅 Interview Scheduled';
+              notificationMessage = `Great news! You've been selected for an interview for the ${job.title} position at ${job.company}. ${interviewDate ? `Your interview is scheduled for ${new Date(interviewDate).toLocaleDateString()}.` : 'The recruiter will contact you soon with interview details.'}`;
+              notificationType = 'interview_scheduled';
+              priority = 'urgent';
+              break;
+              
+            case 'reviewing':
+              notificationTitle = '👀 Application Under Review';
+              notificationMessage = `Your application for ${job.title} at ${job.company} is now being reviewed by our recruitment team. We'll update you on the progress soon.`;
+              notificationType = 'application_status';
+              priority = 'medium';
+              break;
+              
+            default:
+              notificationTitle = 'Application Status Updated';
+              notificationMessage = `Your application for ${job.title} at ${job.company} has been updated to "${status}".`;
+              notificationType = 'application_status';
+              priority = 'medium';
+          }
+          
+          // Create the notification
           const notification = {
-            userId: application.applicantId,
-            type: 'application_status',
-            title: 'Application Status Updated',
-            message: `Your application for ${application.jobDetails?.title || 'the job'} has been updated to "${status}"`,
+            userId: new ObjectId(application.applicantId),
+            type: notificationType,
+            title: notificationTitle,
+            message: notificationMessage,
+            company: job.company,
+            position: job.title,
+            timestamp: new Date(),
             read: false,
-            createdAt: new Date()
+            priority: priority,
+            actionRequired: status === 'interview' || status === 'accepted',
+            interviewDate: interviewDate ? new Date(interviewDate) : null,
+            metadata: {
+              jobId: job._id.toString(),
+              jobTitle: job.title,
+              company: job.company,
+              applicationId: application._id.toString(),
+              newStatus: status,
+              feedback: feedback || null
+            }
           };
           
           await db.collection('notifications').insertOne(notification);
+          console.log(`✅ Notification created for user ${application.applicantId} - Job: ${job.title}, Status: ${status}`);
         }
         
         // Return success message with updated application
