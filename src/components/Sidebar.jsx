@@ -100,16 +100,28 @@ export default function Sidebar({ role }) {
         className={`sidebar fixed top-0 left-0 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out z-50 ${
           isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
         }`}
-      >
-        <div className="h-16 border-b border-border flex items-center justify-between px-6">
-          <h2 className="text-xl font-bold text-foreground">X-CEED</h2>
-          <div className="flex items-center space-x-2">
-            <DarkModeToggle />            <button 
-              onClick={() => setIsOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
+      >        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+          <Link 
+            href={role === 'applicant' ? '/dashboard/applicant' : '/dashboard/recruiter'} 
+            className="header-link text-xl font-bold text-foreground hover:text-foreground/80 transition-colors cursor-pointer flex-shrink-0"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+            }}
+          >
+            X-CEED
+          </Link>
+          <div className="header-controls flex items-center space-x-3 flex-shrink-0"><div onClick={(e) => e.stopPropagation()}>
+              <DarkModeToggle />
+            </div>
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+              }}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1"
               aria-label="Close menu"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            >              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>

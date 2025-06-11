@@ -26,7 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-export default function RealJobsComponent({ onJobClick }) {
+export default function RealJobsComponent({ onJobClick, searchQuery = '', filters = {} }) {
   const { resolvedTheme } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -226,9 +226,147 @@ export default function RealJobsComponent({ onJobClick }) {
       </div>
     );
   }
+  // Filter and search jobs based on provided criteria
+  const getFilteredJobs = () => {
+    let filteredJobs = [...jobs];
+
+    // Apply search query
+    if (searchQuery && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filteredJobs = filteredJobs.filter(job => 
+        job.title.toLowerCase().includes(query) ||
+        (job.companyName && job.companyName.toLowerCase().includes(query)) ||
+        (job.description && job.description.toLowerCase().includes(query)) ||
+        (job.location && job.location.toLowerCase().includes(query)) ||
+        (job.department && job.department.toLowerCase().includes(query))
+      );
+    }    // Apply filters with case-insensitive matching
+    if (filters.jobType && filters.jobType.length > 0) {
+      filteredJobs = filteredJobs.filter(job => {
+        const jobType = (job.jobType || '').toLowerCase().replace(/[-\s]/g, ''); // normalize: remove spaces/hyphens and lowercase
+        return filters.jobType.some(filterType => {
+          const normalizedFilterType = filterType.toLowerCase().replace(/[-\s]/g, '');
+          return jobType === normalizedFilterType;
+        });
+      });
+    }
+
+    if (filters.workMode && filters.workMode.length > 0) {
+      filteredJobs = filteredJobs.filter(job => {
+        const workMode = (job.workMode || '').toLowerCase().replace(/[-\s]/g, '');
+        return filters.workMode.some(filterMode => {
+          const normalizedFilterMode = filterMode.toLowerCase().replace(/[-\s]/g, '');
+          return workMode === normalizedFilterMode;
+        });
+      });
+    }
+
+    if (filters.department && filters.department.length > 0) {
+      filteredJobs = filteredJobs.filter(job => {
+        const department = (job.department || '').toLowerCase();
+        return filters.department.some(filterDept => {
+          return department === filterDept.toLowerCase();
+        });
+      });
+    }
+
+    if (filters.level && filters.level.length > 0) {
+      filteredJobs = filteredJobs.filter(job => {
+        const level = (job.level || '').toLowerCase().replace(/[-\s]/g, '');
+        return filters.level.some(filterLevel => {
+          const normalizedFilterLevel = filterLevel.toLowerCase().replace(/[-\s]/g, '');
+          return level === normalizedFilterLevel;
+        });
+      });
+    }
+
+    if (filters.location && filters.location.trim()) {
+      const locationQuery = filters.location.toLowerCase().trim();
+      filteredJobs = filteredJobs.filter(job => 
+        (job.location && job.location.toLowerCase().includes(locationQuery))
+      );
+    }
+
+    // Apply salary range filter
+    if (filters.salaryRange && (filters.salaryRange[0] > 0 || filters.salaryRange[1] < 200000)) {
+      filteredJobs = filteredJobs.filter(job => {
+        const jobMinSalary = job.salaryMin || 0;
+        const jobMaxSalary = job.salaryMax || 200000;
+        
+        // Check if job salary range overlaps with filter range
+        return (jobMinSalary <= filters.salaryRange[1] && jobMaxSalary >= filters.salaryRange[0]);
+      });
+    }
+
+    // Apply posted within filter
+    if (filters.postedWithin) {
+      const now = new Date();
+      let cutoffDate;
+      
+      switch (filters.postedWithin) {
+        case '1d':
+          cutoffDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case '3d':
+          cutoffDate = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          cutoffDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case '14d':
+          cutoffDate = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          cutoffDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        default:
+          cutoffDate = null;
+      }
+      
+      if (cutoffDate) {
+        filteredJobs = filteredJobs.filter(job => {
+          const jobDate = new Date(job.createdAt || job.postedAt);
+          return jobDate >= cutoffDate;
+        });
+      }
+    }
+
+    return filteredJobs;
+  };
+  const filteredJobs = getFilteredJobs();
+
+  // Debug: Log job types for debugging data inconsistencies
+  if (jobs.length > 0) {
+    const uniqueJobTypes = [...new Set(jobs.map(job => job.jobType).filter(Boolean))];
+    const uniqueWorkModes = [...new Set(jobs.map(job => job.workMode).filter(Boolean))];
+    const uniqueDepartments = [...new Set(jobs.map(job => job.department).filter(Boolean))];
+    const uniqueLevels = [...new Set(jobs.map(job => job.level).filter(Boolean))];
+    
+    console.log('🔍 Debug - Unique values in database:');
+    console.log('📄 Job Types:', uniqueJobTypes);
+    console.log('🏢 Work Modes:', uniqueWorkModes);
+    console.log('🏛️ Departments:', uniqueDepartments);
+    console.log('📊 Levels:', uniqueLevels);
+  }
+
+  if (filteredJobs.length === 0 && jobs.length > 0) {
+    // Show "no matches" message when filters are applied but no jobs match
+    console.log('🔍 RealJobsComponent: No jobs match current filters');
+    return (      
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium text-foreground">No jobs match your filters</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Try adjusting your search criteria or removing some filters.
+        </p>
+      </div>
+    );
+  }
+
   if (jobs.length === 0) {
     console.log('📭 RealJobsComponent: No jobs to display');
-    return (      <div className="flex flex-col items-center justify-center py-16 text-center">
+    return (      
+      <div className="flex flex-col items-center justify-center py-16 text-center">
         <FileText className="h-16 w-16 text-muted-foreground mb-4" />
         <h3 className="text-lg font-medium text-foreground">No jobs available</h3>
         <p className="text-sm text-muted-foreground mt-1">
@@ -238,11 +376,13 @@ export default function RealJobsComponent({ onJobClick }) {
     );
   }
 
-  console.log('🎯 RealJobsComponent: About to render', jobs.length, 'jobs');
-  console.log('📋 RealJobsComponent: Jobs array:', jobs.map(job => ({ id: job._id, title: job.title })));return (
+  console.log('🎯 RealJobsComponent: About to render', filteredJobs.length, 'filtered jobs out of', jobs.length, 'total jobs');
+  console.log('📋 RealJobsComponent: Filtered jobs array:', filteredJobs.map(job => ({ id: job._id, title: job.title })));
+
+  return (
     <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
-        {jobs.map((job) => (<Card 
+        {filteredJobs.map((job) => (<Card 
           key={job._id} 
           className="job-card hover:shadow-lg transition-all cursor-pointer border-border"
           onClick={() => onJobClick(job)}

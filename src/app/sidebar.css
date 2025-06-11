@@ -31,3 +31,20 @@
   height: 100vh;
   z-index: 40;
 }
+
+/* Prevent click area overlap in sidebar header */
+.sidebar .header-link {
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+}
+
+.sidebar .header-controls {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+.sidebar .header-controls > * {
+  pointer-events: auto;
+}

@@ -19,18 +19,23 @@ export default function DarkModeToggle() {
     );
   }
 
-  const isDark = resolvedTheme === 'dark';
-  const toggleTheme = () => {
+  const isDark = resolvedTheme === 'dark';  const toggleTheme = () => {
     setTheme(isDark ? 'light' : 'dark');
   };
 
-  return (    <Toggle
+  const handleToggle = (pressed) => {
+    setTheme(pressed ? 'dark' : 'light');
+  };
+
+  return (
+    <Toggle
       pressed={isDark}
-      onPressedChange={toggleTheme}
+      onPressedChange={handleToggle}
       size="lg"
       className="w-10 h-10 rounded-full bg-muted hover:bg-muted/80 transition-all duration-300 ease-in-out group data-[state=on]:bg-muted"
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+      onClick={(e) => e.stopPropagation()}
     >
       <div 
         className="transition-transform duration-500 ease-in-out group-hover:scale-110"
