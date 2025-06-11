@@ -5,8 +5,6 @@ import { ObjectId } from 'mongodb';
 
 export async function authMiddleware(req) {
   try {
-    console.log('🔍 Auth middleware called');
-    
     // Try to get the token from different sources in this order:
     // 1. Authorization header
     // 2. Cookie
@@ -15,11 +13,8 @@ export async function authMiddleware(req) {
     let token = null;
       // Check Authorization header
     const authHeader = req.headers['authorization'] || req.headers.Authorization;
-    console.log('🔍 Auth header:', authHeader ? 'Present' : 'Missing');
-    
-    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
-      console.log('🔍 Token extracted from header:', token ? 'YES' : 'NO');
     }
     
     // If no token in Authorization header, check cookies
@@ -40,15 +35,13 @@ export async function authMiddleware(req) {
     // If no token in cookies, check query params (for file downloads, etc.)
     if (!token && req.query && req.query.token) {
       token = req.query.token;
-    }
-      if (!token) {
-      console.log('❌ No token found in request');
+    }      if (!token) {
       return {
         isAuthenticated: false,
         error: 'Authentication token is missing',
         status: 401
       };
-    }    console.log('🔍 Token found, verifying...');
+    }
 
     // Verify the token using jose library (same as auth.js)
     const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key-for-jwt-tokens');
@@ -63,14 +56,7 @@ export async function authMiddleware(req) {
         error: 'Invalid or malformed token',
         status: 401
       };
-    }
-    
-    console.log('🔍 Token decoded:', {
-      userId: decoded.userId,
-      userType: decoded.userType,
-      email: decoded.email
-    });
-    
+    }    
     // Check if the token is expired
     if (decoded.exp && Date.now() >= decoded.exp * 1000) {
       return {
@@ -78,7 +64,7 @@ export async function authMiddleware(req) {
         error: 'Token has expired',
         status: 401
       };
-    }    // Verify that the user still exists in the database
+    }// Verify that the user still exists in the database
     if (decoded.userId) {
       const client = await clientPromise;
       const db = client.db('x-ceed-db'); // Specify the correct database name

@@ -124,11 +124,24 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
             </div>
 
             <div>
-              <h3 className="text-lg font-semibold mb-2">Message to Recruiter</h3>
+              <h3 className="text-lg font-semibold mb-2">Cover Letter</h3>
               <div className="bg-muted p-4 rounded-lg">
-                <p className="text-foreground">{candidate.message}</p>
+                <p className="text-foreground whitespace-pre-wrap">
+                  {candidate.coverLetter || 'No cover letter provided.'}
+                </p>
               </div>
             </div>
+
+            {candidate.additionalMessage && (
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Additional Message</h3>
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="text-foreground whitespace-pre-wrap">
+                    {candidate.additionalMessage}
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div>
               <h3 className="text-lg font-semibold mb-2">Resume</h3>

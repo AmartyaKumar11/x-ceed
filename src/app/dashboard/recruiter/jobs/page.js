@@ -1159,17 +1159,27 @@ export default function RecruiterJobsPage() {
                     </div>
                   </div>
                 );
-              })()}
-
-              {/* Application Details */}
+              })()}              {/* Cover Letter */}
               <div>
-                <h3 className="font-semibold text-lg mb-3">Application</h3>                <div className="bg-muted rounded-lg p-4 border border-border">
-                  <h4 className="text-sm text-muted-foreground mb-2">Message to Recruiter</h4>
+                <h3 className="font-semibold text-lg mb-3">Cover Letter</h3>
+                <div className="bg-muted rounded-lg p-4 border border-border">
                   <p className="whitespace-pre-wrap">
-                    {selectedCandidate.message || 'No message provided.'}
+                    {selectedCandidate.coverLetter || 'No cover letter provided.'}
                   </p>
                 </div>
-              </div>              {/* Resume */}
+              </div>
+
+              {/* Additional Message (if provided) */}
+              {selectedCandidate.additionalMessage && (
+                <div>
+                  <h3 className="font-semibold text-lg mb-3">Additional Message</h3>
+                  <div className="bg-muted rounded-lg p-4 border border-border">
+                    <p className="whitespace-pre-wrap">
+                      {selectedCandidate.additionalMessage}
+                    </p>
+                  </div>
+                </div>
+              )}{/* Resume */}
               {(selectedCandidate.resumePath || selectedCandidate.resumeUrl) && (
                 <div>
                   <h3 className="font-semibold text-lg mb-3">Resume</h3>

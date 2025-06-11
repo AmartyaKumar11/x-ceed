@@ -113,12 +113,27 @@ export const clientAuth = {
       localStorage.removeItem('user');
     }
   },
-  
-  /**
+    /**
    * Logs out the user
    */
   async logout() {
     try {
+      // Clear localStorage data
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userType');
+        localStorage.removeItem('userId');
+        
+        // Clear any other cached data
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('x-ceed-') || key.includes('auth') || key.includes('user')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+      
+      // Call logout API to clear server-side session
       await fetch('/api/auth/logout', {
         method: 'POST',
         headers: {
@@ -126,10 +141,14 @@ export const clientAuth = {
         },
       });
       
-      this.removeUser();
+      // Force page reload to clear any cached state
       window.location.href = '/auth';
     } catch (error) {
-      console.error('Logout failed:', error);
+      // Even if API call fails, clear local data and redirect
+      if (typeof window !== 'undefined') {
+        localStorage.clear();
+        window.location.href = '/auth';
+      }
     }
   },
     /**

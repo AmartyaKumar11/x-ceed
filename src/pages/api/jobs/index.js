@@ -20,12 +20,10 @@ export default async function handler(req, res) {
   try {
     // Connect to the database
     const client = await clientPromise;
-    
-    // Extract database name from URI or use default
+      // Extract database name from URI or use default
     const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/x-ceed-db';
     const dbName = uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
     
-    console.log("Using database for jobs API:", dbName);
     const db = client.db(dbName);
     
     if (req.method === 'POST') {

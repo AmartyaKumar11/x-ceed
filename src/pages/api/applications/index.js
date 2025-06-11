@@ -3,8 +3,6 @@ import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
-  console.log('Applications API called:', req.method);
-  
   // Check authentication first
   const auth = await authMiddleware(req);
   if (!auth.isAuthenticated) {

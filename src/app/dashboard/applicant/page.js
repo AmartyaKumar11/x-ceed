@@ -1,16 +1,61 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Briefcase, 
   FileText, 
   User, 
   Star, 
   Bell, 
-  CheckCircle 
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 import JobCountBadge from '@/components/JobCountBadge';
+import { clientAuth } from '@/lib/auth';
 
 export default function ApplicantDashboardPage() {
+  const router = useRouter();
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [loadingSavedJobs, setLoadingSavedJobs] = useState(true);
+
+  useEffect(() => {
+    fetchSavedJobsCount();
+  }, []);
+
+  const fetchSavedJobsCount = async () => {
+    try {
+      if (!clientAuth.isAuthenticated()) {
+        setLoadingSavedJobs(false);
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/saved-jobs/count', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSavedJobsCount(data.count);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching saved jobs count:', error);
+    } finally {
+      setLoadingSavedJobs(false);
+    }
+  };
+
+  const handleSavedJobsClick = () => {
+    router.push('/dashboard/applicant/saved-jobs');
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-3xl font-bold mb-6 text-foreground">Welcome back</h2>
@@ -34,14 +79,20 @@ export default function ApplicantDashboardPage() {
             <h3 className="text-2xl font-bold text-foreground">3</h3>
           </div>
         </div>
-        
-        <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow">
+          <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={handleSavedJobsClick}>
           <div className="p-3 rounded-full bg-amber-50 dark:bg-amber-950 mr-4">
             <Star className="h-6 w-6 text-amber-500 dark:text-amber-400" />
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Saved Jobs</p>
-            <h3 className="text-2xl font-bold text-foreground">12</h3>
+            {loadingSavedJobs ? (
+              <div className="flex items-center">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">Loading...</span>
+              </div>
+            ) : (
+              <h3 className="text-2xl font-bold text-foreground">{savedJobsCount}</h3>
+            )}
           </div>
         </div>
       </div>

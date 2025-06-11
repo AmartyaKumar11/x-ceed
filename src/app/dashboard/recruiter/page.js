@@ -28,9 +28,22 @@ export default function RecruiterDashboardPage() {
     totalApplications: 0,
     totalCandidates: 0,
     interviews: 0
-  });
-  useEffect(() => {
+  });  useEffect(() => {
     checkAuthAndFetchData();
+    
+    // Force cache clear for job data on initial load
+    if (typeof window !== 'undefined') {
+      // Clear any potential cached API responses
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            if (name.includes('api') || name.includes('jobs')) {
+              caches.delete(name);
+            }
+          });
+        });
+      }
+    }
   }, []);
   
   // Check URL hash for #create-job
@@ -51,10 +64,8 @@ export default function RecruiterDashboardPage() {
     }
   }, []);
   const checkAuthAndFetchData = async () => {
-    try {
-      // Check if user is authenticated
+    try {      // Check if user is authenticated
       if (!clientAuth.isAuthenticated()) {
-        console.log('User not authenticated, redirecting to login');
         router.push('/auth');
         return;
       }
@@ -62,7 +73,6 @@ export default function RecruiterDashboardPage() {
       // Check if user is a recruiter
       const userRole = clientAuth.getUserRole();
       if (userRole !== 'recruiter') {
-        console.log('User is not a recruiter, redirecting to appropriate dashboard');
         if (userRole === 'applicant') {
           router.push('/dashboard/applicant');
         } else {
@@ -72,17 +82,13 @@ export default function RecruiterDashboardPage() {
       }
 
       setAuthLoading(false);
-      await fetchJobs();
-    } catch (error) {
-      console.error('Error during auth check:', error);
+      await fetchJobs();    } catch (error) {
       router.push('/auth');
     }
   };
   const fetchJobs = async () => {
-    try {
-      const token = localStorage.getItem('token');
+    try {      const token = localStorage.getItem('token');
       if (!token) {
-        console.error('No authentication token found');
         setJobs([]);
         calculateStats([]);
         return;
@@ -94,29 +100,27 @@ export default function RecruiterDashboardPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.success) {
-          console.log('Fetched recruiter jobs for dashboard:', data.data);
+      });      if (response.ok) {
+        const data = await response.json();        if (data && data.success) {
           setJobs(data.data || []);
           calculateStats(data.data || []);
         } else {
-          console.error('Failed to fetch jobs:', data);
           setJobs([]);
           calculateStats([]);
         }
+      } else if (response.status === 401) {
+        // Token expired or invalid, redirect to login
+        localStorage.removeItem('token');
+        clientAuth.logout();
+        router.push('/auth');
+        return;
       } else {
-        const errorText = await response.text();
-        console.error('API request failed:', response.status, errorText);
         setJobs([]);
         calculateStats([]);
-      }
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
+      }} catch (error) {
       setJobs([]);
-      calculateStats([]);    } finally {
+      calculateStats([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -132,9 +136,7 @@ export default function RecruiterDashboardPage() {
       interviews: Math.floor(totalApplications * 0.3) // Estimate interviews
     });
   };
-
   const handleJobCreated = (newJob) => {
-    console.log('✅ New job created:', newJob);
     setJobs(prevJobs => [newJob, ...prevJobs]);
     calculateStats([newJob, ...jobs]);
     setIsCreateJobDialogOpen(false);

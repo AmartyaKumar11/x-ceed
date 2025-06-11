@@ -64,38 +64,17 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
     if (!formData.coverLetter.trim()) {
       alert('Please provide a cover letter');
       return;
-    }
-
-    setIsSubmitting(true);    try {
-      console.log('🔍 Submitting application for job:', job);
-      console.log('🔍 Job ID:', job._id);
-      console.log('🔍 Job Title:', job.title);
-      
+    }    setIsSubmitting(true);
+    
+    try {
       // Create FormData for file upload
       const applicationFormData = new FormData();
       applicationFormData.append('jobId', job._id);
       applicationFormData.append('coverLetter', formData.coverLetter);
       applicationFormData.append('additionalMessage', formData.additionalMessage);
-      applicationFormData.append('resume', resumeFile);      console.log('🔍 FormData contents:');
-      for (let [key, value] of applicationFormData.entries()) {
-        if (typeof value === 'object' && value instanceof File) {
-          console.log(`  ${key}:`, {
-            name: value.name,
-            size: value.size,
-            type: value.type,
-            lastModified: value.lastModified
-          });
-        } else {
-          console.log(`  ${key}:`, value);
-        }
-      }
-
-      console.log('🔍 About to submit application...');
-      console.log('🔍 Token available:', localStorage.getItem('token') ? 'YES' : 'NO');
-      console.log('🔍 URL:', '/api/applications/submit');
+      applicationFormData.append('resume', resumeFile);
 
       // Submit application
-      console.log('🔍 Making fetch request...');
       const response = await fetch('/api/applications/submit', {
         method: 'POST',
         headers: {
@@ -104,26 +83,11 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         body: applicationFormData
       });
 
-      console.log('🔍 Response received!');
-      console.log('🔍 Response status:', response.status);
-      console.log('🔍 Response ok:', response.ok);
-      console.log('🔍 Response headers:', Object.fromEntries(response.headers.entries()));
-
-      const responseText = await response.text();
-      console.log('🔍 Response text:', responseText);
-
-      let result;
-      try {
-        result = JSON.parse(responseText);
-        console.log('🔍 Parsed result:', result);
-      } catch (parseError) {
-        console.error('🔍 JSON parse error:', parseError);
-        throw new Error(`Server returned invalid JSON: ${responseText}`);
-      }
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.message || 'Failed to submit application');
-      }      // Success
+      }// Success
       alert(`Application submitted successfully for ${result.data?.jobTitle || job.title}!`);
       
       // Reset form
@@ -138,9 +102,7 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         onApplicationSubmitted(result.data);
       }
       
-      onClose();
-    } catch (error) {
-      console.error('Error submitting application:', error);
+      onClose();    } catch (error) {
       alert(`Error submitting application: ${error.message}`);
     } finally {
       setIsSubmitting(false);

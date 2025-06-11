@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTheme } from 'next-themes';
 import { 
   MapPin, 
   Building, 
@@ -26,17 +27,20 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function RealJobsComponent({ onJobClick }) {
+  const { resolvedTheme } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [savedJobs, setSavedJobs] = useState(new Set());
+  const [savingJobId, setSavingJobId] = useState(null);
   const [applicationDialog, setApplicationDialog] = useState({
     isOpen: false,
     selectedJob: null
   });
-
   useEffect(() => {
     fetchJobs();
-  }, []);  const fetchJobs = async () => {
+    fetchSavedJobs();
+  }, []);const fetchJobs = async () => {
     setLoading(true);
     try {
       console.log('🔍 RealJobsComponent: Starting fetchJobs...');
@@ -64,13 +68,96 @@ export default function RealJobsComponent({ onJobClick }) {
         const errorText = await response.text();
         console.error('❌ RealJobsComponent: API request failed:', response.status, errorText);
         setError('Failed to load jobs. Please try again later.');
-      }
-    } catch (error) {
+      }    } catch (error) {
       console.error('❌ RealJobsComponent: Error fetching jobs:', error);
       setError('An error occurred while loading jobs.');
     } finally {
       console.log('🏁 RealJobsComponent: Finished fetchJobs, setting loading to false');
       setLoading(false);
+    }
+  };
+
+  const fetchSavedJobs = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return; // User not logged in
+
+      const response = await fetch('/api/saved-jobs', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          const savedJobIds = new Set(data.data.map(saved => saved.jobId));
+          setSavedJobs(savedJobIds);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching saved jobs:', error);
+    }
+  };
+
+  const handleSaveJob = async (jobId, e) => {
+    e.stopPropagation();
+    
+    const token = localStorage.getItem('token');
+    if (!token) {
+      alert('Please log in to save jobs');
+      return;
+    }
+
+    setSavingJobId(jobId);
+    const isSaved = savedJobs.has(jobId);
+
+    try {
+      if (isSaved) {
+        // Remove from saved jobs
+        const response = await fetch(`/api/saved-jobs?jobId=${jobId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          setSavedJobs(prev => {
+            const newSaved = new Set(prev);
+            newSaved.delete(jobId);
+            return newSaved;
+          });
+        } else {
+          alert('Failed to remove job from saved jobs');
+        }
+      } else {
+        // Add to saved jobs
+        const response = await fetch('/api/saved-jobs', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ jobId })
+        });
+
+        if (response.ok) {
+          setSavedJobs(prev => new Set(prev).add(jobId));
+        } else if (response.status === 409) {
+          // Job already saved
+          setSavedJobs(prev => new Set(prev).add(jobId));
+        } else {
+          alert('Failed to save job');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving/unsaving job:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setSavingJobId(null);
     }
   };
   // Format the posted date as a relative time (e.g., "2 days ago")
@@ -168,22 +255,26 @@ export default function RealJobsComponent({ onJobClick }) {
                   <Building className="h-3 w-3 mr-1" />
                   {job.companyName || 'Company Name'}
                 </CardDescription>
-              </div>
-              <Button 
+              </div>              <Button 
                 variant="ghost" 
                 size="icon" 
                 className="h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const target = e.currentTarget;
-                  const icon = target.querySelector('svg');
-                  if (icon) {
-                    const isSaved = icon.classList.toggle('text-black');
-                    console.log('Save job:', job._id, isSaved ? 'saved' : 'unsaved');
-                  }
-                }}
+                disabled={savingJobId === job._id}
+                onClick={(e) => handleSaveJob(job._id, e)}
               >
-                <Bookmark className="h-4 w-4 transition-colors" />
+                {savingJobId === job._id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Bookmark 
+                    className={`h-4 w-4 transition-colors ${
+                      savedJobs.has(job._id) 
+                        ? resolvedTheme === 'dark' 
+                          ? 'fill-white text-white' 
+                          : 'fill-black text-black'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`} 
+                  />
+                )}
               </Button>
             </div>
           </CardHeader>

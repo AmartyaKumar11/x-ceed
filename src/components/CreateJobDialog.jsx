@@ -159,10 +159,14 @@ export default function CreateJobDialog({ isOpen, onClose, onJobCreated }) {  co
           const errorData = await uploadResponse.json();
           console.error('❌ File upload failed:', errorData);
           throw new Error(errorData.message || 'Failed to upload job description file');
+        }        const uploadResult = await uploadResponse.json();
+        
+        if (!uploadResult.fileUrl) {
+          console.error('❌ Invalid upload response:', uploadResult);
+          throw new Error('Failed to upload job description file - no file URL returned');
         }
         
-        const uploadResult = await uploadResponse.json();
-        jobDescriptionFileUrl = uploadResult.data.url;
+        jobDescriptionFileUrl = uploadResult.fileUrl;
         console.log('✅ Job description PDF uploaded:', jobDescriptionFileUrl);
       }
       
