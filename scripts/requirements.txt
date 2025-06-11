@@ -1,0 +1,26 @@
+# Requirements for Resume Analyzer Service
+# Core dependencies
+PyPDF2==3.0.1
+spacy==3.7.2
+numpy==1.24.3
+
+# LangChain and AI dependencies
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-community==0.0.12
+openai==1.6.1
+
+# Embeddings and vector stores
+sentence-transformers==2.2.2
+faiss-cpu==1.7.4
+
+# Optional: For enhanced NLP
+transformers==4.36.2
+torch==2.1.2
+
+# Development and utilities
+requests==2.31.0
+python-dotenv==1.0.0
+
+# Note: After installing requirements, download spacy model:
+# python -m spacy download en_core_web_sm

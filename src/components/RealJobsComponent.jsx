@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import ResumeUploadDialog from './ResumeUploadDialog';
 
 export default function RealJobsComponent({ onJobClick, searchQuery = '', filters = {} }) {
   const { resolvedTheme } = useTheme();
@@ -32,10 +33,13 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [savedJobs, setSavedJobs] = useState(new Set());
-  const [savingJobId, setSavingJobId] = useState(null);
-  const [applicationDialog, setApplicationDialog] = useState({
+  const [savingJobId, setSavingJobId] = useState(null);  const [applicationDialog, setApplicationDialog] = useState({
     isOpen: false,
     selectedJob: null
+  });
+  const [resumeUploadDialog, setResumeUploadDialog] = useState({
+    isOpen: false,
+    jobId: null
   });
   useEffect(() => {
     fetchJobs();
@@ -196,12 +200,35 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
       isOpen: true,
       selectedJob: job
     });  };
-
   const handleCloseApplicationDialog = () => {
     setApplicationDialog({
       isOpen: false,
       selectedJob: null
     });
+  };
+
+  const handleResumeMatch = (jobId) => {
+    setResumeUploadDialog({
+      isOpen: true,
+      jobId: jobId
+    });
+  };
+
+  const handleCloseResumeUploadDialog = () => {
+    setResumeUploadDialog({
+      isOpen: false,
+      jobId: null
+    });
+  };
+  const handleResumeUploadSuccess = (resumeData, jobId) => {
+    // Navigate to resume match page with uploaded resume data
+    const params = new URLSearchParams({
+      jobId: jobId,
+      resumeId: resumeData.id,
+      resumeFilename: resumeData.filename,
+      resumeName: resumeData.originalName
+    });
+    window.location.href = `/dashboard/applicant/resume-match?${params.toString()}`;
   };
   if (loading) {
     console.log('🔄 RealJobsComponent: Currently loading...');
@@ -517,9 +544,7 @@ Description: ${job.description || 'No description provided.'}
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                console.log('Match resume with job:', job._id);
-                // You would implement the resume matching functionality here
-                alert('Resume matching feature will be available soon!');
+                handleResumeMatch(job._id);
               }}
               className="flex items-center gap-1"
             >
@@ -529,6 +554,14 @@ Description: ${job.description || 'No description provided.'}
             <Button variant="outline" size="sm">View Details</Button>
           </CardFooter>
         </Card>      ))}      </div>
+      
+      {/* Resume Upload Dialog */}
+      <ResumeUploadDialog
+        isOpen={resumeUploadDialog.isOpen}
+        onClose={handleCloseResumeUploadDialog}
+        onUploadSuccess={handleResumeUploadSuccess}
+        jobId={resumeUploadDialog.jobId}
+      />
     </div>
   );
 }
