@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
@@ -11,14 +11,12 @@ export default async function handler(req, res) {
 
   // Only allow applicants to access this endpoint
   if (auth.user.userType !== 'applicant') {
-    return res.status(403).json({ success: false, message: 'Only applicants can access this endpoint' });
-  }
+    return res.status(403).json({ success: false, message: 'Only applicants can access this endpoint' });  }
 
   // Connect to the database
-  const client = await clientPromise;
-  const db = client.db();
+  const db = await getDatabase();
   
-  switch (req.method) {    case 'GET':
+  switch (req.method) {case 'GET':
       try {        
         // Use the user data from auth middleware instead of querying again
         let user;

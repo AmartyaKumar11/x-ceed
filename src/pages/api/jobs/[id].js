@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
@@ -8,12 +8,10 @@ export default async function handler(req, res) {
     const { id } = req.query;
     
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid job ID' });
-    }
+      return res.status(400).json({ message: 'Invalid job ID' });    }
     
     // Connect to the database
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getDatabase();
     
     // Handle different request methods
     switch (req.method) {

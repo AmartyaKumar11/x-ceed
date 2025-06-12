@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
@@ -11,12 +11,10 @@ export default async function handler(req, res) {
 
   // Only applicants can save jobs
   if (auth.user.userType !== 'applicant') {
-    return res.status(403).json({ message: 'Only applicants can save jobs' });
-  }
+    return res.status(403).json({ message: 'Only applicants can save jobs' });  }
 
   // Connect to the database
-  const client = await clientPromise;
-  const db = client.db('x-ceed-db');
+  const db = await getDatabase();
 
   switch (req.method) {
     case 'GET':

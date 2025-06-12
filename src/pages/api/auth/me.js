@@ -1,5 +1,5 @@
 import { authMiddleware } from '../../../lib/middleware';
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {
@@ -18,12 +18,10 @@ export default async function handler(req, res) {
     // Return the user details
     if (auth.user.details) {
       // If details are already included in the auth object, return them
-      return res.status(200).json({ user: auth.user.details });
-    }
+      return res.status(200).json({ user: auth.user.details });    }
     
     // Otherwise, fetch user details from the database
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getDatabase();
     
     const user = await db.collection('users').findOne({
       _id: new ObjectId(auth.user.userId)

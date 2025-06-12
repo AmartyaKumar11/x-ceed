@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 import { sendInterviewInvitation } from '../../../lib/emailService';
@@ -33,11 +33,10 @@ export default async function handler(req, res) {
     // Validate required fields
     if (!applicationId || !interviewDate || !location) {
       return res.status(400).json({ message: 'Missing required fields' });
-    }
+        }
     
     // Connect to the database
-    const client = await clientPromise;
-    const db = client.db();
+    const db = await getDatabase();
     
     // Get the application
     const application = await db.collection('applications').findOne({

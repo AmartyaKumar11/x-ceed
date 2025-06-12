@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
@@ -15,10 +15,8 @@ export default async function handler(req, res) {
   if (!id || !ObjectId.isValid(id)) {
     return res.status(400).json({ message: 'Invalid application ID' });
   }
-  
-  // Connect to the database
-  const client = await clientPromise;
-  const db = client.db();
+    // Connect to the database
+  const db = await getDatabase();
   
   // Find the application
   const application = await db.collection('applications').findOne({

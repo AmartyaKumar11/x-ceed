@@ -58,4 +58,11 @@ if (process.env.NODE_ENV === 'development') {
   clientPromise = client.connect();
 }
 
+// Export both the client promise and a function to get the correct database
 export default clientPromise;
+
+// Helper function to get the database with the correct name
+export async function getDatabase() {
+  const client = await clientPromise;
+  return client.db(dbName);
+}

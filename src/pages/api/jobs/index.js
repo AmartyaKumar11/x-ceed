@@ -1,5 +1,5 @@
 // filepath: c:\Users\AMARTYA KUMAR\Desktop\x-ceed\src\pages\api\jobs\index.js
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 import { jwtVerify } from 'jose';
@@ -16,15 +16,9 @@ const verifyToken = async (token) => {
   }
 };
 
-export default async function handler(req, res) {
-  try {
+export default async function handler(req, res) {  try {
     // Connect to the database
-    const client = await clientPromise;
-      // Extract database name from URI or use default
-    const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/x-ceed-db';
-    const dbName = uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
-    
-    const db = client.db(dbName);
+    const db = await getDatabase();
     
     if (req.method === 'POST') {
       // Verify authentication

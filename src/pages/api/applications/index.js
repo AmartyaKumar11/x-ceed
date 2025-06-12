@@ -1,4 +1,4 @@
-import clientPromise from '../../../lib/mongodb';
+import clientPromise, { getDatabase } from '../../../lib/mongodb';
 import { authMiddleware } from '../../../lib/middleware';
 import { ObjectId } from 'mongodb';
 
@@ -6,11 +6,9 @@ export default async function handler(req, res) {
   // Check authentication first
   const auth = await authMiddleware(req);
   if (!auth.isAuthenticated) {
-    return res.status(auth.status).json({ message: auth.error });
-  }
+    return res.status(auth.status).json({ message: auth.error });  }
     // Connect to the database
-  const client = await clientPromise;
-  const db = client.db('x-ceed-db');
+  const db = await getDatabase();
   
   // Handle different request methods
   switch (req.method) {
