@@ -16,8 +16,7 @@ export default function NewsPanel() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   // Mock news data for now - later we'll replace with real API
-  const mockNews = [];
-  const fetchNews = async (isRefresh = false) => {
+  const mockNews = [];  const fetchNews = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
@@ -25,8 +24,9 @@ export default function NewsPanel() {
     }
 
     try {
-      console.log('🔄 Fetching tech news...');
+      console.log('🔄 Fetching REAL-TIME tech news from NewsAPI...');
       
+      // Use the premium NewsAPI endpoint since we have a real API key
       const response = await fetch('/api/news', {
         method: 'GET',
         headers: {
@@ -35,11 +35,42 @@ export default function NewsPanel() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        console.log('⚠️ NewsAPI failed, falling back to free sources...');
+        // Fallback to free sources if NewsAPI fails
+        const fallbackResponse = await fetch('/api/news/free', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!fallbackResponse.ok) {
+          throw new Error(`Both APIs failed! NewsAPI: ${response.status}, Free: ${fallbackResponse.status}`);
+        }
+        
+        const fallbackData = await fallbackResponse.json();
+        console.log('📰 Using fallback news sources:', fallbackData);
+        
+        if (fallbackData.success && fallbackData.articles) {
+          const formattedArticles = fallbackData.articles.map(article => ({
+            id: article.id,
+            title: article.title,
+            description: article.description,
+            url: article.url,
+            source: article.source?.name || article.source || 'Unknown',
+            publishedAt: article.publishedAt,
+            image: article.urlToImage || "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=200&fit=crop&q=80"
+          }));
+          
+          setNews(formattedArticles);
+          setLastUpdated(new Date());
+          console.log(`✅ Fallback news updated: ${formattedArticles.length} articles from free sources`);
+        }
+        return;
       }
 
       const data = await response.json();
-      console.log('📰 News API response:', data);
+      console.log('📰 Premium NewsAPI response:', data);
       
       if (data.success && data.articles) {
         // Map the articles to match our component structure
@@ -55,21 +86,21 @@ export default function NewsPanel() {
         
         setNews(formattedArticles);
         setLastUpdated(new Date());
-        console.log('✅ News updated successfully:', formattedArticles.length, 'articles');
+        console.log(`✅ PREMIUM NewsAPI updated successfully: ${formattedArticles.length} articles from professional sources`);
       } else {
-        throw new Error('Invalid response format');
+        throw new Error('Invalid response format from NewsAPI');
       }
     } catch (error) {
-      console.error('❌ Error fetching news:', error);
+      console.error('❌ Error fetching real-time news:', error);
       
-      // Fallback to some basic tech news if API fails
+      // Final fallback to basic tech news if both APIs fail
       setNews([
         {
           id: 1,
-          title: "Stay Updated with Latest Tech News",
-          description: "We're working to bring you the latest technology news and updates. Check back soon for fresh content.",
+          title: "Real-Time News Service Temporarily Unavailable",
+          description: "We're experiencing issues connecting to news sources. Please try refreshing in a few minutes for the latest tech updates.",
           url: "#",
-          source: "X-Ceed",
+          source: "X-Ceed System",
           publishedAt: new Date().toISOString(),
           image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=200&fit=crop&q=80"
         }
