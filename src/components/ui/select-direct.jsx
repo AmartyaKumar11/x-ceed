@@ -44,9 +44,8 @@ export function SelectDirect({
       >
         <span className="truncate">{displayValue}</span>
         <ChevronDownIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-      </Button>
-        {isOpen && (
-        <div className="absolute top-full left-0 z-[9999] w-full mt-1 rounded-md border bg-white p-1 shadow-md">
+      </Button>        {isOpen && (
+        <div className="absolute top-full left-0 z-[9999] w-full mt-1 rounded-md border bg-popover text-popover-foreground p-1 shadow-md">
           <div className="max-h-[200px] overflow-auto">
             {options.map((option, index) => {
               const value = typeof option === 'object' ? option.value : option;

@@ -14,8 +14,8 @@ import { Input } from "@/components/ui/input";
 // Import the old SimpleDatePicker in case it's used elsewhere
 import { SimpleDatePicker } from "@/components/ui/simple-date-picker";
 import { SelectDirect } from "@/components/ui/select-direct";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { TextDateInput } from "@/components/ui/text-date-input";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 // Define schemas for each step
 const personalInfoSchema = z.object({
@@ -92,15 +92,12 @@ const genders = ["Male", "Female", "Prefer not to say", "Other"];
 
 export default function RegistrationPage() {
   const router = useRouter();  const [step, setStep] = useState(0);
-  const [profileImage, setProfileImage] = useState(null);
-  const [profileImageFile, setProfileImageFile] = useState(null);
-  const [resumeFile, setResumeFile] = useState(null);
   const [isLoading, setIsLoading] = useState(false);  const [formData, setFormData] = useState({
     personal: null,
     education: null,
     contact: null,
     workExperience: null,
-  });  // Configure form states
+  });// Configure form states
   const formDefaultValues = {
     personal: {
       name: "",
@@ -287,37 +284,26 @@ export default function RegistrationPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const onSubmitWorkExperience = (data) => {
+  };  const onSubmitWorkExperience = async (data) => {
+    // Save work experience data first
     setFormData(prev => ({ ...prev, workExperience: data }));
-    setStep(4);
-  };  const handleProfileImageChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setProfileImageFile(file); // Store the actual file
-      setProfileImage(URL.createObjectURL(file)); // Store the preview URL
-    }
-  };
-  const handleResumeChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setResumeFile(file);
-    }
-  };const handleFinish = async () => {
+    
+    // Call handleFinish with the updated data - need to pass data directly since state update is async
+    await handleFinishWithData({ ...formData, workExperience: data });
+  };const handleFinishWithData = async (finalFormData) => {
     try {
       // Set loading state
       setIsLoading(true);
       
       // Ensure we have a valid email
-      if (!formData.contact?.email || formData.contact.email.trim() === '') {
+      if (!finalFormData.contact?.email || finalFormData.contact.email.trim() === '') {
         alert("Email is required. Please go back to the contact step and provide an email address.");
         setIsLoading(false);
         return;
       }
         // Normalize the email address
-      const email = formData.contact.email.trim().toLowerCase();
-      const password = formData.contact.password; // Use the user-entered password
+      const email = finalFormData.contact.email.trim().toLowerCase();
+      const password = finalFormData.contact.password; // Use the user-entered password
       
       // Verify one more time that the email is still available before final submission
       const emailCheckResponse = await fetch('/api/auth/check-email', {
@@ -340,10 +326,10 @@ export default function RegistrationPage() {
         password: password, // Use the user-provided password
         userType: 'applicant',
         userData: {
-          personal: formData.personal,
-          education: [formData.education], // Convert to array for the schema
-          contact: { ...formData.contact, email: email }, // Ensure email consistency
-          workExperience: [formData.workExperience], // Convert to array for the schema
+          personal: finalFormData.personal,
+          education: [finalFormData.education], // Convert to array for the schema
+          contact: { ...finalFormData.contact, email: email }, // Ensure email consistency
+          workExperience: [finalFormData.workExperience], // Convert to array for the schema
         }
       };
       
@@ -391,89 +377,12 @@ export default function RegistrationPage() {
         localStorage.setItem('token', loginResult.token);
       }
 
-      // Upload files if they were selected (regardless of auto-login success)
-      const token = loginResult?.token; // Use token if available
-
-      // If resume file was uploaded, send it to the backend
-      if (resumeFile) {
-        if (!token) {
-          alert("Your profile was created successfully! However, you'll need to log in and upload your resume and profile image from your dashboard.");
-        } else {
-          try {
-          // Create FormData object for file upload
-          const formData = new FormData();
-          formData.append('file', resumeFile, resumeFile.name); // Append with filename
-          
-          // Upload the resume file to the resume upload endpoint
-          const uploadResponse = await fetch('/api/upload/resume', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              // Don't manually set Content-Type for FormData
-              // The browser will set it automatically with the correct boundary
-            },
-            body: formData,
-            // Ensure credentials are included
-            credentials: 'include',
-          });
-          
-          if (!uploadResponse.ok) {
-            // Try to get more details from the error response
-            try {
-              const errorData = await uploadResponse.json();
-              
-              // Show a notification to the user but continue registration
-              alert(`Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard. (Error: ${errorData.message || 'Unknown error'})`);
-            } catch (parseError) {              alert("Note: Your profile was created but the resume upload failed. You can upload your resume later from your dashboard.");
-            }
-            // Continue with registration even if resume upload fails
-          } else {
-            const uploadResult = await uploadResponse.json();
-          }        } catch (uploadError) {
-          alert("Your profile was created successfully, but we couldn't upload your resume. You can upload it later from your dashboard.");
-          // Continue with registration even if resume upload fails
-        }
-        } // Close the else block for token check
-      }
-
-      // If profile image was uploaded, send it to the backend
-      if (profileImageFile && token) {
-        try {
-          // Create FormData object for profile image upload
-          const imageFormData = new FormData();
-          imageFormData.append('file', profileImageFile, profileImageFile.name);
-          
-          // Upload the profile image
-          const imageUploadResponse = await fetch('/api/upload/profile-image', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-            body: imageFormData,
-            credentials: 'include',
-          });
-          
-          if (!imageUploadResponse.ok) {
-            try {
-              const errorData = await imageUploadResponse.json();
-              alert(`Note: Your profile was created but the profile image upload failed. You can upload it later from your dashboard. (Error: ${errorData.message || 'Unknown error'})`);
-            } catch (parseError) {
-              alert("Note: Your profile was created but the profile image upload failed. You can upload it later from your dashboard.");
-            }
-          } else {
-            const imageUploadResult = await imageUploadResponse.json();
-          }
-        } catch (imageUploadError) {
-          alert("Your profile was created successfully, but we couldn't upload your profile image. You can upload it later from your dashboard.");
-        }
-      }
-      
       setIsLoading(false);
       
       // For now, still store in localStorage for compatibility
       localStorage.setItem('applicantProfile', JSON.stringify({
-        name: formData.personal?.name,
-        email: formData.contact?.email,
+        name: finalFormData.personal?.name,
+        email: finalFormData.contact?.email,
         id: result.user.id,
         registrationComplete: true,
         userType: 'applicant'
@@ -529,7 +438,6 @@ export default function RegistrationPage() {
       default: return '';
     }
   };
-
   // Handle skipping optional steps
   const handleSkip = () => {
     if (step < 2) {
@@ -552,7 +460,12 @@ export default function RegistrationPage() {
       }));
     }
     
-    setStep(step + 1);
+    // For work experience step (step 3), finish registration instead of going to next step
+    if (step === 3) {
+      handleFinishWithData({ ...formData, workExperience: currentForm?.getValues() || {} });
+    } else {
+      setStep(step + 1);
+    }
   };
 
   const getStepContent = () => {
@@ -983,88 +896,32 @@ export default function RegistrationPage() {
                   </p>
                 )}
               </div>
-              
-              <div className="flex gap-3">
+                <div className="flex gap-3">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(2)}>Back</Button>
-                <Button type="submit" className="flex-1">Continue</Button>
+                <Button type="submit" className="flex-1" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
+                      Processing...
+                    </>
+                  ) : "Complete Registration"}
+                </Button>
                 <Button type="button" variant="secondary" onClick={handleSkip}>Skip</Button>
               </div>
             </form>
           </Form>
         );
       
-      case 4:
-        return (
-          <div className="space-y-6">
-            <div className="space-y-4">
-              <div className="text-center mb-6">
-                <h3 className="text-lg font-medium">Upload Profile Picture</h3>
-                <p className="text-sm text-gray-500">Choose a profile picture to personalize your account</p>
-              </div>
-              
-              <div className="flex flex-col items-center gap-4">
-                <Avatar className="h-32 w-32">
-                  {profileImage ? (
-                    <AvatarImage src={profileImage} alt="Profile" />
-                  ) : (
-                    <AvatarFallback>
-                      <span className="text-2xl">
-                        {formData.personal?.name?.substring(0, 2)?.toUpperCase() || "?"}
-                      </span>
-                    </AvatarFallback>
-                  )}
-                </Avatar>
-                
-                <Input
-                  type="file"
-                  accept="image/*"
-                  id="profile-picture"
-                  className="max-w-xs"
-                  onChange={handleProfileImageChange}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="text-center mb-2">
-                <h3 className="text-lg font-medium">Upload Resume</h3>
-                <p className="text-sm text-gray-500">Upload your latest resume (PDF or DOC)</p>
-              </div>
-              
-              <Input
-                type="file"
-                accept=".pdf,.doc,.docx"
-                id="resume-upload"
-                className="max-w-xs mx-auto"
-                onChange={handleResumeChange}
-              />
-              
-              {resumeFile && (
-                <p className="text-sm text-center text-green-600">
-                  {resumeFile.name} uploaded successfully!
-                </p>
-              )}
-            </div>
-              <div className="flex gap-3">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setStep(3)} disabled={isLoading}>Back</Button>
-              <Button type="button" className="flex-1" onClick={handleFinish} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <span className="animate-spin mr-2 h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                    Processing...
-                  </>
-                ) : "Complete Registration"}
-              </Button>
-            </div>
-          </div>
-        );
-      
       default:
         return null;
     }
-  };
-  return (
-    <div className="min-h-screen flex flex-col md:flex-row">      
+  };return (
+    <div className="min-h-screen flex flex-col md:flex-row relative">
+      {/* Theme Toggle - Fixed position top-right */}
+      <div className="fixed top-4 right-4 z-50">
+        <DarkModeToggle />
+      </div>
+      
       {/* Left side - Typewriter animation */}
       <div className={styles['typewriter-container']} style={{ flex: 1 }}>
         <div className={styles['typewriter-wrapper']}>
@@ -1078,17 +935,16 @@ export default function RegistrationPage() {
       </div>
 
       {/* Right side - Registration form */}
-      <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-gray-50">
+      <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-muted/10">
         <Card className={styles['registration-card']}>
           <CardHeader>
             <CardTitle className="text-xl md:text-2xl font-bold">Complete Your Profile</CardTitle>
             <CardDescription>
               Please provide the following details to complete your registration
             </CardDescription>
-            
-            {/* Step indicators */}
+              {/* Step indicators */}
             <div className={styles['registration-step-indicator']}>
-              {['Personal Information', 'Education', 'Contact', 'Work Experience', 'Upload Files'].map((stepName, index) => (
+              {['Personal Information', 'Education', 'Contact', 'Work Experience'].map((stepName, index) => (
                 <div 
                   key={index}
                   title={stepName} 
@@ -1105,11 +961,10 @@ export default function RegistrationPage() {
           </CardContent>
           
           <CardFooter className="flex justify-between border-t pt-4">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               {step === 0 || step === 1 ? '* Required fields' : ''}
-            </p>
-            <p className="text-xs text-gray-500">
-              Step {step + 1} of 5
+            </p>            <p className="text-xs text-muted-foreground">
+              Step {step + 1} of 4
             </p>
           </CardFooter>
         </Card>

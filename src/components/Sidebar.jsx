@@ -22,7 +22,6 @@ export default function Sidebar({ role }) {
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const sidebarRef = useRef(null);
-  const triggerRef = useRef(null);
     // Define menu items based on role
   const menuItems = role === 'applicant' ? [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/applicant' },
@@ -39,63 +38,42 @@ export default function Sidebar({ role }) {
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
     { icon: <Settings size={18} />, label: 'Settings', href: '#' },
   ];
-    useEffect(() => {
-    // Function to handle mouse enter
+  useEffect(() => {
+    // Function to handle mouse enter on the left edge
     const handleMouseEnter = () => {
       setIsOpen(true);
     };
     
     // Function to handle mouse leave
     const handleMouseLeave = (e) => {
-      // Check if mouse is still within the sidebar or the trigger area
-      if (
-        !sidebarRef.current?.contains(e.relatedTarget) &&
-        !triggerRef.current?.contains(e.relatedTarget)
-      ) {
+      // Check if mouse is still within the sidebar
+      if (!sidebarRef.current?.contains(e.relatedTarget)) {
         setIsOpen(false);
       }
     };
     
-    // Create a trigger area on the left side of the screen
-    let trigger = document.createElement('div');
-    trigger.style.position = 'fixed';
-    trigger.style.top = '0';
-    trigger.style.left = '0';
-    trigger.style.width = '20px';
-    trigger.style.height = '100%';
-    trigger.style.zIndex = '48';
-    
-    // Check if the trigger already exists and remove it before adding a new one
-    const existingTrigger = document.querySelector('.sidebar-trigger-area');
-    if (existingTrigger) {
-      existingTrigger.remove();
+    // Add event listener to sidebar for mouse leave
+    const sidebar = sidebarRef.current;
+    if (sidebar) {
+      sidebar.addEventListener('mouseleave', handleMouseLeave);
     }
-    
-    // Add a class for identification
-    trigger.classList.add('sidebar-trigger-area');
-    
-    triggerRef.current = trigger;
-    document.body.appendChild(trigger);
-    
-    // Add event listeners
-    trigger.addEventListener('mouseenter', handleMouseEnter);
-    sidebarRef.current?.addEventListener('mouseleave', handleMouseLeave);
     
     // Cleanup
     return () => {
-      trigger.removeEventListener('mouseenter', handleMouseEnter);
-      sidebarRef.current?.removeEventListener('mouseleave', handleMouseLeave);
-      
-      // Safe removal of the trigger
-      if (document.body.contains(trigger)) {
-        document.body.removeChild(trigger);
+      if (sidebar) {
+        sidebar.removeEventListener('mouseleave', handleMouseLeave);
       }
-    };  }, []);  return (
+    };
+  }, []);  return (
     <>
-      {/* Trigger area */}
-      <div ref={triggerRef} className="sidebar-trigger"></div>
+      {/* Trigger area - React-based instead of DOM manipulation */}
+      <div 
+        className="fixed top-0 left-0 w-5 h-full z-40 cursor-pointer"
+        onMouseEnter={() => setIsOpen(true)}
+        style={{ pointerEvents: isOpen ? 'none' : 'auto' }}
+      />
       
-      {/* Sidebar */}      <div
+      {/* Sidebar */}<div
         ref={sidebarRef}
         className={`sidebar fixed top-0 left-0 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out z-50 ${
           isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'

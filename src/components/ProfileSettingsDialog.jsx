@@ -13,16 +13,21 @@ import {
   Award,
   Save,
   Trash2,
-  Plus
+  Plus,
+  Edit,
+  CheckCircle
 } from 'lucide-react';
-import { apiClient } from '../lib/api';
 import SkillsEditor from './SkillsEditor';
 
-export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'applicant' }) {
-  const [loading, setLoading] = useState(false);
+export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'applicant' }) {  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
-  const [profileData, setProfileData] = useState({
+  const [personalDetailsLocked, setPersonalDetailsLocked] = useState(false);
+  const [personalDetailsChanged, setPersonalDetailsChanged] = useState(false);
+  const [savingPersonalDetails, setSavingPersonalDetails] = useState(false);
+  const [personalDetailsSaved, setPersonalDetailsSaved] = useState(false);
+  const [savingSkills, setSavingSkills] = useState(false);
+  const [skillsSaved, setSkillsSaved] = useState(false);const [profileData, setProfileData] = useState({
     // Personal Information
     firstName: '',
     lastName: '',
@@ -33,6 +38,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
     state: '',
     zipCode: '',
     dateOfBirth: '',
+    gender: '',
     
     // Education
     education: [],
@@ -44,34 +50,64 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
     
     // Certifications
     certifications: []
-  });
-
-  // Define fetchProfileData function
+  });  // Define fetchProfileData function
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/api/applicant/profile');
-      if (response && response.success && response.data) {
-        setProfileData({
-          firstName: response.data.firstName || '',
-          lastName: response.data.lastName || '',
-          email: response.data.email || '',
-          phone: response.data.phone || '',
-          address: response.data.address || '',
-          city: response.data.city || '',
-          state: response.data.state || '',
-          zipCode: response.data.zipCode || '',
-          dateOfBirth: response.data.dateOfBirth || '',          education: response.data.education || [],
-          workExperience: response.data.workExperience || [],
-          skills: response.data.skills || [],
-          certifications: response.data.certifications || []
+      console.log('🔍 ProfileSettingsDialog: Fetching profile data...');
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
+      
+      const response = await fetch('/api/applicant/profile', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const result = await response.json();
+      console.log('📊 ProfileSettingsDialog: API Response:', result);
+      
+      if (response.ok && result.success && result.data) {
+        console.log('✅ ProfileSettingsDialog: Profile data received:', result.data);
+        
+        // Map the flat API response to the expected nested structure
+        const userData = result.data;setProfileData({
+          firstName: userData.firstName || '',
+          lastName: userData.lastName || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          address: userData.address || '',
+          city: userData.city || '',
+          state: userData.state || '',
+          zipCode: userData.zipCode || '',
+          dateOfBirth: userData.dateOfBirth || '',
+          gender: userData.gender || '',
+          education: Array.isArray(userData.education) ? userData.education : [],
+          workExperience: Array.isArray(userData.workExperience) ? userData.workExperience : [],
+          skills: Array.isArray(userData.skills) ? userData.skills : [],
+          certifications: Array.isArray(userData.certifications) ? userData.certifications : []
+        });
+        
+        console.log('🔄 ProfileSettingsDialog: Mapped profile data:', {
+          firstName: userData.firstName || 'N/A',
+          lastName: userData.lastName || 'N/A',
+          email: userData.email || 'N/A',
+          phone: userData.phone || 'N/A',
+          educationCount: Array.isArray(userData.education) ? userData.education.length : 0,
+          workExperienceCount: Array.isArray(userData.workExperience) ? userData.workExperience.length : 0,
+          skillsCount: Array.isArray(userData.skills) ? userData.skills.length : 0
         });
       } else {
-        // If no profile data exists yet, keep default empty state
         console.log('No profile data found, using defaults');
+        // If no profile data exists yet, keep default empty state
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('💥 Error fetching profile:', error);
       // For now, just log the error and continue with empty profile data
       // In a real app, you might want to show a user-friendly error message
     } finally {
@@ -84,33 +120,68 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
     if (isOpen && userRole === 'applicant') {
       fetchProfileData();
     }
-  }, [isOpen, userRole]);
-  const handleSave = async () => {
+  }, [isOpen, userRole]);  const handleSave = async () => {
     setSaving(true);
     try {
       console.log('Saving profile data:', JSON.stringify(profileData, null, 2));
       console.log('Auth token exists:', localStorage.getItem('token') ? 'Yes' : 'No');
       
-      const response = await apiClient.put('/api/applicant/profile', profileData);
-      console.log('Profile save response:', response);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('Authentication token not found. Please log in again.');
+      }
       
-      onClose();
+      const response = await fetch('/api/applicant/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(profileData)
+      });
+      
+      const result = await response.json();
+      console.log('Profile save response:', result);
+      
+      if (!response.ok) {
+        throw new Error(result.message || `Error: ${response.status}`);
+      }
+      
+      if (result.success) {
+        onClose();
+      } else {
+        throw new Error(result.message || 'Failed to save profile');
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
       console.error('Error details:', error.message);
-      console.error('Error stack:', error.stack);
       alert(`Error saving profile: ${error.message || 'Please try again.'}`);
     } finally {
       setSaving(false);
     }
   };
-
   const handleInputChange = (field, value) => {
     setProfileData(prev => ({
       ...prev,
       [field]: value
     }));
+    
+    // Mark personal details as changed if it's a personal field
+    const personalFields = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'state', 'zipCode', 'dateOfBirth', 'gender'];
+    if (personalFields.includes(field)) {
+      setPersonalDetailsChanged(true);
+      setPersonalDetailsLocked(false); // Unlock if user starts editing
+    }
   };
+
+  // Helper function to get input props for personal fields
+  const getPersonalInputProps = (baseProps = {}) => ({
+    ...baseProps,
+    disabled: personalDetailsLocked,
+    className: `w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+      personalDetailsLocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+    } ${baseProps.className || ''}`
+  });
 
   const handleArrayFieldChange = (arrayName, index, field, value) => {
     setProfileData(prev => ({
@@ -193,23 +264,27 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       <label className="block text-sm font-semibold text-foreground mb-3">
                         <User size={16} className="inline mr-2" />
                         First Name
-                      </label>
-                      <input
+                      </label>                      <input
                         type="text"
                         value={profileData.firstName}
                         onChange={(e) => handleInputChange('firstName', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        disabled={personalDetailsLocked}
+                        className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                          personalDetailsLocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+                        }`}
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-3">
                         Last Name
-                      </label>
-                      <input
+                      </label>                      <input
                         type="text"
                         value={profileData.lastName}
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        disabled={personalDetailsLocked}
+                        className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                          personalDetailsLocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+                        }`}
                       />
                     </div>
                   </div>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -217,12 +292,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       <label className="block text-sm font-semibold text-foreground mb-3">
                         <Mail size={16} className="inline mr-2" />
                         Email
-                      </label>
-                      <input
+                      </label>                      <input
                         type="email"
                         value={profileData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        disabled={personalDetailsLocked}
+                        className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
+                          personalDetailsLocked ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+                        }`}
                       />
                     </div>
                     <div>
@@ -230,63 +307,174 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         <Phone size={16} className="inline mr-2" />
                         Phone
                       </label>
-                      <input
-                        type="tel"
+                      <input                        type="tel"
                         value={profileData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        {...getPersonalInputProps()}
                       />
                     </div>
                   </div>                  <div>
                     <label className="block text-sm font-semibold text-foreground mb-3">
                       <MapPin size={16} className="inline mr-2" />
                       Address
-                    </label>
-                    <input
+                    </label>                    <input
                       type="text"
                       value={profileData.address}
                       onChange={(e) => handleInputChange('address', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                      {...getPersonalInputProps()}
                     />
                   </div>                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                      <label className="block text-sm font-semibold text-foreground mb-3">City</label>
-                      <input
+                      <label className="block text-sm font-semibold text-foreground mb-3">City</label>                      <input
                         type="text"
                         value={profileData.city}
                         onChange={(e) => handleInputChange('city', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        {...getPersonalInputProps()}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-foreground mb-3">State</label>
-                      <input
+                      <label className="block text-sm font-semibold text-foreground mb-3">State</label>                      <input
                         type="text"
                         value={profileData.state}
                         onChange={(e) => handleInputChange('state', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        {...getPersonalInputProps()}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-foreground mb-3">Zip Code</label>
-                      <input
+                      <label className="block text-sm font-semibold text-foreground mb-3">Zip Code</label>                      <input
                         type="text"
                         value={profileData.zipCode}
                         onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                        className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
+                        {...getPersonalInputProps()}
                       />
                     </div>
-                  </div>                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-3">
-                      <Calendar size={16} className="inline mr-2" />
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      value={profileData.dateOfBirth}
-                      onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
-                    />
+                  </div>                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-3">
+                        <Calendar size={16} className="inline mr-2" />
+                        Date of Birth
+                      </label>                      <input
+                        type="date"
+                        value={profileData.dateOfBirth}
+                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                        {...getPersonalInputProps()}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-foreground mb-3">Gender</label>                      <select
+                        value={profileData.gender || ''}
+                        onChange={(e) => handleInputChange('gender', e.target.value)}
+                        {...getPersonalInputProps({ className: 'bg-background' })}
+                      >
+                        <option value="">Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                      </select>
+                    </div>
+                  </div>                  {/* Confirm/Edit Personal Details Button */}
+                  <div className="flex justify-end pt-6 border-t border-border">
+                    <button                      onClick={async () => {
+                        if (personalDetailsLocked) {
+                          // Enable editing mode
+                          setPersonalDetailsLocked(false);
+                          setPersonalDetailsChanged(false);
+                          setPersonalDetailsSaved(false);
+                        } else {
+                          // Save personal details
+                          try {
+                            setSavingPersonalDetails(true);
+                            console.log('💾 Saving personal info only...');
+                            
+                            // Only save personal info fields
+                            const personalInfoData = {
+                              firstName: profileData.firstName,
+                              lastName: profileData.lastName,
+                              email: profileData.email,
+                              phone: profileData.phone,
+                              address: profileData.address,
+                              city: profileData.city,
+                              state: profileData.state,
+                              zipCode: profileData.zipCode,
+                              dateOfBirth: profileData.dateOfBirth,
+                              gender: profileData.gender
+                            };
+                            
+                            console.log('📤 Personal info to save:', personalInfoData);
+                            
+                            // Use direct fetch to avoid apiClient issues
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              throw new Error('Authentication token not found. Please log in again.');
+                            }
+                            
+                            const response = await fetch('/api/applicant/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify(personalInfoData)
+                            });
+                            
+                            const result = await response.json();
+                            console.log('✅ Personal info save response:', result);
+                            
+                            if (!response.ok) {
+                              throw new Error(result.message || `Error: ${response.status}`);
+                            }
+                            
+                            if (result.success) {
+                              // Lock the fields and show success
+                              setPersonalDetailsLocked(true);
+                              setPersonalDetailsChanged(false);
+                              setPersonalDetailsSaved(true);
+                              
+                              // Reset success state after 2 seconds
+                              setTimeout(() => {
+                                setPersonalDetailsSaved(false);
+                              }, 2000);
+                            } else {
+                              throw new Error(result.message || 'Failed to save');
+                            }
+                          } catch (error) {
+                            console.error('💥 Error saving personal info:', error);
+                            alert(`Error saving personal information: ${error.message}`);
+                          } finally {
+                            setSavingPersonalDetails(false);
+                          }
+                        }
+                      }}                      disabled={savingPersonalDetails}
+                      id="personal-details-btn"
+                      className={`flex items-center gap-2 px-6 py-3 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold ${
+                        personalDetailsLocked 
+                          ? 'bg-secondary text-secondary-foreground hover:bg-secondary/90 border-2 border-border' 
+                          : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                      }`}
+                    >
+                      {savingPersonalDetails ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                          Saving...
+                        </>
+                      ) : personalDetailsSaved ? (
+                        <>
+                          <CheckCircle size={16} />
+                          Personal Details Saved!
+                        </>
+                      ) : personalDetailsLocked ? (
+                        <>
+                          <Edit size={16} />
+                          Edit Personal Details
+                        </>
+                      ) : (
+                        <>
+                          <Save size={16} />
+                          Confirm Personal Details
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               )}{/* Education Tab */}
@@ -493,20 +681,11 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                     />
                     <p className="text-sm text-muted-foreground mt-4 font-medium">
                       Select skills from the suggestions or type to search. These will help match you with relevant job opportunities.
-                    </p>
-                    <div className="mt-6 flex justify-end">
+                    </p>                    <div className="mt-6 flex justify-end">
                       <button
                         onClick={async () => {
                           try {
-                            // Store button reference so we can update it
-                            const btn = document.getElementById('skills-confirm-btn');
-                            
-                            // Update button state to loading
-                            if (btn) {
-                              btn.disabled = true;
-                              btn.innerHTML = 'Saving...';
-                              btn.classList.add('opacity-75');
-                            }
+                            setSavingSkills(true);
                             
                             // Only send required fields to minimize data
                             const minimalData = {
@@ -541,36 +720,40 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                             }
                             
                             // Show success state
-                            if (btn) {
-                              btn.innerHTML = 'Skills Saved!';
-                              btn.classList.remove('opacity-75');
-                              btn.classList.add('bg-green-700');
-                              
-                              // Reset button after delay
-                              setTimeout(() => {
-                                if (btn) {
-                                  btn.disabled = false;
-                                  btn.innerHTML = 'Confirm Skills';
-                                  btn.classList.remove('bg-green-700');
-                                }
-                              }, 2000);
-                            }
+                            setSkillsSaved(true);
+                            
+                            // Reset success state after 2 seconds
+                            setTimeout(() => {
+                              setSkillsSaved(false);
+                            }, 2000);
                           } catch (error) {
                             console.error('Failed to save skills:', error);
                             alert(`Error saving skills: ${error.message}`);
-                            
-                            // Reset button state on error
-                            const btn = document.getElementById('skills-confirm-btn');
-                            if (btn) {
-                              btn.disabled = false;
-                              btn.innerHTML = 'Confirm Skills';
-                              btn.classList.remove('opacity-75');
-                            }
+                          } finally {
+                            setSavingSkills(false);
                           }
-                        }}                        id="skills-confirm-btn"
-                        className="flex items-center px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-semibold"
+                        }}
+                        id="skills-confirm-btn"
+                        disabled={savingSkills}
+                        className={`flex items-center px-6 py-3 rounded-md transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+                          skillsSaved 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
                       >
-                        Confirm Skills
+                        {savingSkills ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                            Saving...
+                          </>
+                        ) : skillsSaved ? (
+                          <>
+                            <CheckCircle size={16} className="mr-2" />
+                            Skills Saved!
+                          </>
+                        ) : (
+                          'Confirm Skills'
+                        )}
                       </button>
                     </div>
                   </div>

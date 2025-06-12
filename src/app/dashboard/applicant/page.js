@@ -9,19 +9,59 @@ import {
   Star, 
   Bell, 
   CheckCircle,
-  Loader2
+  Loader2,
+  Edit,
+  TrendingUp,
+  Target
 } from 'lucide-react';
 import JobCountBadge from '@/components/JobCountBadge';
 import { clientAuth } from '@/lib/auth';
+import ProfileSettingsDialog from '@/components/ProfileSettingsDialog';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function ApplicantDashboardPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const [savedJobsCount, setSavedJobsCount] = useState(0);
   const [loadingSavedJobs, setLoadingSavedJobs] = useState(true);
-
+  const [profileData, setProfileData] = useState(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [completionAnimation, setCompletionAnimation] = useState('');
+  const [lastCompletionPercentage, setLastCompletionPercentage] = useState(0);
   useEffect(() => {
     fetchSavedJobsCount();
+    fetchProfileData();
   }, []);
+
+  const fetchProfileData = async () => {
+    try {
+      if (!clientAuth.isAuthenticated()) {
+        setLoadingProfile(false);
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/applicant/profile', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setProfileData(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
 
   const fetchSavedJobsCount = async () => {
     try {
@@ -50,11 +90,72 @@ export default function ApplicantDashboardPage() {
     } finally {
       setLoadingSavedJobs(false);
     }
+  };  const calculateProfileCompletion = () => {
+    if (!profileData) return { percentage: 0, completed: [], pending: [] };
+
+    // Only include fields that were part of the original registration process
+    const fields = [
+      { 
+        key: 'personal', 
+        label: 'Personal Information', 
+        check: () => profileData.firstName && profileData.lastName && profileData.email 
+      },
+      { 
+        key: 'education', 
+        label: 'Education', 
+        check: () => profileData.education && profileData.education.length > 0 && 
+                    profileData.education.some(edu => edu.institution && edu.degree)
+      },
+      { 
+        key: 'contact', 
+        label: 'Contact Information', 
+        check: () => profileData.phone && (profileData.city || profileData.address)
+      },
+      { 
+        key: 'experience', 
+        label: 'Work Experience', 
+        check: () => profileData.workExperience && profileData.workExperience.length > 0 && 
+                    profileData.workExperience.some(exp => exp.company && exp.position)
+      }    ];
+
+    const completed = fields.filter(field => field.check());
+    const pending = fields.filter(field => !field.check());
+    const percentage = Math.round((completed.length / fields.length) * 100);
+
+    return { percentage, completed, pending };
+  };
+
+  const profileCompletion = calculateProfileCompletion();
+  const handleProfileDialogClose = () => {
+    setProfileDialogOpen(false);
+    const oldPercentage = profileCompletion.percentage;
+    
+    // Refresh profile data after dialog closes
+    fetchProfileData();
+    
+    // Show animation if profile was completed
+    setTimeout(() => {
+      const newCompletion = calculateProfileCompletion();
+      if (newCompletion.percentage === 100 && oldPercentage < 100) {
+        setCompletionAnimation('animate-pulse');
+        setTimeout(() => setCompletionAnimation(''), 2000);
+        
+        // Show toast notification
+        toast({
+          title: "Profile Complete! 🎉",
+          description: "Your profile is now 100% complete. You're ready to apply for jobs and get noticed by recruiters!",
+          variant: "success",
+        });
+      }
+    }, 1000);
   };
 
   const handleSavedJobsClick = () => {
     router.push('/dashboard/applicant/saved-jobs');
   };
+
+  // Don't render profile completion card if 100% complete
+  const shouldShowProfileCompletion = profileCompletion.percentage < 100;
 
   return (
     <div className="space-y-6">
@@ -130,39 +231,86 @@ export default function ApplicantDashboardPage() {
               <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 22, 2025</p>
             </div>
           </div>
-        </div>        
-        {/* Profile Completion */}        <div className="bg-card p-6 rounded-lg border border-border shadow-md">
-          <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
-            <User className="h-5 w-5 mr-2 text-muted-foreground" />
-            Profile Completion
-          </h3><div className="mb-4 bg-muted rounded-full h-2.5">
-            <div className="bg-primary h-2.5 rounded-full" style={{ width: '70%' }}></div>
-          </div>
-          <p className="text-sm text-muted-foreground mb-4">Your profile is 70% complete</p>
-          
-          <div className="space-y-3">
-            <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-              <span className="text-sm text-foreground">Personal information</span>
+        </div>          {/* Profile Completion - Only show if not 100% complete */}
+        {shouldShowProfileCompletion && (
+          <div 
+            className={`bg-card p-6 rounded-lg border border-border shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer ${completionAnimation}`}
+            onClick={() => setProfileDialogOpen(true)}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold flex items-center text-foreground">
+                <User className="h-5 w-5 mr-2 text-muted-foreground" />
+                Profile Completion
+              </h3>
+              <div className="flex items-center space-x-2">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-primary">{profileCompletion.percentage}%</span>
+              </div>
+            </div>            {/* Dynamic Progress Bar */}
+            <div className="mb-4 bg-gray-200 dark:bg-gray-700 rounded-full h-3 relative overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-blue-600 to-blue-500 dark:from-white dark:to-gray-100 h-3 rounded-full transition-all duration-700 ease-out relative"
+                style={{ width: `${profileCompletion.percentage}%` }}
+              >
+                {profileCompletion.percentage > 0 && (
+                  <div className="absolute inset-0 bg-white/30 dark:bg-gray-800/30 animate-pulse rounded-full"></div>
+                )}
+              </div>
             </div>
-            <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-              <span className="text-sm text-foreground">Education</span>
-            </div>
-            <div className="flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400 mr-2" />
-              <span className="text-sm text-foreground">Work experience</span>
-            </div>
-            <div className="flex items-center opacity-50">
-              <Bell className="h-4 w-4 text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">Add your skills</span>
-            </div>            <div className="flex items-center opacity-50">
-              <Bell className="h-4 w-4 text-muted-foreground mr-2" />
-              <span className="text-sm text-muted-foreground">Upload your resume</span>
-            </div>
-          </div>
-        </div>
-      </div>
+
+            {loadingProfile ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
+                <span className="text-sm text-muted-foreground">Loading profile...</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Complete your profile to get better job matches
+                </p>
+                
+                <div className="space-y-3">
+                  {/* Completed Fields */}
+                  {profileCompletion.completed.map((field, index) => (
+                    <div key={field.key} className="flex items-center animate-fade-in">
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
+                      <span className="text-sm text-foreground">{field.label}</span>
+                    </div>
+                  ))}
+                  
+                  {/* Pending Fields */}
+                  {profileCompletion.pending.slice(0, 3).map((field, index) => (
+                    <div key={field.key} className="flex items-center opacity-60">
+                      <Bell className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground">Add {field.label.toLowerCase()}</span>
+                    </div>
+                  ))}
+                  
+                  {profileCompletion.pending.length > 3 && (
+                    <div className="flex items-center opacity-60">
+                      <TrendingUp className="h-4 w-4 text-muted-foreground mr-2 flex-shrink-0" />
+                      <span className="text-sm text-muted-foreground">
+                        +{profileCompletion.pending.length - 3} more sections
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Click to continue</span>
+                    <Edit className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>        )}
+      </div>      {/* Profile Settings Dialog */}
+      <ProfileSettingsDialog 
+        isOpen={profileDialogOpen}
+        onClose={handleProfileDialogClose}
+        userRole="applicant"
+      />
     </div>
   );
 }

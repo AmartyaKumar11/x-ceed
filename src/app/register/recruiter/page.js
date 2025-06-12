@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import DarkModeToggle from "@/components/DarkModeToggle";
 
 // Define schema for recruiter registration
 const recruiterSchema = z.object({
@@ -109,10 +110,14 @@ export default function RecruiterRegistrationPage() {
       alert("Registration failed: " + error.message);
     }
   };
-
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden">
+    <div className="min-h-screen bg-background overflow-x-hidden">
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700&display=swap" />
+      
+      {/* Dark Mode Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <DarkModeToggle />
+      </div>
       
       <div className="min-h-screen flex flex-col md:flex-row">      
         {/* Left side - Branding */}
@@ -126,7 +131,7 @@ export default function RecruiterRegistrationPage() {
         </div>
 
         {/* Right side - Registration form */}
-        <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-gray-50">
+        <div className="flex flex-1 items-center justify-center p-4 md:p-8 bg-muted/50">
           <Card className={styles['registration-card']}>
             <CardHeader>
               <CardTitle className="text-xl md:text-2xl font-bold">Recruiter Registration</CardTitle>
@@ -241,12 +246,11 @@ export default function RecruiterRegistrationPage() {
                 </form>
               </Form>
             </CardContent>
-            
-            <CardFooter className="flex justify-between border-t pt-4">
-              <p className="text-xs text-gray-500">
+              <CardFooter className="flex justify-between border-t pt-4">
+              <p className="text-xs text-muted-foreground">
                 * Required fields
               </p>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 Step 1 of 1
               </p>
             </CardFooter>
