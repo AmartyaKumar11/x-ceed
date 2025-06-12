@@ -14,20 +14,97 @@ export default function NewsPanel() {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const [refreshing, setRefreshing] = useState(false);
-  // Mock news data for now - later we'll replace with real API
-  const mockNews = [];  const fetchNews = async (isRefresh = false) => {
+  const [refreshing, setRefreshing] = useState(false);  const [freshContentLoaded, setFreshContentLoaded] = useState(false);
+  const [refreshCount, setRefreshCount] = useState(0);
+  const [currentSeed, setCurrentSeed] = useState(null);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Storage keys for persistence across page navigation
+  const STORAGE_KEYS = {
+    news: 'xceed_news_articles',
+    lastUpdated: 'xceed_news_last_updated',
+    refreshCount: 'xceed_news_refresh_count',
+    currentSeed: 'xceed_news_current_seed'
+  };
+
+  // Load persisted state on component mount
+  useEffect(() => {
+    const loadPersistedState = () => {
+      try {
+        const persistedNews = localStorage.getItem(STORAGE_KEYS.news);
+        const persistedLastUpdated = localStorage.getItem(STORAGE_KEYS.lastUpdated);
+        const persistedRefreshCount = localStorage.getItem(STORAGE_KEYS.refreshCount);
+        const persistedCurrentSeed = localStorage.getItem(STORAGE_KEYS.currentSeed);
+
+        if (persistedNews) {
+          const parsedNews = JSON.parse(persistedNews);
+          const lastUpdatedDate = persistedLastUpdated ? new Date(persistedLastUpdated) : null;
+          
+          // Check if persisted news is still fresh (less than 30 minutes old)
+          const isStillFresh = lastUpdatedDate && (Date.now() - lastUpdatedDate.getTime()) < 30 * 60 * 1000;
+          
+          if (isStillFresh && parsedNews.length > 0) {
+            console.log('📦 Loading persisted news state from localStorage');
+            setNews(parsedNews);
+            setLastUpdated(lastUpdatedDate);
+            setRefreshCount(parseInt(persistedRefreshCount) || 0);
+            setCurrentSeed(parseInt(persistedCurrentSeed) || null);
+            setLoading(false);
+            setIsInitialized(true);
+            
+            console.log(`✅ Restored ${parsedNews.length} articles from storage (${Math.round((Date.now() - lastUpdatedDate.getTime()) / 1000 / 60)} minutes old)`);
+            return true; // Skip initial fetch
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading persisted news state:', error);
+      }
+      return false; // Proceed with initial fetch
+    };
+
+    const shouldSkipInitialFetch = loadPersistedState();
+    setIsInitialized(true);
+    
+    // Only fetch if we didn't load from storage
+    if (!shouldSkipInitialFetch) {
+      fetchNews();
+    }
+  }, []);
+
+  // Save state to localStorage whenever it changes
+  useEffect(() => {
+    if (isInitialized && news.length > 0) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.news, JSON.stringify(news));
+        localStorage.setItem(STORAGE_KEYS.lastUpdated, lastUpdated?.toISOString() || '');
+        localStorage.setItem(STORAGE_KEYS.refreshCount, refreshCount.toString());
+        localStorage.setItem(STORAGE_KEYS.currentSeed, currentSeed?.toString() || '');
+        console.log('💾 News state persisted to localStorage');
+      } catch (error) {
+        console.error('❌ Error persisting news state:', error);
+      }
+    }
+  }, [news, lastUpdated, refreshCount, currentSeed, isInitialized]);
+
+  const fetchNews = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
     } else {
       setLoading(true);
-    }
-
-    try {
-      console.log('🔄 Fetching REAL-TIME tech news from NewsAPI...');
+    }    try {
+      console.log('🔄 Fetching FRESH tech news from NewsAPI...');
+      
+      // Create a unique seed for each manual refresh to ensure different content
+      const refreshSeed = isRefresh ? Date.now() + Math.random() * 1000 : Math.floor(Date.now() / (5 * 60 * 1000));
+      const apiUrl = `/api/news?seed=${Math.floor(refreshSeed)}&refresh=${isRefresh ? 'true' : 'false'}`;
+      
+      console.log(`🎲 Using refresh seed: ${Math.floor(refreshSeed)} (manual: ${isRefresh})`);
+      
+      // Store current seed to detect content changes
+      setCurrentSeed(Math.floor(refreshSeed));
       
       // Use the premium NewsAPI endpoint since we have a real API key
-      const response = await fetch('/api/news', {
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -37,7 +114,7 @@ export default function NewsPanel() {
       if (!response.ok) {
         console.log('⚠️ NewsAPI failed, falling back to free sources...');
         // Fallback to free sources if NewsAPI fails
-        const fallbackResponse = await fetch('/api/news/free', {
+        const fallbackResponse = await fetch(`/api/news/free?seed=${refreshSeed}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json'
@@ -83,10 +160,25 @@ export default function NewsPanel() {
           publishedAt: article.publishedAt,
           image: article.urlToImage || "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=400&h=200&fit=crop&q=80"
         }));
-        
-        setNews(formattedArticles);
+          setNews(formattedArticles);
         setLastUpdated(new Date());
-        console.log(`✅ PREMIUM NewsAPI updated successfully: ${formattedArticles.length} articles from professional sources`);
+          // Show fresh content indicator for manual refresh
+        if (isRefresh) {
+          setFreshContentLoaded(true);
+          setRefreshCount(prev => prev + 1);
+          setTimeout(() => setFreshContentLoaded(false), 4000); // Show longer for better UX
+        }
+        
+        // Log what type of content we got
+        const sourceInfo = data.source || 'unknown';
+        const queryInfo = data.query ? ` (Query: ${data.query.substring(0, 50)}...)` : '';
+        const seedInfo = data.seed ? ` [Seed: ${data.seed}]` : '';
+        console.log(`✅ FRESH NewsAPI updated successfully: ${formattedArticles.length} articles from ${sourceInfo}${queryInfo}${seedInfo}`);
+        
+        // Show user feedback for manual refresh
+        if (isRefresh) {
+          console.log(`🔄 Manual refresh #${refreshCount + 1} completed - showing fresh content!`);
+        }
       } else {
         throw new Error('Invalid response format from NewsAPI');
       }
@@ -96,7 +188,7 @@ export default function NewsPanel() {
       // Final fallback to basic tech news if both APIs fail
       setNews([
         {
-          id: 1,
+          id: `fallback_${Date.now()}`,
           title: "Real-Time News Service Temporarily Unavailable",
           description: "We're experiencing issues connecting to news sources. Please try refreshing in a few minutes for the latest tech updates.",
           url: "#",
@@ -109,13 +201,7 @@ export default function NewsPanel() {
     } finally {
       setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  // Initial fetch
-  useEffect(() => {
-    fetchNews();
-  }, []);
+    }  };
 
   // Auto-refresh every 5 minutes
   useEffect(() => {
@@ -142,9 +228,8 @@ export default function NewsPanel() {
     
     const diffInDays = Math.floor(diffInHours / 24);
     return `${diffInDays}d ago`;
-  };
-
-  const handleRefresh = () => {
+  };  const handleRefresh = () => {
+    console.log(`🔄 Manual refresh #${refreshCount + 1} triggered - fetching fresh articles...`);
     fetchNews(true);
   };
 
@@ -170,28 +255,40 @@ export default function NewsPanel() {
   }
 
   return (
-    <div className="bg-card border border-border rounded-lg shadow-md h-full flex flex-col">
-      {/* Header */}
+    <div className="bg-card border border-border rounded-lg shadow-md h-full flex flex-col">      {/* Header */}
       <div className="p-4 border-b border-border flex-shrink-0">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold flex items-center text-foreground">
-            <Newspaper className="h-5 w-5 mr-2 text-primary" />
-            Tech News
-            <TrendingUp className="h-4 w-4 ml-2 text-green-500" />
+            <Newspaper className="h-5 w-5 mr-2 text-primary" />            Tech News
+            <TrendingUp className="h-4 w-4 ml-2 text-green-500" />            {freshContentLoaded && (
+              <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full animate-pulse">
+                Fresh! #{refreshCount}
+              </span>
+            )}
+            {!loading && refreshCount === 0 && (
+              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                📦 Restored
+              </span>
+            )}
           </h3>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="p-2 hover:bg-muted rounded-full transition-colors"
-            title="Refresh news"
+            className={`p-2 hover:bg-muted rounded-full transition-colors ${refreshing ? 'animate-spin' : 'hover:scale-110'}`}
+            title={refreshing ? "Fetching fresh articles..." : "Get fresh articles"}
           >
             <RefreshCw className={`h-4 w-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
         {lastUpdated && (
-          <div className="flex items-center mt-2 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3 mr-1" />
+          <div className="flex items-center mt-2 text-xs text-muted-foreground">            <Clock className="h-3 w-3 mr-1" />
             Last updated: {lastUpdated.toLocaleTimeString()}
+            {freshContentLoaded && (
+              <span className="ml-2 text-green-600 font-medium">• Fresh content loaded! (#{refreshCount})</span>
+            )}
+            {currentSeed && (
+              <span className="ml-2 text-xs text-gray-500">• Seed: {currentSeed}</span>
+            )}
           </div>
         )}
       </div>
