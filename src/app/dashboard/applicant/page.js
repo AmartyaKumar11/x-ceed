@@ -86,11 +86,12 @@ export default function ApplicantDashboardPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching saved jobs count:', error);
-    } finally {
+      console.error('Error fetching saved jobs count:', error);    } finally {
       setLoadingSavedJobs(false);
     }
-  };  const calculateProfileCompletion = () => {
+  };
+
+  const calculateProfileCompletion = () => {
     if (!profileData) return { percentage: 0, completed: [], pending: [] };
 
     // Only include fields that were part of the original registration process
@@ -113,29 +114,71 @@ export default function ApplicantDashboardPage() {
       },
       { 
         key: 'experience', 
-        label: 'Work Experience', 
-        check: () => profileData.workExperience && profileData.workExperience.length > 0 && 
+        label: 'Work Experience',        check: () => profileData.workExperience && profileData.workExperience.length > 0 && 
                     profileData.workExperience.some(exp => exp.company && exp.position)
-      }    ];
+      }
+    ];
 
     const completed = fields.filter(field => field.check());
     const pending = fields.filter(field => !field.check());
     const percentage = Math.round((completed.length / fields.length) * 100);
 
-    return { percentage, completed, pending };
-  };
+    return { percentage, completed, pending };  };
 
   const profileCompletion = calculateProfileCompletion();
-  const handleProfileDialogClose = () => {
+
+  const handleProfileDialogClose = async () => {
     setProfileDialogOpen(false);
     const oldPercentage = profileCompletion.percentage;
     
-    // Refresh profile data after dialog closes
-    fetchProfileData();
+    // Refresh profile data after dialog closes and wait for it to complete
+    await fetchProfileData();
     
-    // Show animation if profile was completed
+    // Show animation if profile was completed - with a small delay to ensure state update
     setTimeout(() => {
       const newCompletion = calculateProfileCompletion();
+      console.log('🔍 Profile completion check after dialog close:', {
+        oldPercentage,
+        newPercentage: newCompletion.percentage,
+        profileData: {
+          hasEducation: profileData?.education?.length > 0,
+          hasExperience: profileData?.workExperience?.length > 0,
+          hasPersonal: !!(profileData?.firstName && profileData?.lastName && profileData?.email),
+          hasContact: !!(profileData?.phone && (profileData?.city || profileData?.address))
+        }
+      });
+      
+      if (newCompletion.percentage === 100 && oldPercentage < 100) {
+        setCompletionAnimation('animate-pulse');
+        setTimeout(() => setCompletionAnimation(''), 2000);
+        
+        // Show toast notification
+        toast({
+          title: "Profile Complete! 🎉",
+          description: "Your profile is now 100% complete. You're ready to apply for jobs and get noticed by recruiters!",
+          variant: "success",
+        });      }
+    }, 500); // Reduced timeout to be more responsive
+  };
+
+  // Real-time profile completion check (called when sections are saved)
+  const handleProfileUpdate = async () => {
+    console.log('🔔 Profile update notification received');
+    const oldPercentage = profileCompletion.percentage;
+    
+    // Refresh profile data and check completion
+    await fetchProfileData();
+    
+    // Check completion status after a brief delay to ensure state updates
+    setTimeout(() => {
+      const newCompletion = calculateProfileCompletion();
+      console.log('🔍 Real-time profile completion check:', {
+        oldPercentage,
+        newPercentage: newCompletion.percentage,
+        wasComplete: oldPercentage === 100,
+        isComplete: newCompletion.percentage === 100
+      });
+      
       if (newCompletion.percentage === 100 && oldPercentage < 100) {
         setCompletionAnimation('animate-pulse');
         setTimeout(() => setCompletionAnimation(''), 2000);
@@ -146,8 +189,10 @@ export default function ApplicantDashboardPage() {
           description: "Your profile is now 100% complete. You're ready to apply for jobs and get noticed by recruiters!",
           variant: "success",
         });
+        
+        console.log('🎉 Profile completion toast triggered!');
       }
-    }, 1000);
+    }, 500);
   };
 
   const handleSavedJobsClick = () => {
@@ -300,15 +345,18 @@ export default function ApplicantDashboardPage() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">Click to continue</span>
                     <Edit className="h-4 w-4 text-primary" />
-                  </div>
-                </div>
+                  </div>                </div>
               </>
             )}
-          </div>        )}
-      </div>      {/* Profile Settings Dialog */}
+          </div>
+        )}
+      </div>
+
+      {/* Profile Settings Dialog */}
       <ProfileSettingsDialog 
         isOpen={profileDialogOpen}
         onClose={handleProfileDialogClose}
+        onProfileUpdate={handleProfileUpdate}
         userRole="applicant"
       />
     </div>

@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import SkillsEditor from './SkillsEditor';
 
-export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'applicant' }) {  const [loading, setLoading] = useState(false);
+export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'applicant', onProfileUpdate }) {  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('personal');
   const [personalDetailsLocked, setPersonalDetailsLocked] = useState(false);
@@ -27,7 +27,12 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
   const [savingPersonalDetails, setSavingPersonalDetails] = useState(false);
   const [personalDetailsSaved, setPersonalDetailsSaved] = useState(false);
   const [savingSkills, setSavingSkills] = useState(false);
-  const [skillsSaved, setSkillsSaved] = useState(false);const [profileData, setProfileData] = useState({
+  const [skillsSaved, setSkillsSaved] = useState(false);  const [savingEducation, setSavingEducation] = useState(false);
+  const [educationSaved, setEducationSaved] = useState(false);
+  const [savingExperience, setSavingExperience] = useState(false);
+  const [experienceSaved, setExperienceSaved] = useState(false);
+  const [savingCertifications, setSavingCertifications] = useState(false);
+  const [certificationsSaved, setCertificationsSaved] = useState(false);const [profileData, setProfileData] = useState({
     // Personal Information
     firstName: '',
     lastName: '',
@@ -424,12 +429,17 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                             if (!response.ok) {
                               throw new Error(result.message || `Error: ${response.status}`);
                             }
-                            
-                            if (result.success) {
+                              if (result.success) {
                               // Lock the fields and show success
                               setPersonalDetailsLocked(true);
                               setPersonalDetailsChanged(false);
                               setPersonalDetailsSaved(true);
+                              
+                              // Notify parent component of profile update
+                              if (typeof onProfileUpdate === 'function') {
+                                console.log('🔔 Notifying parent of profile update...');
+                                onProfileUpdate();
+                              }
                               
                               // Reset success state after 2 seconds
                               setTimeout(() => {
@@ -572,8 +582,121 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       <p className="text-sm mt-2">Click "Add Education" to get started.</p>
                     </div>
                   )}
+                  
+                  {/* Education Confirmation Button */}
+                  {profileData.education.length > 0 && (
+                    <div className="flex justify-end pt-6 border-t border-border">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setSavingEducation(true);
+                              // Send complete profile data with updated education
+                            const completeData = {
+                              firstName: profileData.firstName,
+                              lastName: profileData.lastName,
+                              email: profileData.email,
+                              phone: profileData.phone,
+                              address: profileData.address,
+                              city: profileData.city,
+                              state: profileData.state,
+                              zipCode: profileData.zipCode,
+                              dateOfBirth: profileData.dateOfBirth,
+                              gender: profileData.gender,
+                              education: profileData.education,
+                              workExperience: profileData.workExperience || [],
+                              skills: profileData.skills || [],
+                              certifications: profileData.certifications || []
+                            };
+                            
+                            console.log('Saving complete profile data with education:', completeData);
+                            console.log('Current profileData.education:', profileData.education);
+                            console.log('Education array length:', profileData.education?.length || 0);
+                            
+                            // Validate that we have meaningful education data
+                            const validEducation = profileData.education?.filter(edu => 
+                              edu.institution && edu.institution.trim() && 
+                              edu.degree && edu.degree.trim()
+                            );
+                            console.log('Valid education entries:', validEducation?.length || 0);
+                            
+                            if (!validEducation || validEducation.length === 0) {
+                              throw new Error('Please fill in at least Institution and Degree fields before saving.');
+                            }
+                            
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              throw new Error('Authentication token not found. Please log in again.');
+                            }
+                            
+                            const response = await fetch('/api/applicant/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify(completeData)
+                            });
+                              const result = await response.json();
+                            console.log('Education save result:', result);
+                            console.log('Education data that was sent:', completeData);
+                            
+                            if (!response.ok) {
+                              throw new Error(result.message || `Error: ${response.status}`);
+                            }
+                              // Show success state
+                            setEducationSaved(true);
+                            
+                            // Notify parent component of profile update
+                            if (typeof onProfileUpdate === 'function') {
+                              console.log('🔔 Notifying parent of profile update...');
+                              onProfileUpdate();
+                            }
+                            
+                            // Reset success state after 2 seconds
+                            setTimeout(() => {
+                              setEducationSaved(false);
+                            }, 2000);
+                            
+                            // Refresh profile data to update the completion percentage
+                            if (typeof fetchProfileData === 'function') {
+                              console.log('🔄 Refreshing profile data after education save...');
+                              fetchProfileData();
+                            }
+                          } catch (error) {
+                            console.error('Failed to save education:', error);
+                            alert(`Error saving education: ${error.message}`);
+                          } finally {
+                            setSavingEducation(false);
+                          }
+                        }}
+                        disabled={savingEducation}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-md transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+                          educationSaved 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
+                      >
+                        {savingEducation ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            Saving...
+                          </>
+                        ) : educationSaved ? (
+                          <>
+                            <CheckCircle size={16} />
+                            Education Saved!
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} />
+                            Confirm Education
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}              {/* Work Experience Tab */}
+              )}{/* Work Experience Tab */}
               {activeTab === 'experience' && (
                 <div className="space-y-6">                  <div className="flex items-center justify-between">
                     <h3 className="text-xl font-semibold text-foreground">Work Experience</h3>
@@ -669,8 +792,115 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       <p className="text-sm mt-2">Click "Add Experience" to get started.</p>
                     </div>
                   )}
+                  
+                  {/* Experience Confirmation Button */}
+                  {profileData.workExperience.length > 0 && (
+                    <div className="flex justify-end pt-6 border-t border-border">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setSavingExperience(true);
+                              // Send complete profile data with updated experience
+                            const completeData = {
+                              firstName: profileData.firstName,
+                              lastName: profileData.lastName,
+                              email: profileData.email,
+                              phone: profileData.phone,
+                              address: profileData.address,
+                              city: profileData.city,
+                              state: profileData.state,
+                              zipCode: profileData.zipCode,
+                              dateOfBirth: profileData.dateOfBirth,
+                              gender: profileData.gender,
+                              education: profileData.education || [],
+                              workExperience: profileData.workExperience,
+                              skills: profileData.skills || [],
+                              certifications: profileData.certifications || []
+                            };
+                            
+                            console.log('Saving complete profile data with experience:', completeData);
+                            console.log('Current profileData.workExperience:', profileData.workExperience);
+                            console.log('Experience array length:', profileData.workExperience?.length || 0);
+                            
+                            // Validate that we have meaningful experience data
+                            const validExperience = profileData.workExperience?.filter(exp => 
+                              exp.company && exp.company.trim() && 
+                              exp.position && exp.position.trim()
+                            );
+                            console.log('Valid experience entries:', validExperience?.length || 0);
+                            
+                            if (!validExperience || validExperience.length === 0) {
+                              throw new Error('Please fill in at least Company and Position fields before saving.');
+                            }
+                            
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              throw new Error('Authentication token not found. Please log in again.');
+                            }
+                            
+                            const response = await fetch('/api/applicant/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify(completeData)
+                            });
+                            
+                            const result = await response.json();
+                            console.log('Experience save result:', result);
+                            
+                            if (!response.ok) {
+                              throw new Error(result.message || `Error: ${response.status}`);
+                            }
+                              // Show success state
+                            setExperienceSaved(true);
+                            
+                            // Notify parent component of profile update
+                            if (typeof onProfileUpdate === 'function') {
+                              console.log('🔔 Notifying parent of profile update...');
+                              onProfileUpdate();
+                            }
+                            
+                            // Reset success state after 2 seconds
+                            setTimeout(() => {
+                              setExperienceSaved(false);
+                            }, 2000);
+                          } catch (error) {
+                            console.error('Failed to save experience:', error);
+                            alert(`Error saving experience: ${error.message}`);
+                          } finally {
+                            setSavingExperience(false);
+                          }
+                        }}
+                        disabled={savingExperience}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-md transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+                          experienceSaved 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
+                      >
+                        {savingExperience ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            Saving...
+                          </>
+                        ) : experienceSaved ? (
+                          <>
+                            <CheckCircle size={16} />
+                            Experience Saved!
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} />
+                            Confirm Experience
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}              {/* Skills Tab */}
+              )}{/* Skills Tab */}
               {activeTab === 'skills' && (                <div className="space-y-6">
                   <h3 className="text-xl font-semibold text-foreground">Skills</h3>
                   <div className="bg-card p-6 rounded-lg border-2 border-border">
@@ -683,19 +913,28 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       Select skills from the suggestions or type to search. These will help match you with relevant job opportunities.
                     </p>                    <div className="mt-6 flex justify-end">
                       <button
-                        onClick={async () => {
-                          try {
+                        onClick={async () => {                          try {
                             setSavingSkills(true);
                             
-                            // Only send required fields to minimize data
-                            const minimalData = {
-                              firstName: profileData.firstName || 'User',
-                              lastName: profileData.lastName || 'Name',
-                              email: profileData.email || 'email@example.com',
-                              skills: profileData.skills
+                            // Send complete profile data with updated skills
+                            const completeData = {
+                              firstName: profileData.firstName,
+                              lastName: profileData.lastName,
+                              email: profileData.email,
+                              phone: profileData.phone,
+                              address: profileData.address,
+                              city: profileData.city,
+                              state: profileData.state,
+                              zipCode: profileData.zipCode,
+                              dateOfBirth: profileData.dateOfBirth,
+                              gender: profileData.gender,
+                              education: profileData.education || [],
+                              workExperience: profileData.workExperience || [],
+                              skills: profileData.skills,
+                              certifications: profileData.certifications || []
                             };
                             
-                            console.log('Saving minimal profile data:', minimalData);
+                            console.log('Saving complete profile data with skills:', completeData);
                             
                             // Use a direct fetch instead of the apiClient to bypass potential issues
                             const token = localStorage.getItem('token');
@@ -709,7 +948,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                                 'Content-Type': 'application/json',
                                 'Authorization': `Bearer ${token}`
                               },
-                              body: JSON.stringify(minimalData)
+                              body: JSON.stringify(completeData)
                             });
                             
                             const result = await response.json();
@@ -718,9 +957,14 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                             if (!response.ok) {
                               throw new Error(result.message || `Error: ${response.status}`);
                             }
-                            
-                            // Show success state
+                              // Show success state
                             setSkillsSaved(true);
+                            
+                            // Notify parent component of profile update
+                            if (typeof onProfileUpdate === 'function') {
+                              console.log('🔔 Notifying parent of profile update...');
+                              onProfileUpdate();
+                            }
                             
                             // Reset success state after 2 seconds
                             setTimeout(() => {
@@ -853,6 +1097,100 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                     <div className="text-center py-12 text-muted-foreground bg-card rounded-lg border-2 border-border">
                       <p className="text-lg">No certifications added yet.</p>
                       <p className="text-sm mt-2">Click "Add Certification" to get started.</p>
+                    </div>
+                  )}
+                  
+                  {/* Certifications Confirmation Button */}
+                  {profileData.certifications.length > 0 && (
+                    <div className="flex justify-end pt-6 border-t border-border">
+                      <button
+                        onClick={async () => {
+                          try {
+                            setSavingCertifications(true);
+                              // Send complete profile data with updated certifications
+                            const completeData = {
+                              firstName: profileData.firstName,
+                              lastName: profileData.lastName,
+                              email: profileData.email,
+                              phone: profileData.phone,
+                              address: profileData.address,
+                              city: profileData.city,
+                              state: profileData.state,
+                              zipCode: profileData.zipCode,
+                              dateOfBirth: profileData.dateOfBirth,
+                              gender: profileData.gender,
+                              education: profileData.education || [],
+                              workExperience: profileData.workExperience || [],
+                              skills: profileData.skills || [],
+                              certifications: profileData.certifications
+                            };
+                            
+                            console.log('Saving complete profile data with certifications:', completeData);
+                            
+                            const token = localStorage.getItem('token');
+                            if (!token) {
+                              throw new Error('Authentication token not found. Please log in again.');
+                            }
+                            
+                            const response = await fetch('/api/applicant/profile', {
+                              method: 'PUT',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                              },
+                              body: JSON.stringify(completeData)
+                            });
+                            
+                            const result = await response.json();
+                            console.log('Certifications save result:', result);
+                            
+                            if (!response.ok) {
+                              throw new Error(result.message || `Error: ${response.status}`);
+                            }
+                              // Show success state
+                            setCertificationsSaved(true);
+                            
+                            // Notify parent component of profile update
+                            if (typeof onProfileUpdate === 'function') {
+                              console.log('🔔 Notifying parent of profile update...');
+                              onProfileUpdate();
+                            }
+                            
+                            // Reset success state after 2 seconds
+                            setTimeout(() => {
+                              setCertificationsSaved(false);
+                            }, 2000);
+                          } catch (error) {
+                            console.error('Failed to save certifications:', error);
+                            alert(`Error saving certifications: ${error.message}`);
+                          } finally {
+                            setSavingCertifications(false);
+                          }
+                        }}
+                        disabled={savingCertifications}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-md transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+                          certificationsSaved 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        }`}
+                      >
+                        {savingCertifications ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
+                            Saving...
+                          </>
+                        ) : certificationsSaved ? (
+                          <>
+                            <CheckCircle size={16} />
+                            Certifications Saved!
+                          </>
+                        ) : (
+                          <>
+                            <Save size={16} />
+                            Confirm Certifications
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
                 </div>

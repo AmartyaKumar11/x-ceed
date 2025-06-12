@@ -37,9 +37,7 @@ export default async function handler(req, res) {
 
         if (!user) {
           return res.status(404).json({ success: false, message: 'User not found' });
-        }
-
-        // Format response data for the frontend
+        }        // Format response data for the frontend
         const profileData = {
           firstName: user.personal?.name?.split(' ')[0] || '',
           lastName: user.personal?.name?.split(' ').slice(1).join(' ') || '',
@@ -50,6 +48,7 @@ export default async function handler(req, res) {
           state: user.personal?.state || '',
           zipCode: user.personal?.zipCode || '',
           dateOfBirth: user.personal?.dob || '',
+          gender: user.personal?.gender || '',
           
           // Education - convert from old format if needed
           education: user.education || [],
@@ -77,8 +76,7 @@ export default async function handler(req, res) {
         console.log('🔄 PUT Profile - Request received');
         console.log('🔄 PUT Profile - User ID from auth:', auth.user.userId);
         console.log('🔄 PUT Profile - Request body:', JSON.stringify(req.body, null, 2));
-        
-        const {
+          const {
           firstName,
           lastName,
           email,
@@ -88,6 +86,7 @@ export default async function handler(req, res) {
           state,
           zipCode,
           dateOfBirth,
+          gender,
           education,
           workExperience,
           skills,
@@ -104,9 +103,7 @@ export default async function handler(req, res) {
         }
 
         // Ensure skills is an array
-        const skillsArray = Array.isArray(skills) ? skills : [];
-
-        // Prepare update data
+        const skillsArray = Array.isArray(skills) ? skills : [];        // Prepare update data
         const updateData = {
           email,
           personal: {
@@ -115,7 +112,8 @@ export default async function handler(req, res) {
             city,
             state,
             zipCode,
-            dob: dateOfBirth ? new Date(dateOfBirth) : null
+            dob: dateOfBirth ? new Date(dateOfBirth) : null,
+            gender
           },
           contact: {
             phone,
