@@ -34,10 +34,36 @@ export default function SavedJobsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [removingJobId, setRemovingJobId] = useState(null);
-
+  const [jobsWithPrepPlans, setJobsWithPrepPlans] = useState(new Set());
   useEffect(() => {
     checkAuthAndFetchSavedJobs();
+    loadPrepPlanStatus();
   }, []);
+
+  const loadPrepPlanStatus = () => {
+    try {
+      const prepPlanData = localStorage.getItem('prepPlanStatus');
+      if (prepPlanData) {
+        const prepPlanStatus = JSON.parse(prepPlanData);
+        setJobsWithPrepPlans(new Set(prepPlanStatus));
+      }
+    } catch (error) {
+      console.error('Error loading prep plan status:', error);
+    }
+  };
+
+  const markPrepPlanCreated = (jobId) => {
+    try {
+      const currentStatus = new Set(jobsWithPrepPlans);
+      currentStatus.add(jobId);
+      setJobsWithPrepPlans(currentStatus);
+      
+      // Save to localStorage
+      localStorage.setItem('prepPlanStatus', JSON.stringify([...currentStatus]));
+    } catch (error) {
+      console.error('Error saving prep plan status:', error);
+    }
+  };
 
   const checkAuthAndFetchSavedJobs = async () => {
     try {
@@ -129,11 +155,18 @@ export default function SavedJobsPage() {
     // Navigate to job details or open application dialog
     // For now, we'll just log it
     console.log('Job clicked:', job);
-  };
-  const handleCreatePrepPlan = (e, job) => {
+  };  const handleCreatePrepPlan = (e, job) => {
     e.stopPropagation(); // Prevent card click event
+    
+    // Generate a unique job ID for tracking
+    const jobId = `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
+    
+    // Mark this job as having a prep plan created
+    markPrepPlanCreated(jobId);
+    
     // Navigate to prep plan page with job data
     const jobData = encodeURIComponent(JSON.stringify({
+      id: jobId, // Add the job ID
       title: job.title,
       companyName: job.companyName,
       description: job.description,
@@ -303,15 +336,27 @@ export default function SavedJobsPage() {
                 <CardFooter className="pt-4 flex-col gap-3">
                   <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                     <span>Saved {formatPostedDate(savedJob.savedAt)}</span>
-                    <span>{job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}</span>
-                  </div>                  <Button
-                    onClick={(e) => handleCreatePrepPlan(e, job)}
-                    className="w-full bg-foreground text-background hover:bg-foreground/90 transition-colors"
-                    size="sm"
-                  >
-                    <GraduationCap className="h-4 w-4 mr-2" />
-                    Create Prep Plan
-                  </Button>
+                    <span>{job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}</span>                  </div>
+
+                  {(() => {
+                    const jobId = `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
+                    const hasPrepPlan = jobsWithPrepPlans.has(jobId);
+                    
+                    return (
+                      <Button
+                        onClick={(e) => handleCreatePrepPlan(e, job)}
+                        className={`w-full transition-colors ${
+                          hasPrepPlan 
+                            ? 'bg-green-600 text-white hover:bg-green-700' 
+                            : 'bg-foreground text-background hover:bg-foreground/90'
+                        }`}
+                        size="sm"
+                      >
+                        <GraduationCap className="h-4 w-4 mr-2" />
+                        {hasPrepPlan ? 'View Prep Plan' : 'Create Prep Plan'}
+                      </Button>
+                    );
+                  })()}
                 </CardFooter>
               </Card>
             );

@@ -11,47 +11,68 @@ export default function FloatingNotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNewNotifications, setHasNewNotifications] = useState(false);
   const { theme } = useTheme();
-
   // Fetch notification count
   const fetchNotificationCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        console.log('🔔 No token found, skipping notification fetch');
+        return;
+      }
 
+      console.log('🔔 Fetching notification count...');
       const response = await fetch('/api/notifications/count', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          const newUnreadCount = data.unreadCount || 0;
-          
-          // Check if there are new notifications since last check
-          const lastKnownCount = parseInt(localStorage.getItem('lastNotificationCount') || '0');
-          if (newUnreadCount > lastKnownCount) {
-            setHasNewNotifications(true);
-            // Auto-hide the "new" indicator after 5 seconds
-            setTimeout(() => setHasNewNotifications(false), 5000);
-          }
-          
-          setUnreadCount(newUnreadCount);
-          localStorage.setItem('lastNotificationCount', newUnreadCount.toString());
+      if (!response.ok) {
+        console.error('🔔 Notification count fetch failed:', response.status, response.statusText);
+        if (response.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem('token');
+          setUnreadCount(0);
         }
+        return;
+      }
+
+      const data = await response.json();
+      console.log('🔔 Notification count response:', data);
+      
+      if (data.success) {
+        const newUnreadCount = data.unreadCount || 0;
+        
+        // Check if there are new notifications since last check
+        const lastKnownCount = parseInt(localStorage.getItem('lastNotificationCount') || '0');
+        if (newUnreadCount > lastKnownCount) {
+          setHasNewNotifications(true);
+          // Auto-hide the "new" indicator after 5 seconds
+          setTimeout(() => setHasNewNotifications(false), 5000);
+        }
+        
+        setUnreadCount(newUnreadCount);
+        localStorage.setItem('lastNotificationCount', newUnreadCount.toString());
+      } else {
+        console.error('🔔 Notification count API returned error:', data.message);
       }
     } catch (error) {
-      console.error('Error fetching notification count:', error);
+      console.error('🔔 Error fetching notification count:', error);
+      // Don't set unreadCount to 0 on network errors - keep showing last known value
     }
   };
-
   // Poll for new notifications every 30 seconds
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') return;
+    
     fetchNotificationCount();
     const interval = setInterval(fetchNotificationCount, 30000);
     return () => clearInterval(interval);
-  }, []);  // Reset new notification indicator when panel is opened
+  }, []);
+
+  // Reset new notification indicator when panel is opened
   const handleBellClick = () => {
     setIsNotificationPanelOpen(true);
     setHasNewNotifications(false);
@@ -59,7 +80,10 @@ export default function FloatingNotificationBell() {
 
   // Debug: Force show bell and add logging
   console.log('🔔 FloatingNotificationBell render - unreadCount:', unreadCount);
-  console.log('🔔 Token exists:', !!localStorage.getItem('token'));
+  console.log('🔔 Token exists:', typeof window !== 'undefined' && !!localStorage.getItem('token'));
+  
+  // Don't render on server side
+  if (typeof window === 'undefined') return null;
   
   // Temporarily always show bell for debugging
   // if (unreadCount === 0) return null;

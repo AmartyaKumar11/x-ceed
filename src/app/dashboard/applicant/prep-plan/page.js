@@ -17,13 +17,16 @@ import {
   Calendar,
   Settings,
   Check,
-  X
+  X,
+  Play,
+  Youtube
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function PrepPlanPage() {
   const router = useRouter();
@@ -34,9 +37,12 @@ export default function PrepPlanPage() {
   const [parsedSkills, setParsedSkills] = useState(null);
   const [loading, setLoading] = useState(true);
   const [parsingJD, setParsingJD] = useState(false);
-  const [error, setError] = useState(null);
-  const [learningDuration, setLearningDuration] = useState('12'); // weeks
-  const [completedTopics, setCompletedTopics] = useState(new Set());  useEffect(() => {
+  const [error, setError] = useState(null);  const [learningDuration, setLearningDuration] = useState('12'); // weeks
+  const [completedTopics, setCompletedTopics] = useState(new Set());
+  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [skillVideos, setSkillVideos] = useState([]);
+  const [videosLoading, setVideosLoading] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState(null);useEffect(() => {
     const initializePage = async () => {
       // Get job data from URL params
       const jobParam = searchParams.get('job');
@@ -45,8 +51,18 @@ export default function PrepPlanPage() {
           const decodedJob = JSON.parse(decodeURIComponent(jobParam));
           setJobData(decodedJob);
           
-          // First parse the job description
-          await parseJobDescription(decodedJob);
+          // Check if we have cached parsed skills for this job
+          const jobId = decodedJob.id || `${decodedJob.title}-${decodedJob.companyName}`.replace(/\s+/g, '-').toLowerCase();
+          const cachedSkills = getCachedParsedSkills(jobId);
+          
+          if (cachedSkills) {
+            console.log('🔄 Using cached parsed skills');
+            setParsedSkills(cachedSkills);
+            setParsingJD(false);
+          } else {
+            console.log('🆕 Parsing job description for the first time');
+            await parseJobDescription(decodedJob);
+          }
         } catch (error) {
           console.error('Error parsing job data:', error);
           setError('Invalid job data');
@@ -69,8 +85,25 @@ export default function PrepPlanPage() {
         parsingCompleted: !parsingJD
       });
       generatePrepPlan(jobData, parseInt(learningDuration));
+    }  }, [parsedSkills, learningDuration, jobData, parsingJD]);
+
+  const getCachedParsedSkills = (jobId) => {
+    try {
+      const cached = localStorage.getItem(`parsedSkills_${jobId}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch (error) {
+      console.error('Error loading cached skills:', error);
+      return null;
     }
-  }, [parsedSkills, learningDuration, jobData, parsingJD]);
+  };
+
+  const cacheParsedSkills = (jobId, skills) => {
+    try {
+      localStorage.setItem(`parsedSkills_${jobId}`, JSON.stringify(skills));
+    } catch (error) {
+      console.error('Error caching skills:', error);
+    }
+  };
 
   const parseJobDescription = async (job) => {
     try {
@@ -88,13 +121,15 @@ export default function PrepPlanPage() {
           jobId: job.id || null,
           jobDescriptionFile: job.jobDescriptionFile || null
         })
-      });
-
-      if (response.ok) {
+      });      if (response.ok) {
         const result = await response.json();
         if (result.success) {
           setParsedSkills(result.data);
           console.log('Parsed skills:', result.data);
+          
+          // Cache the parsed skills
+          const jobId = job.id || `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
+          cacheParsedSkills(jobId, result.data);
         } else {
           console.error('Failed to parse JD:', result.error);
         }
@@ -504,11 +539,84 @@ export default function PrepPlanPage() {
     setLearningDuration(newDuration);
     // The useEffect will automatically regenerate the plan when duration changes
   };
-
   const calculateProgress = () => {
     if (!prepPlan) return 0;
     const totalTopics = prepPlan.phases.reduce((total, phase) => total + phase.topics.length, 0);
-    return totalTopics > 0 ? (completedTopics.size / totalTopics) * 100 : 0;  };
+    return totalTopics > 0 ? (completedTopics.size / totalTopics) * 100 : 0;
+  };
+  const fetchSkillVideos = async (skillTitle) => {
+    setVideosLoading(true);
+    console.log('🎥 Fetching videos for skill:', skillTitle);
+    
+    try {
+      // Construct the API URL
+      const searchQuery = encodeURIComponent(skillTitle + ' tutorial programming');
+      const apiUrl = `/api/youtube/videos?search=${searchQuery}&limit=12`;
+      console.log('🔗 API URL:', apiUrl);
+      
+      // Make the fetch request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      console.log('📊 Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Videos fetched successfully:', data.videos?.length || 0, 'videos');
+        setSkillVideos(data.videos || []);
+      } else {
+        console.error('❌ Failed to fetch videos - Response not OK:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('Error details:', errorText);
+        
+        // Set empty array but don't show error to user - they'll see "No videos found"
+        setSkillVideos([]);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching skill videos:', error);
+      
+      if (error.name === 'AbortError') {
+        console.error('Request timed out after 10 seconds');
+      } else if (error.message === 'Failed to fetch') {
+        console.error('Network error - server may be down or URL is incorrect');
+        console.error('Make sure the development server is running on the correct port');
+      }
+      
+      // Set empty array - user will see "No videos found" message
+      setSkillVideos([]);
+    } finally {
+      setVideosLoading(false);
+    }
+  };
+  const handleViewRelatedVideos = (skillTitle) => {
+    console.log('🎬 Opening video dialog for skill:', skillTitle);
+    
+    if (!skillTitle) {
+      console.error('❌ No skill title provided');
+      return;
+    }
+    
+    setSelectedSkill(skillTitle);
+    setSelectedVideo(null); // Reset any selected video
+    setSkillVideos([]); // Clear previous videos
+    
+    // Fetch videos for the selected skill
+    fetchSkillVideos(skillTitle);
+  };
+
+  const getYouTubeVideoId = (url) => {
+    const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+    return match ? match[1] : null;
+  };
   if (loading) {
     return (
       <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
@@ -975,30 +1083,41 @@ export default function PrepPlanPage() {
                             </a>
                           </div>
                         ))}
-                      </div>
-                        <div className="mt-3 flex items-center justify-between">
-                        <Button
-                          size="sm"
-                          variant={completedTopics.has(topic.id) ? "default" : "outline"}
-                          className={`flex items-center gap-2 ${
-                            completedTopics.has(topic.id) 
-                              ? 'bg-green-600 hover:bg-green-700 text-white' 
-                              : 'hover:bg-primary hover:text-primary-foreground'
-                          }`}
-                          onClick={() => toggleTopicCompletion(topic.id)}
-                        >
-                          {completedTopics.has(topic.id) ? (
-                            <>
-                              <Check className="h-4 w-4" />
-                              Completed
-                            </>
-                          ) : (
-                            <>
-                              <Target className="h-4 w-4" />
-                              Mark Complete
-                            </>
-                          )}
-                        </Button>
+                      </div>                        <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant={completedTopics.has(topic.id) ? "default" : "outline"}
+                            className={`flex items-center gap-2 ${
+                              completedTopics.has(topic.id) 
+                                ? 'bg-green-600 hover:bg-green-700 text-white' 
+                                : 'hover:bg-primary hover:text-primary-foreground'
+                            }`}
+                            onClick={() => toggleTopicCompletion(topic.id)}
+                          >
+                            {completedTopics.has(topic.id) ? (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Completed
+                              </>
+                            ) : (
+                              <>
+                                <Target className="h-4 w-4" />
+                                Mark Complete
+                              </>
+                            )}
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleViewRelatedVideos(topic.title)}
+                          >
+                            <Youtube className="h-4 w-4" />
+                            View Related Videos
+                          </Button>
+                        </div>
                         
                         {completedTopics.has(topic.id) && (
                           <Button
@@ -1029,6 +1148,146 @@ export default function PrepPlanPage() {
             </p>
           </CardContent>
         </Card>
+
+        {/* Video Dialog */}
+        <Dialog open={!!selectedSkill} onOpenChange={() => setSelectedSkill(null)}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Youtube className="h-5 w-5 text-red-600" />
+                Related Videos: {selectedSkill}
+              </DialogTitle>
+            </DialogHeader>
+            
+            {videosLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading videos...</span>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {selectedVideo ? (
+                  // Video Player View
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">{selectedVideo.title}</h3>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setSelectedVideo(null)}
+                      >
+                        ← Back to Videos
+                      </Button>
+                    </div>
+                    
+                    <div className="aspect-video w-full">
+                      <iframe
+                        width="100%"
+                        height="100%"
+                        src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1`}
+                        title={selectedVideo.title}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        className="rounded-lg"
+                      ></iframe>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span>👀 {selectedVideo.views} views</span>
+                        <span>•</span>
+                        <span>⏱️ {selectedVideo.duration}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{selectedVideo.description}</p>
+                    </div>
+                  </div>
+                ) : (
+                  // Video Grid View
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {skillVideos.map((video, index) => (
+                      <div 
+                        key={index} 
+                        className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                        onClick={() => setSelectedVideo(video)}
+                      >                        <div className="relative aspect-video">
+                          <img 
+                            src={video.thumbnail} 
+                            alt={video.title}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.log('Thumbnail failed:', e.target.src);
+                              
+                              // Try alternatives in sequence
+                              if (video.thumbnailAlternatives && video.thumbnailAlternatives.length > 0) {
+                                const currentIndex = video.thumbnailAlternatives.indexOf(e.target.src);
+                                const nextIndex = currentIndex + 1;
+                                
+                                if (nextIndex < video.thumbnailAlternatives.length) {
+                                  console.log('Trying alternative:', video.thumbnailAlternatives[nextIndex]);
+                                  e.target.src = video.thumbnailAlternatives[nextIndex];
+                                  return;
+                                }
+                              }
+                              
+                              // Try the thumbnailFallback if available
+                              if (video.thumbnailFallback && e.target.src !== video.thumbnailFallback) {
+                                console.log('Trying fallback:', video.thumbnailFallback);
+                                e.target.src = video.thumbnailFallback;
+                              } else {
+                                // Final fallback: use a simple reliable SVG
+                                const finalFallback = `data:image/svg+xml;base64,${btoa(`
+                                  <svg width="480" height="360" xmlns="http://www.w3.org/2000/svg">
+                                    <rect width="480" height="360" fill="#0066cc"/>
+                                    <circle cx="240" cy="180" r="30" fill="white" opacity="0.9"/>
+                                    <polygon points="230,165 250,180 230,195" fill="#0066cc"/>
+                                    <text x="240" y="250" font-size="18" fill="white" text-anchor="middle">
+                                      📺 Video
+                                    </text>
+                                  </svg>
+                                `)}`;
+                                
+                                if (e.target.src !== finalFallback) {
+                                  console.log('Using final SVG fallback');
+                                  e.target.src = finalFallback;
+                                }
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log('Thumbnail loaded successfully:', video.title);
+                            }}
+                          />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all">
+                            <Play className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                          </div>
+                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
+                            {video.duration}
+                          </div>
+                        </div>
+                        
+                        <div className="p-3">
+                          <h4 className="font-medium text-sm line-clamp-2 mb-1">{video.title}</h4>
+                          <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{video.description}</p>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{video.channel}</span>
+                            <span>{video.views} views</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {!videosLoading && skillVideos.length === 0 && (
+                  <div className="text-center py-8">
+                    <Youtube className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No videos found for this skill</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

@@ -841,17 +841,7 @@ export default function RecruiterJobsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="flex items-center gap-2"
-            onClick={() => router.push('/dashboard/recruiter')}
-          >
-            <ArrowLeftCircle size={18} />
-            Back to Dashboard
-          </Button>          
+      <div className="flex justify-between items-center mb-6">        <div className="flex items-center gap-4">
           <h2 className="text-3xl font-bold">Active Jobs</h2>
         </div>
         <Button onClick={() => router.push('/dashboard/recruiter#create-job')}>

@@ -1,25 +1,20 @@
+import { NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import clientPromise from '@/lib/mongodb';
 import { authMiddleware } from '@/lib/middleware';
 
-export default async function handler(req, res) {
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-    return res.status(405).json({ 
-      success: false, 
-      message: 'Method not allowed' 
-    });
-  }
-
+export async function GET(request) {
   try {
     // Check authentication
-    const auth = await authMiddleware(req);
+    const auth = await authMiddleware(request);
     if (!auth.isAuthenticated) {
-      return res.status(auth.status).json({ 
+      return NextResponse.json({ 
         success: false, 
         message: auth.error 
-      });
-    }    // Connect to database
+      }, { status: auth.status });
+    }
+
+    // Connect to database
     const client = await clientPromise;
     const db = client.db('x-ceed-db');
 
@@ -47,7 +42,7 @@ export default async function handler(req, res) {
 
     console.log('Found', unreadCount, 'unread notifications out of', totalCount, 'total');
 
-    return res.status(200).json({ 
+    return NextResponse.json({ 
       success: true,
       unreadCount,
       totalCount
@@ -55,9 +50,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Notification count error:', error);
-    return res.status(500).json({ 
+    return NextResponse.json({ 
       success: false, 
       message: 'Internal server error' 
-    });
+    }, { status: 500 });
   }
 }

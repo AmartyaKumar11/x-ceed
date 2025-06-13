@@ -11,31 +11,55 @@ export async function authMiddleware(req) {
     // 3. Query param (for specific cases like file downloads)
     
     let token = null;
-      // Check Authorization header
-    const authHeader = req.headers['authorization'] || req.headers.Authorization;
-      if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+    
+    // Handle both App Router Request and API routes req
+    let headers, cookies;
+    
+    if (req.headers instanceof Headers) {
+      // App Router Request object
+      headers = {
+        'authorization': req.headers.get('authorization'),
+        'Authorization': req.headers.get('Authorization')
+      };
+      cookies = {
+        get: (name) => {
+          const cookieHeader = req.headers.get('cookie');
+          if (!cookieHeader) return null;
+          const match = cookieHeader.match(new RegExp(`${name}=([^;]+)`));
+          return match ? { value: match[1] } : null;
+        }
+      };
+    } else {
+      // Pages API req object
+      headers = req.headers;
+      cookies = req.cookies;
+    }
+    
+    // Check Authorization header
+    const authHeader = headers['authorization'] || headers['Authorization'];
+    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
       token = authHeader.split(' ')[1];
     }
     
     // If no token in Authorization header, check cookies
-    if (!token && req.cookies) {
+    if (!token && cookies) {
       // Handle both Next.js App Router and API routes cookie formats
-      if (typeof req.cookies.get === 'function') {
+      if (typeof cookies.get === 'function') {
         // Next.js App Router format
-        const tokenCookie = req.cookies.get('auth_token');
+        const tokenCookie = cookies.get('auth_token');
         if (tokenCookie) {
           token = tokenCookie.value;
         }
-      } else if (req.cookies.auth_token) {
+      } else if (cookies.auth_token) {
         // API routes format
-        token = req.cookies.auth_token;
+        token = cookies.auth_token;
       }
     }
     
     // If no token in cookies, check query params (for file downloads, etc.)
     if (!token && req.query && req.query.token) {
       token = req.query.token;
-    }      if (!token) {
+    }if (!token) {
       return {
         isAuthenticated: false,
         error: 'Authentication token is missing',
