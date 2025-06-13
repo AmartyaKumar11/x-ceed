@@ -18,6 +18,7 @@ import JobCountBadge from '@/components/JobCountBadge';
 import { clientAuth } from '@/lib/auth';
 import ProfileSettingsDialog from '@/components/ProfileSettingsDialog';
 import NewsPanel from '@/components/NewsPanel';
+import YouTubeVideoSection from '@/components/YouTubeVideoSection';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ApplicantDashboardPage() {
@@ -202,21 +203,21 @@ export default function ApplicantDashboardPage() {
 
   // Don't render profile completion card if 100% complete
   const shouldShowProfileCompletion = profileCompletion.percentage < 100;  return (
-    <div className="min-h-screen bg-background">
-      {/* Main Layout with News Panel */}
-      <div className="flex flex-col lg:flex-row gap-6 h-screen">
-        {/* Left Sidebar - News Panel (collapsible on mobile) */}
+    <>
+      <div className="min-h-screen bg-background">
+        {/* Three Column Layout: News Panel (left), Main Content (center), YouTube (right) */}
+        <div className="flex flex-col lg:flex-row gap-6 h-screen">
+        {/* Left Sidebar - News Panel */}
         <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
           <NewsPanel />
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 lg:flex-shrink-0 overflow-y-auto">
           <div className="space-y-6 p-6">
             <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
-            
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+              {/* Stats Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/applicant/jobs'}>
                 <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-950 mr-4">
                   <Briefcase className="h-6 w-6 text-blue-500 dark:text-blue-400" />
@@ -224,16 +225,6 @@ export default function ApplicantDashboardPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Available Jobs</p>
                   <JobCountBadge />
-                </div>
-              </div>
-              
-              <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow">
-                <div className="p-3 rounded-full bg-green-50 dark:bg-green-950 mr-4">
-                  <FileText className="h-6 w-6 text-green-500 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Applications</p>
-                  <h3 className="text-2xl font-bold text-foreground">3</h3>
                 </div>
               </div>
               
@@ -250,53 +241,50 @@ export default function ApplicantDashboardPage() {
                     </div>
                   ) : (
                     <h3 className="text-2xl font-bold text-foreground">{savedJobsCount}</h3>
-                  )}
+                  )}                </div>
+              </div>
+            </div>
+
+            {/* Recent Applications - Full Width */}
+            <div className="bg-card p-6 rounded-lg border border-border shadow-md">
+              <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
+                <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
+                Recent Applications
+              </h3>
+              <div className="space-y-4">
+                <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
+                  <div className="flex justify-between">
+                    <h4 className="font-medium text-foreground">Senior Frontend Developer</h4>
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">Applied</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">TechCorp Inc.</p>
+                  <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 28, 2025</p>
+                </div>
+                
+                <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
+                  <div className="flex justify-between">
+                    <h4 className="font-medium text-foreground">UI/UX Designer</h4>
+                    <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full">Interview</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">DesignHub</p>
+                  <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 25, 2025</p>
+                </div>
+                
+                <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
+                  <div className="flex justify-between">
+                    <h4 className="font-medium text-foreground">React Developer</h4>
+                    <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">Reviewing</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">AppWorks Solutions</p>
+                  <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 22, 2025</p>
                 </div>
               </div>
             </div>
 
-            {/* Main Content Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Recent Applications */}
-              <div className="lg:col-span-2 bg-card p-6 rounded-lg border border-border shadow-md">
-                <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
-                  <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
-                  Recent Applications
-                </h3>
-                <div className="space-y-4">
-                  <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
-                    <div className="flex justify-between">
-                      <h4 className="font-medium text-foreground">Senior Frontend Developer</h4>
-                      <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full">Applied</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">TechCorp Inc.</p>
-                    <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 28, 2025</p>
-                  </div>
-                  
-                  <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
-                    <div className="flex justify-between">
-                      <h4 className="font-medium text-foreground">UI/UX Designer</h4>
-                      <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded-full">Interview</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">DesignHub</p>
-                    <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 25, 2025</p>
-                  </div>
-                  
-                  <div className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Application clicked')}>
-                    <div className="flex justify-between">
-                      <h4 className="font-medium text-foreground">React Developer</h4>
-                      <span className="text-xs bg-muted text-muted-foreground px-2 py-1 rounded-full">Reviewing</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">AppWorks Solutions</p>
-                    <p className="text-xs text-muted-foreground/70 mt-2">Applied on May 22, 2025</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Profile Completion - Only show if not 100% complete */}
-              {shouldShowProfileCompletion && (
-                <div 
-                  className={`bg-card p-6 rounded-lg border border-border shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer ${completionAnimation}`}
+            {/* Profile Completion - Only show if not 100% complete */}
+            {shouldShowProfileCompletion && (
+              <div 
+                className={`bg-card p-6 rounded-lg border border-border shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer ${completionAnimation}`}
                   onClick={() => setProfileDialogOpen(true)}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -358,11 +346,8 @@ export default function ApplicantDashboardPage() {
                             </span>
                           </div>
                         )}
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-border">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Click to continue</span>
+                      </div>                      <div className="mt-4 pt-3 border-t border-border">
+                        <div className="flex items-center justify-between">                          <span className="text-xs text-muted-foreground">Click to continue</span>
                           <Edit className="h-4 w-4 text-primary" />
                         </div>
                       </div>
@@ -373,6 +358,11 @@ export default function ApplicantDashboardPage() {
             </div>
           </div>
         </div>
+          {/* Right Sidebar - YouTube Videos Section */}
+        <div className="lg:w-80 lg:flex-shrink-0 min-h-[400px] lg:h-full">
+          <div className="sticky top-6">
+            <YouTubeVideoSection />
+          </div></div>
       </div>
 
       {/* Profile Settings Dialog */}
@@ -382,6 +372,6 @@ export default function ApplicantDashboardPage() {
         onProfileUpdate={handleProfileUpdate}
         userRole="applicant"
       />
-    </div>
+    </>
   );
 }

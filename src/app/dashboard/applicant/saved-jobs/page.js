@@ -11,7 +11,8 @@ import {
   BookmarkX,
   AlertCircle,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  GraduationCap
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { clientAuth } from '@/lib/auth';
@@ -124,11 +125,27 @@ export default function SavedJobsPage() {
       setRemovingJobId(null);
     }
   };
-
   const handleJobClick = (job) => {
     // Navigate to job details or open application dialog
     // For now, we'll just log it
     console.log('Job clicked:', job);
+  };
+  const handleCreatePrepPlan = (e, job) => {
+    e.stopPropagation(); // Prevent card click event
+    // Navigate to prep plan page with job data
+    const jobData = encodeURIComponent(JSON.stringify({
+      title: job.title,
+      companyName: job.companyName,
+      description: job.description,
+      requirements: job.requirements || [],
+      techStack: job.techStack || [],
+      level: job.level,
+      department: job.department,
+      jobDescriptionFile: job.jobDescriptionFile || null,
+      jobDescriptionType: job.jobDescriptionType || 'text',
+      jobDescriptionText: job.jobDescriptionText || ''
+    }));
+    router.push(`/dashboard/applicant/prep-plan?job=${jobData}`);
   };
 
   // Format the posted date as a relative time
@@ -186,24 +203,13 @@ export default function SavedJobsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6">      {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={() => router.back()}
-            className="h-8 w-8"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Saved Jobs</h1>
-            <p className="text-muted-foreground mt-1">
-              {savedJobs.length} job{savedJobs.length !== 1 ? 's' : ''} saved
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Saved Jobs</h1>
+          <p className="text-muted-foreground mt-1">
+            {savedJobs.length} job{savedJobs.length !== 1 ? 's' : ''} saved
+          </p>
         </div>
       </div>
 
@@ -293,13 +299,19 @@ export default function SavedJobsPage() {
                     <p className="text-sm text-muted-foreground line-clamp-2">
                       {job.description}
                     </p>
-                  )}
-                </CardContent>
-                <CardFooter className="pt-4">
+                  )}                </CardContent>
+                <CardFooter className="pt-4 flex-col gap-3">
                   <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                     <span>Saved {formatPostedDate(savedJob.savedAt)}</span>
                     <span>{job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}</span>
-                  </div>
+                  </div>                  <Button
+                    onClick={(e) => handleCreatePrepPlan(e, job)}
+                    className="w-full bg-foreground text-background hover:bg-foreground/90 transition-colors"
+                    size="sm"
+                  >
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Create Prep Plan
+                  </Button>
                 </CardFooter>
               </Card>
             );
