@@ -4,9 +4,9 @@
 Your Google API keys were exposed in `API_SECURITY_REPORT.md` which is tracked by Git!
 
 **EXPOSED KEYS:**
-- GEMINI_API_KEY: AIzaSyAzYv5Kn-OORcNq3himP_SRMKDoJISwrJ4
-- YOUTUBE_API_KEY: AIzaSyCFzksQHLGDJozLjZEKtbvqbKqUqu9r9wE  
-- NEWS_API_KEY: 862eef1f2005403886d9358965e88f5a
+- GEMINI_API_KEY: [REDACTED]
+- YOUTUBE_API_KEY: [REDACTED]
+- NEWS_API_KEY: [REDACTED]
 
 ## IMMEDIATE ACTIONS TAKEN
 ✅ Removed keys from `API_SECURITY_REPORT.md`
@@ -19,14 +19,14 @@ Your Google API keys were exposed in `API_SECURITY_REPORT.md` which is tracked b
 #### Google Cloud Console (Gemini & YouTube APIs):
 1. Go to: https://console.cloud.google.com/apis/credentials
 2. Find these keys and **DELETE/REVOKE** them:
-   - AIzaSyAzYv5Kn-OORcNq3himP_SRMKDoJISwrJ4
-   - AIzaSyCFzksQHLGDJozLjZEKtbvqbKqUqu9r9wE
+   - [REDACTED - GEMINI KEY]
+   - [REDACTED - YOUTUBE KEY]
 3. Generate new API keys
 4. Update your `.env.local` file with new keys
 
 #### NewsAPI:
 1. Go to: https://newsapi.org/account
-2. Regenerate your API key: 862eef1f2005403886d9358965e88f5a
+2. Regenerate your API key: [REDACTED]
 3. Update your `.env.local` file
 
 ### 2. CLEAN GIT HISTORY
