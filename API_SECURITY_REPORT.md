@@ -22,9 +22,9 @@ Your API keys are now properly secured and will not be exposed when you push you
 # These are in .env.local (ignored by Git):
 MONGODB_URI=mongodb://localhost:27017/x-ceed-db
 JWT_SECRET=your-secret-key-for-jwt-tokens
-NEWS_API_KEY=862eef1f2005403886d9358965e88f5a
-GEMINI_API_KEY=AIzaSyAzYv5Kn-OORcNq3himP_SRMKDoJISwrJ4
-YOUTUBE_API_KEY=AIzaSyCFzksQHLGDJozLjZEKtbvqbKqUqu9r9wE
+NEWS_API_KEY=your_newsapi_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
+YOUTUBE_API_KEY=your_youtube_api_key_here
 ```
 
 ## Security Best Practices Implemented
