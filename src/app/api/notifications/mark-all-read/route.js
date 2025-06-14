@@ -12,19 +12,12 @@ export async function PATCH(request) {
         success: false, 
         message: auth.error 
       }, { status: auth.status });
-    }
-
-    // Connect to database
+    }    // Connect to database
     const client = await clientPromise;
     const db = client.db('x-ceed-db');
 
-    // Convert userId to ObjectId for database query
-    let userIdQuery;
-    try {
-      userIdQuery = new ObjectId(auth.user.userId);
-    } catch (error) {
-      userIdQuery = auth.user.userId;
-    }
+    // Use userId as string to match JWT token format
+    const userIdQuery = auth.user.userId;
 
     // Update all unread notifications for the user
     const result = await db.collection('notifications').updateMany(

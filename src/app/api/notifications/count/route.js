@@ -12,22 +12,14 @@ export async function GET(request) {
         success: false, 
         message: auth.error 
       }, { status: auth.status });
-    }
-
-    // Connect to database
+    }    // Connect to database
     const client = await clientPromise;
-    const db = client.db('x-ceed-db');
+    const db = client.db('x-ceed-db');    // Use userId as string to match JWT token format
+    const userIdQuery = auth.user.userId;
 
-    // Convert userId to ObjectId for database query
-    let userIdQuery;
-    try {
-      userIdQuery = new ObjectId(auth.user.userId);
-    } catch (error) {
-      // If conversion fails, use the string as is
-      userIdQuery = auth.user.userId;
-    }
-
-    console.log('Counting notifications for userId:', auth.user.userId, 'as ObjectId:', userIdQuery);
+    console.log('Counting notifications for userId:', auth.user.userId);
+    console.log('User details:', JSON.stringify(auth.user, null, 2));
+    console.log('Query userId:', userIdQuery, typeof userIdQuery);
 
     // Count unread notifications for the user
     const unreadCount = await db.collection('notifications').countDocuments({
@@ -39,6 +31,8 @@ export async function GET(request) {
     const totalCount = await db.collection('notifications').countDocuments({
       userId: userIdQuery
     });
+    
+    console.log('Notification counts - Unread:', unreadCount, 'Total:', totalCount);
 
     console.log('Found', unreadCount, 'unread notifications out of', totalCount, 'total');
 

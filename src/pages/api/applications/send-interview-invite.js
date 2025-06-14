@@ -103,7 +103,7 @@ export default async function handler(req, res) {
     );
       // Create a notification for the applicant
     const notification = {
-      userId: applicant._id, // Store as ObjectId, not string
+      userId: applicant._id.toString(), // Store as string to match JWT format
       type: 'interview_invitation',
       title: '📅 Interview Invitation',
       message: `You've been invited to an interview for ${job.title} at ${job.company}! Please check your email for details.`,

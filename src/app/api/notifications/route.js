@@ -12,21 +12,14 @@ export async function GET(request) {
         success: false, 
         message: auth.error 
       }, { status: auth.status });
-    }
-
-    console.log('Fetching notifications for userId:', auth.user.userId);
+    }    console.log('Fetching notifications for userId:', auth.user.userId);
+    console.log('User details:', JSON.stringify(auth.user, null, 2));
 
     const client = await clientPromise;
     const db = client.db('x-ceed-db');
     
-    // Convert userId to ObjectId for database query
-    let userIdQuery;
-    try {
-      userIdQuery = new ObjectId(auth.user.userId);
-    } catch (error) {
-      // If conversion fails, use the string as is
-      userIdQuery = auth.user.userId;
-    }
+    // Use userId as string to match JWT token format
+    const userIdQuery = auth.user.userId;
     
     console.log('Using userIdQuery:', userIdQuery);
     
@@ -43,7 +36,14 @@ export async function GET(request) {
       .limit(50)
       .toArray();
       
-    console.log('Found notifications:', notifications.length);
+    console.log('Raw notifications from DB:', notifications.length);
+    console.log('Sample notification:', notifications[0] ? {
+      id: notifications[0]._id,
+      userId: notifications[0].userId,
+      userIdType: typeof notifications[0].userId,
+      title: notifications[0].title,
+      read: notifications[0].read
+    } : 'No notifications found');
 
     // Process notifications to check for upcoming interviews
     const processedNotifications = notifications.map(notification => {

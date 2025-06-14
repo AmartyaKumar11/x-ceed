@@ -22,19 +22,12 @@ export async function PATCH(request, { params }) {
         success: false, 
         message: 'Invalid notification ID format' 
       }, { status: 400 });
-    }
-
-    // Connect to database
+    }    // Connect to database
     const client = await clientPromise;
     const db = client.db('x-ceed-db');
 
-    // Convert userId to ObjectId for database query
-    let userIdQuery;
-    try {
-      userIdQuery = new ObjectId(auth.user.userId);
-    } catch (error) {
-      userIdQuery = auth.user.userId;
-    }
+    // Use userId as string to match JWT token format
+    const userIdQuery = auth.user.userId;
 
     // Update the specific notification as read
     const result = await db.collection('notifications').updateOne(

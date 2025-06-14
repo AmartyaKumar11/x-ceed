@@ -162,7 +162,7 @@ export default async function handler(req, res) {
       });
     }    // Create a notification for the applicant
     const notification = {
-      userId: applicant._id, // Store as ObjectId, not string
+      userId: applicant._id.toString(), // Store as string to match JWT format
       type: 'interview_scheduled',
       title: '📅 Interview Scheduled',
       message: `Great news! Your interview for ${jobTitle} at ${companyName || job.company} has been scheduled for ${interviewDateTime.toLocaleDateString('en-US', {

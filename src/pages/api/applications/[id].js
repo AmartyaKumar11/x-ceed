@@ -162,10 +162,9 @@ export default async function handler(req, res) {
               notificationType = 'application_status';
               priority = 'medium';
           }
-          
-          // Create the notification
+            // Create the notification
           const notification = {
-            userId: new ObjectId(application.applicantId),
+            userId: application.applicantId, // Keep as string to match JWT token format
             type: notificationType,
             title: notificationTitle,
             message: notificationMessage,

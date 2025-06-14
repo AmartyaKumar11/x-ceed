@@ -84,7 +84,7 @@ const page = Math.floor(seed / TECH_QUERIES.length) % 3 + 1;
 ### **Environment Variables**
 ```bash
 # .env.local
-NEWS_API_KEY=862eef1f2005403886d9358965e88f5a
+NEWS_API_KEY=your_newsapi_key_here
 ```
 
 ### **API Endpoints**
