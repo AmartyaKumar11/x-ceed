@@ -29,8 +29,7 @@ export default function AuthPage() {
       try {
         // Login logic - make API call
         console.log('Logging in', { email, password });
-        
-        const response = await fetch('/api/auth/login', {
+          const response = await fetch('/api/auth/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -41,12 +40,19 @@ export default function AuthPage() {
           }),
         });
 
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch (jsonError) {
+          console.error('Failed to parse JSON response:', jsonError);
+          alert('Login failed. Please try again.');
+          return;
+        }
 
         if (!response.ok) {
-          alert(result.message || 'Login failed');
+          alert(result.message || 'Login failed. Please try again.');
           return;
-        }        // Store authentication data using clientAuth
+        }// Store authentication data using clientAuth
         if (typeof window !== 'undefined') {
           // Store user data using the clientAuth method
           clientAuth.setUser({
