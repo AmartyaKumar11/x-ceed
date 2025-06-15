@@ -10,9 +10,16 @@ export default function FloatingNotificationBell() {
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasNewNotifications, setHasNewNotifications] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const { theme } = useTheme();
-  // Fetch notification count
+
+  // Handle hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);  // Fetch notification count
   const fetchNotificationCount = async () => {
+    if (!isMounted) return;
+    
     try {
       const token = localStorage.getItem('token');
       if (!token) {
@@ -61,29 +68,35 @@ export default function FloatingNotificationBell() {
       console.error('🔔 Error fetching notification count:', error);
       // Don't set unreadCount to 0 on network errors - keep showing last known value
     }
-  };
-  // Poll for new notifications every 30 seconds
+  };  // Poll for new notifications every 30 seconds
   useEffect(() => {
-    // Only run on client side
-    if (typeof window === 'undefined') return;
+    if (!isMounted) return;
     
-    fetchNotificationCount();
-    const interval = setInterval(fetchNotificationCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    const startPolling = () => {
+      fetchNotificationCount();
+      const interval = setInterval(fetchNotificationCount, 30000);
+      return interval;
+    };
+
+    const interval = startPolling();
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, []); // Keep empty dependency array to maintain consistency
 
   // Reset new notification indicator when panel is opened
   const handleBellClick = () => {
     setIsNotificationPanelOpen(true);
     setHasNewNotifications(false);
   };
-
   // Debug: Force show bell and add logging
   console.log('🔔 FloatingNotificationBell render - unreadCount:', unreadCount);
-  console.log('🔔 Token exists:', typeof window !== 'undefined' && !!localStorage.getItem('token'));
+  console.log('🔔 isMounted:', isMounted);
   
-  // Don't render on server side
-  if (typeof window === 'undefined') return null;
+  // Don't render until client-side hydration is complete
+  if (!isMounted) return null;
   
   // Temporarily always show bell for debugging
   // if (unreadCount === 0) return null;

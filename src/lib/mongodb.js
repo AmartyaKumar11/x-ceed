@@ -66,3 +66,17 @@ export async function getDatabase() {
   const client = await clientPromise;
   return client.db(dbName);
 }
+
+// Helper function for database connection (for compatibility)
+export async function connectDB() {
+  try {
+    const client = await clientPromise;
+    const db = client.db(dbName);
+    console.log("MongoDB connection successful! Connected to:", cleanUri);
+    console.log("Using database:", dbName);
+    return db;
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
+    throw error;
+  }
+}

@@ -9,9 +9,8 @@ export default function DashboardLayout({ children }) {
   const pathname = usePathname();
   const isApplicant = pathname.includes('/applicant');
   const isRecruiter = pathname.includes('/recruiter');
-  const role = isApplicant ? 'applicant' : 'recruiter';
-  return (
-    <div className="min-h-screen bg-background">
+  const role = isApplicant ? 'applicant' : 'recruiter';  return (
+    <div className="bg-background">
       {/* Sidebar that appears on hover */}
       <Sidebar role={role} />
         {/* Header */}

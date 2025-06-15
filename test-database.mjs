@@ -30,6 +30,21 @@ async function testDatabase() {
             });
         }
         
+        // Check jobs
+        const jobs = await db.collection('jobs').find({}).toArray();
+        console.log('Existing jobs:', jobs.length);
+        
+        if (jobs.length > 0) {
+            console.log('Sample job:', {
+                title: jobs[0].title,
+                company: jobs[0].company,
+                status: jobs[0].status,
+                _id: jobs[0]._id
+            });
+        } else {
+            console.log('No jobs found in database');
+        }
+        
         await client.close();
         console.log('✅ Database connection test completed');
     } catch (error) {

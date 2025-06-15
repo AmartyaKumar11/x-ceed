@@ -1,12 +1,10 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
   width: 100%;
   overflow-x: hidden; /* Only prevent horizontal scrolling */
+  /* Removed height: 100% to allow natural page scrolling */
 }
 
-/* Next.js 13+ App Router doesn't use #__next */
-body > div {
-  height: 100%;
-}
+/* Allow body content to scroll naturally */
+/* Removed height constraint on body > div */
