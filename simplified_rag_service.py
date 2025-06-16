@@ -248,10 +248,26 @@ Return ONLY the JSON object, no other text or formatting.
 async def chat_with_resume(request: ChatRequest):
     """Chat about the resume and job description"""
     try:
+        print(f"💬 Received chat request:")
+        print(f"   - Question: '{request.question}'")
+        print(f"   - Session ID: '{request.session_id}'")
+        print(f"   - Context available: {request.context is not None}")
+        print(f"   - Conversation history length: {len(request.conversation_history) if request.conversation_history else 0}")
+        
+        if request.context:
+            print(f"   - Context job title: {request.context.get('jobTitle', 'N/A')}")
+            print(f"   - Context has job description: {bool(request.context.get('jobDescription'))}")
+            print(f"   - Context has analysis result: {bool(request.context.get('analysisResult'))}")
+        
         session_id = request.session_id or "default"
         
         # Try to get session data, but don't fail if not found
         session = session_data.get(session_id, {})
+        print(f"   - Session data available: {bool(session)}")
+        if session:
+            print(f"   - Session job title: {session.get('job_title', 'N/A')}")
+            print(f"   - Session has job description: {bool(session.get('job_description'))}")
+            print(f"   - Session has resume text: {bool(session.get('resume_text'))}")
           # Build conversation context with better memory
         conversation_context = ""
         if request.conversation_history:
@@ -283,91 +299,54 @@ async def chat_with_resume(request: ChatRequest):
             if analysis_result:
                 # Include more analysis context
                 analysis_excerpt = analysis_result[:500] if len(analysis_result) > 500 else analysis_result
-                analysis_context += f"**Previous Analysis Summary:** {analysis_excerpt}...\n"
-          # Create enhanced context-aware chat prompt
-        if session:
-            # Full context available
-            chat_prompt = f"""
-You are an expert career advisor. You have access to a candidate's resume and the job description they're applying for.
-
-**FORMAT YOUR RESPONSE USING MARKDOWN:**
-- Use **bold** for important terms and headings
-- Use *italics* for emphasis
-- Use bullet points with - for lists
-- Use numbered lists for step-by-step advice
-- Be conversational but professional
-
-**CONTEXT:**
-**Job Title:** {session.get('job_title', request.context.get('jobTitle', 'Unknown') if request.context else 'Unknown')}
-**Job Description:** {session.get('job_description', 'Not available')}
-**Resume Content:** {session.get('resume_text', 'Not available')}
-
-{analysis_context}
-
-**RECENT CONVERSATION:**
-{conversation_context}
-
-**CURRENT QUESTION:** {request.question}
-
-Provide a helpful, specific response based on the resume and job description. Reference specific details from both documents when relevant. Format your response with markdown for better readability. If you don't have access to the full resume or job description, acknowledge this and provide general career advice.
-"""
-        else:
-            # Limited context - use what we have
-            chat_prompt = f"""
-You are an expert career advisor helping a job candidate.
-
-**FORMAT YOUR RESPONSE USING MARKDOWN:**
-- Use **bold** for important terms and headings
-- Use *italics* for emphasis
-- Use bullet points with - for lists
-- Use numbered lists for step-by-step advice
-- Be conversational but professional
-
-{analysis_context}
-
-**RECENT CONVERSATION:**
-{conversation_context}
-
-**CURRENT QUESTION:** {request.question}
-
-Based on the available context, provide helpful career advice formatted with markdown for better readability. If you need more specific information about their resume or the job they're applying for, ask clarifying questions.
-"""        # Build messages array with conversation history
+                analysis_context += f"**Previous Analysis Summary:** {analysis_excerpt}...\n"          # Create natural conversational prompt for Groq
+        # Build the conversation messages for Groq API
         messages = [
-            {"role": "system", "content": "You are an expert career advisor helping a job candidate. You provide specific, actionable advice and are conversational but professional. Always format your responses using markdown with **bold** for important terms, *italics* for emphasis, and bullet points for lists."}
+            {
+                "role": "system", 
+                "content": f"""You are a helpful and friendly AI career assistant. You have access to information about a job application and resume analysis.
+
+CONTEXT INFORMATION:
+- Job Title: {session.get('job_title', request.context.get('jobTitle', 'Unknown') if request.context else 'Unknown')}
+- You have analyzed the candidate's resume against this job posting
+- You can provide career advice, interview tips, and resume feedback when asked
+
+CONVERSATION STYLE:
+- Be natural and conversational
+- Respond to greetings naturally (hi, hello, thanks, etc.)
+- Only provide detailed analysis when specifically asked
+- Ask follow-up questions to understand what the user needs
+- Be supportive and encouraging
+- Use the candidate's name if mentioned in the resume
+
+Remember: You're having a conversation, not giving a lecture. Let the user guide what they want to discuss."""
+            }
         ]
         
-        # Add context as a system message if available
-        if analysis_context:
-            messages.append({
-                "role": "system", 
-                "content": f"CONTEXT INFORMATION:\n{analysis_context}"
-            })
-        
-        # Add recent conversation history
+        # Add recent conversation history for context
         if request.conversation_history:
-            # Add last few messages to maintain context
-            recent_messages = request.conversation_history[-4:]  # Last 4 messages
+            # Add the last few messages to maintain conversation flow
+            recent_messages = request.conversation_history[-6:]  # Last 6 messages for context
             for msg in recent_messages:
-                if msg.get('role') in ['user', 'assistant']:
+                role = msg.get('role', 'user')
+                content = msg.get('content', '')
+                if role in ['user', 'assistant'] and content:
                     messages.append({
-                        "role": "assistant" if msg.get('role') == 'assistant' else "user",
-                        "content": msg.get('content', '')
+                        "role": role,
+                        "content": content
                     })
         
-        # Add current question
-        current_question = f"**CURRENT QUESTION:** {request.question}"
-        if session:
-            current_question += f"\n\n**ADDITIONAL CONTEXT:** I have access to the candidate's resume for the '{session.get('job_title', 'position')}' role. Please provide specific, detailed advice."
-        
-        messages.append({"role": "user", "content": current_question})
-        
-        # Get response from Groq
-        chat_response = call_groq_api(messages)
+        # Add current user message
+        messages.append({
+            "role": "user",
+            "content": request.question
+        })        
+        # Call Groq API for natural conversation
+        chat_response = call_groq_api(messages, temperature=0.7)  # Higher temperature for more natural responses
         
         return AnalysisResponse(
             success=True,
-            data={
-                "response": chat_response,
+            data={                "response": chat_response,
                 "sources": [],
                 "timestamp": "2025-06-15T18:00:00.000Z"
             }

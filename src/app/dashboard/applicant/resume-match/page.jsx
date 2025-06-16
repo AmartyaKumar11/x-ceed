@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Lightbulb,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Square
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -46,12 +47,71 @@ export default function ResumeMatchPage() {
   const [ragAnalysis, setRagAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
-  
-  // Chat state
+    // Chat state
   const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
-  const [chatInitialized, setChatInitialized] = useState(false);
+  const [chatInput, setChatInput] = useState('');  const [chatLoading, setChatLoading] = useState(false);
+  const [chatInitialized, setChatInitialized] = useState(false);  const [typingMessageIndex, setTypingMessageIndex] = useState(-1);
+  const [abortController, setAbortController] = useState(null);
+  const [isTypingResponse, setIsTypingResponse] = useState(false);
+  const partialContentRef = useRef('');// Typewriter effect component
+  const TypewriterText = ({ text, speed = 30, onComplete, onPartialUpdate }) => {
+    const [displayedText, setDisplayedText] = useState('');
+    const [isTyping, setIsTyping] = useState(true);
+    const [showCursor, setShowCursor] = useState(true);
+
+    useEffect(() => {
+      if (!isTyping) return;
+
+      let index = 0;
+      const timer = setInterval(() => {
+        if (index < text.length) {
+          const newText = text.slice(0, index + 1);
+          setDisplayedText(newText);
+          // Report partial update for stopping functionality
+          if (onPartialUpdate) {
+            onPartialUpdate(newText);
+          }
+          index++;
+        } else {
+          setIsTyping(false);
+          clearInterval(timer);
+          // Hide cursor after a short delay
+          setTimeout(() => setShowCursor(false), 500);
+          if (onComplete) onComplete();
+        }
+      }, speed);
+
+      return () => clearInterval(timer);
+    }, [text, speed, isTyping, onComplete, onPartialUpdate]);// Blinking cursor effect
+    useEffect(() => {
+      if (!isTyping && !showCursor) return;
+      
+      const cursorTimer = setInterval(() => {
+        setShowCursor(prev => !prev);
+      }, 600); // Slightly slower blink for more natural feel
+
+      return () => clearInterval(cursorTimer);
+    }, [isTyping]);
+
+    return (
+      <div className="relative">
+        <div 
+          className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"
+          dangerouslySetInnerHTML={{
+            __html: displayedText
+              .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+              .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+              .replace(/^- (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-blue-500 mt-1">•</span><span>$1</span></div>')
+              .replace(/^(\d+)\. (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-green-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>')
+              .replace(/\n\n/g, '<div class="my-2"></div>')
+              .replace(/\n/g, '<br>')
+          }}
+        />        {(isTyping || showCursor) && (
+          <span className="inline-block w-0.5 h-4 bg-gray-700 dark:bg-gray-300 ml-0.5" />
+        )}
+      </div>
+    );
+  };
 
   // Debug logging
   useEffect(() => {
@@ -235,13 +295,16 @@ export default function ResumeMatchPage() {
         }
         
         setChatInitialized(true);
-        
-        // Add welcome message
-        setChatMessages([{
+          // Add welcome message
+        const welcomeMessage = {
           role: 'assistant',
           content: `Hello! I've analyzed your resume against the "${jobData.title}" position. I can answer questions about your match, skills, experience, and provide interview tips. What would you like to know?`,
-          timestamp: new Date().toISOString()
-        }]);
+          timestamp: new Date().toISOString(),
+          isTyping: true
+        };
+        
+        setChatMessages([welcomeMessage]);
+        setTypingMessageIndex(0);
           console.log('✅ RAG analysis completed successfully');
       } else {
         console.error('❌ RAG analysis failed:', response.status, response.statusText);
@@ -272,20 +335,40 @@ export default function ResumeMatchPage() {
     } finally {
       setAnalyzing(false);
     }
-  };
+  };  const sendChatMessage = async () => {
+    console.log('🔍 sendChatMessage called:', {
+      chatInput: chatInput.trim(),
+      chatInitialized,
+      chatLoading,
+      isTypingResponse,
+      typingMessageIndex
+    });
+    
+    if (!chatInput.trim() || !chatInitialized || chatLoading || isTypingResponse) {
+      console.log('❌ Message blocked by validation');
+      return;
+    }
 
-  const sendChatMessage = async () => {
-    if (!chatInput.trim() || !chatInitialized) return;
+    console.log('✅ Message validation passed, sending...');
+
+    // Cancel any ongoing request
+    if (abortController) {
+      console.log('🛑 Cancelling previous request');
+      abortController.abort();
+    }
+
+    const newAbortController = new AbortController();
+    setAbortController(newAbortController);
 
     const userMessage = {
       role: 'user',
       content: chatInput.trim(),
       timestamp: new Date().toISOString()
-    };
-
-    setChatMessages(prev => [...prev, userMessage]);
+    };    setChatMessages(prev => [...prev, userMessage]);
     setChatInput('');
-    setChatLoading(true);    try {
+    setChatLoading(true);
+
+    try {
       const token = localStorage.getItem('token');
       
       const headers = {
@@ -296,9 +379,11 @@ export default function ResumeMatchPage() {
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
-        const response = await fetch('/api/resume-rag-python', {
+
+      const response = await fetch('/api/resume-rag-python', {
         method: 'POST',
         headers: headers,
+        signal: newAbortController.signal,
         body: JSON.stringify({
           action: 'chat',
           question: userMessage.content,
@@ -318,12 +403,26 @@ export default function ResumeMatchPage() {
         const assistantMessage = {
           role: 'assistant',
           content: result.data?.response || result.response || 'I apologize, but I encountered an issue processing your question.',
-          timestamp: new Date().toISOString()
-        };
-
-        setChatMessages(prev => [...prev, assistantMessage]);
+          timestamp: new Date().toISOString(),
+          isTyping: true
+        };        // Add the message and start typewriter effect
+        setChatMessages(prev => {
+          const newMessages = [...prev, assistantMessage];
+          setTypingMessageIndex(newMessages.length - 1);
+          setIsTypingResponse(true);
+          partialContentRef.current = ''; // Reset partial content
+          console.log('🎬 Starting typewriter effect:', {
+            messageIndex: newMessages.length - 1,
+            isTypingResponse: true
+          });
+          return newMessages;
+        });
       }
     } catch (error) {
+      if (error.name === 'AbortError') {
+        console.log('Request was aborted');
+        return;
+      }
       console.error('❌ Chat error:', error);
       setChatMessages(prev => [...prev, {
         role: 'assistant',
@@ -332,13 +431,46 @@ export default function ResumeMatchPage() {
       }]);
     } finally {
       setChatLoading(false);
+      setAbortController(null);
     }
-  };
-
-  const handleKeyPress = (e) => {
+  };  const stopResponse = () => {
+    // Stop current request
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+    }
+    
+    // Save partial content and stop typing animation
+    if (typingMessageIndex !== -1) {
+      setChatMessages(prev => 
+        prev.map((msg, i) => 
+          i === typingMessageIndex ? { 
+            ...msg, 
+            isTyping: false,
+            content: partialContentRef.current || msg.content
+          } : msg
+        )
+      );
+      setTypingMessageIndex(-1);
+      partialContentRef.current = '';
+    }
+    
+    // Reset states
+    setIsTypingResponse(false);
+    setChatLoading(false);
+  };  const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendChatMessage();
+      console.log('⌨️ Enter key pressed:', {
+        chatLoading,
+        isTypingResponse,
+        canSend: !chatLoading && !isTypingResponse
+      });
+      if (!chatLoading && !isTypingResponse) {
+        sendChatMessage();
+      } else {
+        console.log('🚫 Enter key blocked - chat is busy');
+      }
     }
   };
   // Loading state
@@ -440,9 +572,9 @@ export default function ResumeMatchPage() {
                       </CardHeader>
                       <CardContent className="pt-0">                        <div className="space-y-3">
                           {ragAnalysis.structuredAnalysis.keyStrengths?.map((strength, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 border-border">
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-gray-900 dark:text-gray-100">{strength}</span>
+                              <span className="text-sm text-foreground">{strength}</span>
                             </div>
                           )) || <p className="text-muted-foreground">No strengths identified</p>}
                         </div>
@@ -488,10 +620,9 @@ export default function ResumeMatchPage() {
                               ragAnalysis.structuredAnalysis.missingSkills.map((skill, index) => (
                                 <Badge key={index} variant="outline" className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300 mr-2 mb-2">
                                   {skill}
-                                </Badge>
-                              )) :                              <div className="flex items-center gap-2 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                </Badge>                              )) :                              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/20 border-border">
                                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                <span className="text-sm text-gray-900 dark:text-gray-100">All required skills are present!</span>
+                                <span className="text-sm text-foreground">All required skills are present!</span>
                               </div>
                             }
                           </div>
@@ -538,11 +669,11 @@ export default function ResumeMatchPage() {
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-0">                        <div className="space-y-3">                          {ragAnalysis.structuredAnalysis.improvementSuggestions?.map((suggestion, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 border-border">
                               <div className="bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">
                                 {index + 1}
                               </div>
-                              <span className="text-sm text-gray-900 dark:text-gray-100">{suggestion}</span>
+                              <span className="text-sm text-foreground">{suggestion}</span>
                             </div>
                           )) || <p className="text-muted-foreground">No suggestions available</p>}
                         </div>
@@ -562,9 +693,9 @@ export default function ResumeMatchPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="pt-0">                          <div className="space-y-2">                            {ragAnalysis.structuredAnalysis.competitiveAdvantages?.map((advantage, index) => (
-                              <div key={index} className="flex items-start gap-2 p-2 rounded border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                              <div key={index} className="flex items-start gap-2 p-2 rounded border bg-muted/20 border-border">
                                 <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
-                                <span className="text-sm text-gray-900 dark:text-gray-100">{advantage}</span>
+                                <span className="text-sm text-foreground">{advantage}</span>
                               </div>
                             )) || <p className="text-muted-foreground text-sm">No advantages identified</p>}
                           </div>
@@ -750,20 +881,38 @@ export default function ResumeMatchPage() {
                               ? 'bg-primary text-primary-foreground ml-12'
                               : 'bg-muted text-foreground mr-12'
                           }`}
-                        >
-                          {message.role === 'assistant' ? (
-                            <div 
-                              className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"
-                              dangerouslySetInnerHTML={{
-                                __html: message.content
-                                  .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
-                                  .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
-                                  .replace(/^- (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-blue-500 mt-1">•</span><span>$1</span></div>')
-                                  .replace(/^(\d+)\. (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-green-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>')
-                                  .replace(/\n\n/g, '<div class="my-2"></div>')
-                                  .replace(/\n/g, '<br>')
-                              }}
-                            />
+                        >                          {message.role === 'assistant' ? (
+                            index === typingMessageIndex && message.isTyping ? (                              <TypewriterText 
+                                text={message.content}
+                                speed={20}
+                                onPartialUpdate={(partialText) => {
+                                  partialContentRef.current = partialText;
+                                }}
+                                onComplete={() => {
+                                  setTypingMessageIndex(-1);
+                                  setIsTypingResponse(false);
+                                  partialContentRef.current = '';
+                                  setChatMessages(prev => 
+                                    prev.map((msg, i) => 
+                                      i === index ? { ...msg, isTyping: false } : msg
+                                    )
+                                  );
+                                }}
+                              />
+                            ) : (
+                              <div 
+                                className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"
+                                dangerouslySetInnerHTML={{
+                                  __html: message.content
+                                    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+                                    .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
+                                    .replace(/^- (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-blue-500 mt-1">•</span><span>$1</span></div>')
+                                    .replace(/^(\d+)\. (.*?)$/gm, '<div class="flex items-start gap-2 my-1"><span class="text-green-600 font-semibold min-w-[1.5rem]">$1.</span><span>$2</span></div>')
+                                    .replace(/\n\n/g, '<div class="my-2"></div>')
+                                    .replace(/\n/g, '<br>')
+                                }}
+                              />
+                            )
                           ) : (
                             <p className="text-sm leading-relaxed whitespace-pre-wrap">
                               {message.content}
@@ -795,30 +944,47 @@ export default function ResumeMatchPage() {
                     <div ref={chatEndRef} />
                   </div>
                 </div>
-                
-                {/* Chat Input */}
+                  {/* Chat Input */}
                 <div className="p-4 border-t bg-muted/20 flex-shrink-0">
-                  <div className="flex gap-2">
-                    <Input
+                  <div className="flex gap-2">                    <Input
                       placeholder={chatInitialized ? "Ask me anything about your resume analysis..." : "Please wait for analysis to complete..."}
                       value={chatInput}
                       onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={handleKeyPress}
-                      disabled={!chatInitialized || chatLoading}
+                      disabled={!chatInitialized || chatLoading || isTypingResponse}
                       className="flex-1"
                     />
-                    <Button
-                      onClick={sendChatMessage}
-                      disabled={!chatInitialized || !chatInput.trim() || chatLoading}
-                      size="sm"
-                      className="px-3"
-                    >
-                      <Send className="h-4 w-4" />
-                    </Button>
+                    
+                    {/* Show pause button when response is being typed or loading */}
+                    {(chatLoading || isTypingResponse) ? (
+                      <Button
+                        onClick={stopResponse}
+                        variant="outline"
+                        size="sm"
+                        className="px-3 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                      >
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={sendChatMessage}
+                        disabled={!chatInitialized || !chatInput.trim()}
+                        size="sm"
+                        className="px-3"
+                      >
+                        <Send className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                   {!chatInitialized && (
                     <p className="text-xs text-muted-foreground mt-2 text-center">
                       Chat will be available after analysis is complete
+                    </p>
+                  )}
+                    {/* Status indicator */}
+                  {(chatLoading || isTypingResponse) && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
+                      {chatLoading ? 'Processing your question...' : 'AI is responding...'}
                     </p>
                   )}
                 </div>

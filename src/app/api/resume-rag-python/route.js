@@ -202,6 +202,13 @@ async function handlePythonChat({ question, conversationHistory, analysisContext
     console.log('📝 Analysis context available:', !!analysisContext);
     console.log('💭 Conversation history length:', conversationHistory?.length || 0);
     
+    if (analysisContext) {
+      console.log('🔍 Analysis context details:');
+      console.log(`   - Job Title: ${analysisContext.jobTitle || 'N/A'}`);
+      console.log(`   - Job Description: ${analysisContext.jobDescription ? 'Available' : 'Missing'}`);
+      console.log(`   - Analysis Result: ${analysisContext.analysisResult ? 'Available' : 'Missing'}`);
+    }
+    
     // Build enhanced context for the chat
     let contextualQuestion = question;
     
