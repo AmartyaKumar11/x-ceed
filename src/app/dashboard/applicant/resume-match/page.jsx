@@ -18,7 +18,8 @@ import {
   Lightbulb,
   Loader2,
   ArrowLeft,
-  Square
+  Square,
+  GraduationCap
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ export default function ResumeMatchPage() {
   const [ragAnalysis, setRagAnalysis] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
+  const [prepPlanCreated, setPrepPlanCreated] = useState(false);
     // Chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');  const [chatLoading, setChatLoading] = useState(false);
@@ -126,11 +128,17 @@ export default function ResumeMatchPage() {
       loading,
       analyzing
     });
-  }, [jobId, resumeId, resumeFilename, resumeName, job, userResume, ragAnalysis, loading, analyzing]);
-  // Fetch data on component mount
+  }, [jobId, resumeId, resumeFilename, resumeName, job, userResume, ragAnalysis, loading, analyzing]);  // Fetch data on component mount
   useEffect(() => {
     fetchData();
-  }, [jobId]);  // Ensure page is scrollable on mount
+  }, [jobId]);
+
+  // Check for existing prep plan when job data is loaded
+  useEffect(() => {
+    if (job) {
+      checkPrepPlanExists();
+    }
+  }, [job]);// Ensure page is scrollable on mount
   useEffect(() => {
     // Fix scrolling issues that might be caused by CSS constraints
     const fixScrolling = () => {
@@ -405,7 +413,7 @@ export default function ResumeMatchPage() {
           content: result.data?.response || result.response || 'I apologize, but I encountered an issue processing your question.',
           timestamp: new Date().toISOString(),
           isTyping: true
-        };        // Add the message and start typewriter effect
+        };    // Add the message and start typewriter effect
         setChatMessages(prev => {
           const newMessages = [...prev, assistantMessage];
           setTypingMessageIndex(newMessages.length - 1);
@@ -417,6 +425,9 @@ export default function ResumeMatchPage() {
           });
           return newMessages;
         });
+
+        // Check if the user's message was asking for prep plan creation
+        checkForPrepPlanRequest(userMessage.content);
       }
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -433,7 +444,33 @@ export default function ResumeMatchPage() {
       setChatLoading(false);
       setAbortController(null);
     }
-  };  const stopResponse = () => {
+  };  const checkForPrepPlanRequest = (userMessage) => {
+    const prepPlanKeywords = [
+      'prep plan', 'preparation plan', 'learning plan', 'study plan',
+      'how to prepare', 'how can i prepare', 'what should i learn', 'skills to develop',
+      'create prep plan', 'make a plan', 'learning path', 'study guide',
+      'skills should i develop', 'what skills', 'prepare for this', 'get ready for'
+    ];
+
+    const lowerMessage = userMessage.toLowerCase();
+    const containsPrepPlanKeyword = prepPlanKeywords.some(keyword => 
+      lowerMessage.includes(keyword)
+    );
+
+    if (containsPrepPlanKeyword) {
+      console.log('🎯 Detected prep plan request in user message');
+      
+      // Add a simple response directing to the button
+      setTimeout(() => {
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `To create a personalized learning plan for this job, simply click the "Create Learning Plan for This Job" button above. It will analyze the job requirements and generate a customized study plan for you! 📚`,
+          timestamp: new Date().toISOString(),
+          isTyping: true
+        }]);
+      }, 1000);
+    }
+  };const stopResponse = () => {
     // Stop current request
     if (abortController) {
       abortController.abort();
@@ -471,6 +508,174 @@ export default function ResumeMatchPage() {
       } else {
         console.log('🚫 Enter key blocked - chat is busy');
       }
+    }
+  };  const createPrepPlan = async () => {
+    console.log('🎯 createPrepPlan function called');
+    console.log('📊 Current state:', {
+      job: job ? { id: job._id, title: job.title } : null,
+      ragAnalysis: !!ragAnalysis,
+      prepPlanCreated,
+      token: !!localStorage.getItem('token')
+    });
+
+    if (!job) {
+      console.error('❌ No job data available for prep plan creation');
+      alert('Error: No job data available. Please refresh the page and try again.');
+      return;
+    }
+
+    try {
+      console.log('🎯 Creating prep plan for job:', job.title);
+      
+      // Show loading state (you could add a loading state here if needed)
+      console.log('⏳ Calling createPrepPlanRecord...');
+      
+      // Create prep plan record
+      const prepPlanData = await createPrepPlanRecord(job);
+      console.log('📋 createPrepPlanRecord result:', prepPlanData);
+        
+      if (prepPlanData) {
+        console.log('✅ Prep plan created successfully! You can view it in the Prep Plans section.');
+        setPrepPlanCreated(true);
+          // Add a success message to the chat
+        setChatMessages(prev => [...prev, {
+          role: 'assistant',
+          content: `🎉 **Learning plan created successfully!** 
+
+I've added "${job.title}" ${job.companyName || job.company ? `at ${job.companyName || job.company}` : ''} to your prep plans. You can now:
+
+• **View it anytime** in the "Prep Plans" section from the sidebar
+• **Track your progress** as you learn new skills
+• **Access personalized learning materials** based on this job's requirements
+
+The prep plan is ready and waiting for you! 🚀`,
+          timestamp: new Date().toISOString(),
+          isTyping: true,
+          isPrepPlanSuccess: true
+        }]);
+        
+        // Auto-scroll to the new message
+        setTimeout(() => {
+          if (chatEndRef.current) {
+            chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 100);
+        
+      } else {
+        console.log('⚠️ No prep plan data returned, but no error occurred');
+        alert('The prep plan creation completed, but there may have been an issue. Please check the Prep Plans section.');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creating prep plan:', error);
+      alert(`Error creating prep plan: ${error.message}. Please try again.`);
+    }
+  };
+  const createPrepPlanRecord = async (jobData) => {
+    console.log('📝 createPrepPlanRecord called with:', {
+      jobId: jobData._id,
+      jobTitle: jobData.title,
+      companyName: jobData.companyName
+    });
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('⚠️ No authentication token available');
+        throw new Error('Authentication required. Please log in and try again.');
+      }
+
+      console.log('🔐 Token found, making API request...');
+        const requestBody = {
+        jobId: jobData._id,
+        jobTitle: jobData.title,
+        companyName: jobData.companyName || jobData.company || 'Company Not Specified',
+        jobDescription: jobData.description || jobData.jobDescriptionText,
+        requirements: jobData.requirements,
+        location: jobData.location,
+        salaryRange: jobData.salaryRange || `${jobData.salaryMin || 0}-${jobData.salaryMax || 0} ${jobData.currency || 'USD'}`,
+        jobType: jobData.jobType,
+        department: jobData.department,
+        level: jobData.level,
+        workMode: jobData.workMode,
+        source: 'resume-match'
+      };
+      
+      console.log('📡 API request body:', requestBody);
+
+      const response = await fetch('/api/prep-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('📡 API response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Prep plan created successfully:', result.data);
+        return result.data;
+      } else if (response.status === 409) {
+        // Prep plan already exists, that's fine
+        console.log('ℹ️ Prep plan already exists for this job');
+        setPrepPlanCreated(true);
+        return { existing: true };
+      } else if (response.status === 401) {
+        console.error('❌ Authentication failed');
+        throw new Error('Authentication failed. Please log in again.');
+      } else if (response.status === 403) {
+        console.error('❌ Access forbidden');
+        throw new Error('Access denied. Make sure you have the right permissions.');
+      } else {
+        console.error('❌ API request failed:', response.status, response.statusText);
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        console.error('❌ Error details:', errorData);
+        throw new Error(`Failed to create prep plan: ${errorData.message || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('❌ Error in createPrepPlanRecord:', error);
+      throw error; // Re-throw to be handled by the calling function
+    }
+  };
+  const viewPrepPlan = () => {
+    if (!job) return;
+    
+    const jobParam = encodeURIComponent(JSON.stringify(job));
+    router.push(`/dashboard/applicant/prep-plan?job=${jobParam}`);
+  };
+
+  const checkPrepPlanExists = async () => {
+    if (!job) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/prep-plans', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const prepPlans = result.data || [];
+        
+        // Check if a prep plan exists for this job
+        const existingPlan = prepPlans.find(plan => 
+          plan.jobId === job._id || 
+          (plan.jobTitle === job.title && plan.companyName === job.companyName)
+        );
+        
+        if (existingPlan) {
+          setPrepPlanCreated(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking prep plan existence:', error);
     }
   };
   // Loading state
@@ -854,11 +1059,49 @@ export default function ResumeMatchPage() {
                     <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
                   </div>
                   AI Career Assistant
-                </CardTitle>
-                <CardDescription className="text-sm">
+                </CardTitle>                <CardDescription className="text-sm">
                   Ask questions about your resume, the job, or get interview tips
                 </CardDescription>
-              </CardHeader>
+              </CardHeader>              {/* Create/View Prep Plan Buttons */}
+              {job && (
+                <div className="px-4 pb-2 space-y-2">
+                  {!prepPlanCreated ? (<Button
+                      onClick={async () => {
+                        console.log('🎯 Create Learning Plan button clicked');
+                        console.log('Button state:', { job: !!job, ragAnalysis: !!ragAnalysis, prepPlanCreated });
+                        try {
+                          await createPrepPlan();
+                        } catch (error) {
+                          console.error('❌ Error in button click handler:', error);
+                        }
+                      }}
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-border hover:bg-accent hover:text-accent-foreground"
+                      disabled={!job}
+                    >
+                      <GraduationCap className="h-4 w-4 mr-2" />
+                      Create Learning Plan for This Job
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">                      <Button
+                        onClick={() => {
+                          console.log('🎯 View Prep Plan button clicked');
+                          viewPrepPlan();
+                        }}
+                        size="sm"
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        <GraduationCap className="h-4 w-4 mr-2" />
+                        View Prep Plan
+                      </Button>
+                      <p className="text-xs text-center text-green-600 dark:text-green-400">
+                        ✅ Learning plan created! Access it anytime from Prep Plans section.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
                 <CardContent className="flex-1 flex flex-col p-0">
                 {/* Chat Messages */}
                 <div className="flex-1 p-4 min-h-[400px] max-h-[500px] overflow-y-auto">
@@ -874,14 +1117,14 @@ export default function ResumeMatchPage() {
                           <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-full flex-shrink-0">
                             <Bot className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           </div>
-                        )}
-                          <div
-                          className={`rounded-lg px-4 py-2 max-w-[85%] ${
-                            message.role === 'user'
+                        )}                        <div
+                          className={`rounded-lg px-4 py-2 max-w-[85%] ${                            message.role === 'user'
                               ? 'bg-primary text-primary-foreground ml-12'
+                              : message.isPrepPlanSuccess
+                              ? 'bg-accent text-accent-foreground border border-border mr-12'
                               : 'bg-muted text-foreground mr-12'
                           }`}
-                        >                          {message.role === 'assistant' ? (
+                        >{message.role === 'assistant' ? (
                             index === typingMessageIndex && message.isTyping ? (                              <TypewriterText 
                                 text={message.content}
                                 speed={20}

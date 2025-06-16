@@ -32,20 +32,39 @@ export default function SavedJobsPage() {
   const router = useRouter();
   const [savedJobs, setSavedJobs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [removingJobId, setRemovingJobId] = useState(null);
-  const [jobsWithPrepPlans, setJobsWithPrepPlans] = useState(new Set());
-  useEffect(() => {
+  const [error, setError] = useState(null);  const [removingJobId, setRemovingJobId] = useState(null);
+  const [jobsWithPrepPlans, setJobsWithPrepPlans] = useState(new Set());useEffect(() => {
     checkAuthAndFetchSavedJobs();
     loadPrepPlanStatus();
   }, []);
 
-  const loadPrepPlanStatus = () => {
+  const loadPrepPlanStatus = async () => {
     try {
-      const prepPlanData = localStorage.getItem('prepPlanStatus');
-      if (prepPlanData) {
-        const prepPlanStatus = JSON.parse(prepPlanData);
-        setJobsWithPrepPlans(new Set(prepPlanStatus));
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('/api/prep-plans', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const prepPlans = result.data || [];
+        
+        // Create a set of job identifiers that have prep plans
+        const jobsWithPlans = new Set();
+        prepPlans.forEach(plan => {
+          if (plan.jobId) {
+            jobsWithPlans.add(plan.jobId);
+          }
+          // Also add by title-company combination for matching
+          const jobKey = `${plan.jobTitle}-${plan.companyName}`.replace(/\s+/g, '-').toLowerCase();
+          jobsWithPlans.add(jobKey);
+        });
+        
+        setJobsWithPrepPlans(jobsWithPlans);
       }
     } catch (error) {
       console.error('Error loading prep plan status:', error);
@@ -155,30 +174,77 @@ export default function SavedJobsPage() {
     // Navigate to job details or open application dialog
     // For now, we'll just log it
     console.log('Job clicked:', job);
-  };  const handleCreatePrepPlan = (e, job) => {
+  };  const handleCreatePrepPlan = async (e, job) => {
     e.stopPropagation(); // Prevent card click event
     
-    // Generate a unique job ID for tracking
-    const jobId = `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
-    
-    // Mark this job as having a prep plan created
-    markPrepPlanCreated(jobId);
-    
-    // Navigate to prep plan page with job data
-    const jobData = encodeURIComponent(JSON.stringify({
-      id: jobId, // Add the job ID
-      title: job.title,
-      companyName: job.companyName,
-      description: job.description,
-      requirements: job.requirements || [],
-      techStack: job.techStack || [],
-      level: job.level,
-      department: job.department,
-      jobDescriptionFile: job.jobDescriptionFile || null,
-      jobDescriptionType: job.jobDescriptionType || 'text',
-      jobDescriptionText: job.jobDescriptionText || ''
-    }));
-    router.push(`/dashboard/applicant/prep-plan?job=${jobData}`);
+    try {
+      // Create prep plan record in database
+      const prepPlanData = await createPrepPlanRecord(job);
+      
+      if (prepPlanData) {
+        // Navigate to prep plan page with job data
+        const jobData = encodeURIComponent(JSON.stringify({
+          _id: job._id,
+          title: job.title,
+          companyName: job.companyName,
+          description: job.description,
+          requirements: job.requirements || [],
+          location: job.location,
+          salaryRange: job.salaryRange,
+          jobType: job.jobType
+        }));
+        router.push(`/dashboard/applicant/prep-plan?job=${jobData}`);
+      }
+    } catch (error) {
+      console.error('Error creating prep plan:', error);
+    }
+  };
+
+  const createPrepPlanRecord = async (jobData) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('⚠️ No token available');
+        return null;
+      }
+
+      const response = await fetch('/api/prep-plans', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },        body: JSON.stringify({
+          jobId: jobData._id,
+          jobTitle: jobData.title,
+          companyName: jobData.companyName || jobData.company || 'Company Not Specified',
+          jobDescription: jobData.description || jobData.jobDescriptionText,
+          requirements: jobData.requirements,
+          location: jobData.location,
+          salaryRange: jobData.salaryRange || `${jobData.salaryMin || 0}-${jobData.salaryMax || 0} ${jobData.currency || 'USD'}`,
+          jobType: jobData.jobType,
+          department: jobData.department,
+          level: jobData.level,
+          workMode: jobData.workMode,
+          source: 'saved-jobs'
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Prep plan created successfully');
+        return result.data;
+      } else if (response.status === 409) {
+        // Prep plan already exists
+        console.log('ℹ️ Prep plan already exists for this job');
+        return { existing: true };
+      } else {
+        console.log('⚠️ Failed to create prep plan');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error creating prep plan record:', error);
+      return null;
+    }
   };
 
   // Format the posted date as a relative time
@@ -336,11 +402,10 @@ export default function SavedJobsPage() {
                 <CardFooter className="pt-4 flex-col gap-3">
                   <div className="flex items-center justify-between w-full text-xs text-muted-foreground">
                     <span>Saved {formatPostedDate(savedJob.savedAt)}</span>
-                    <span>{job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}</span>                  </div>
-
-                  {(() => {
-                    const jobId = `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
-                    const hasPrepPlan = jobsWithPrepPlans.has(jobId);
+                    <span>{job.numberOfOpenings} opening{job.numberOfOpenings !== 1 ? 's' : ''}</span>                  </div>                  {(() => {
+                    const jobId = job._id;
+                    const jobKey = `${job.title}-${job.companyName}`.replace(/\s+/g, '-').toLowerCase();
+                    const hasPrepPlan = jobsWithPrepPlans.has(jobId) || jobsWithPrepPlans.has(jobKey);
                     
                     return (
                       <Button
@@ -348,7 +413,7 @@ export default function SavedJobsPage() {
                         className={`w-full transition-colors ${
                           hasPrepPlan 
                             ? 'bg-green-600 text-white hover:bg-green-700' 
-                            : 'bg-foreground text-background hover:bg-foreground/90'
+                            : 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white'
                         }`}
                         size="sm"
                       >

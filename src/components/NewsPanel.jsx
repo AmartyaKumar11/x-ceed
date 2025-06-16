@@ -6,7 +6,6 @@ import {
   ExternalLink, 
   Loader2, 
   RefreshCw,
-  Clock,
   TrendingUp
 } from 'lucide-react';
 
@@ -262,12 +261,7 @@ export default function NewsPanel() {
             <Newspaper className="h-5 w-5 mr-2 text-primary" />            Tech News
             <TrendingUp className="h-4 w-4 ml-2 text-green-500" />            {freshContentLoaded && (
               <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full animate-pulse">
-                Fresh! #{refreshCount}
-              </span>
-            )}
-            {!loading && refreshCount === 0 && (
-              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                📦 Restored
+                Updated!
               </span>
             )}
           </h3>
@@ -278,19 +272,7 @@ export default function NewsPanel() {
             title={refreshing ? "Fetching fresh articles..." : "Get fresh articles"}
           >
             <RefreshCw className={`h-4 w-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-        {lastUpdated && (
-          <div className="flex items-center mt-2 text-xs text-muted-foreground">            <Clock className="h-3 w-3 mr-1" />
-            Last updated: {lastUpdated.toLocaleTimeString()}
-            {freshContentLoaded && (
-              <span className="ml-2 text-green-600 font-medium">• Fresh content loaded! (#{refreshCount})</span>
-            )}
-            {currentSeed && (
-              <span className="ml-2 text-xs text-gray-500">• Seed: {currentSeed}</span>
-            )}
-          </div>
-        )}
+          </button>        </div>
       </div>
 
       {/* News Feed */}

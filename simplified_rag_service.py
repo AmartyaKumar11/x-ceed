@@ -95,7 +95,7 @@ async def analyze_resume(request: AnalysisRequest):
     """Analyze resume against job description"""
     try:
         # Debug: Print received data
-        print(f"🔍 Received analysis request:")
+        print(f"[DEBUG] Received analysis request:")
         print(f"   - Job Title: '{request.job_title}'")
         print(f"   - Job Description Length: {len(request.job_description)} chars")
         print(f"   - Job Description (first 200 chars): '{request.job_description[:200]}...'")
@@ -435,10 +435,10 @@ async def clear_session():
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting X-ceed Resume Analyzer API (Simplified)...")
-    print("📊 API will be available at: http://localhost:8000")
-    print("📚 API docs will be available at: http://localhost:8000/docs")
-    print(f"🔑 Groq API configured: {bool(GROQ_API_KEY)}")
+    print("Starting X-ceed Resume Analyzer API (Simplified)...")
+    print("API will be available at: http://localhost:8000")
+    print("API docs will be available at: http://localhost:8000/docs")
+    print(f"Groq API configured: {bool(GROQ_API_KEY)}")
     
     uvicorn.run(
         "simplified_rag_service:app",

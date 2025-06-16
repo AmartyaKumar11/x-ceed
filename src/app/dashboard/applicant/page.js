@@ -18,7 +18,6 @@ import JobCountBadge from '@/components/JobCountBadge';
 import { clientAuth } from '@/lib/auth';
 import ProfileSettingsDialog from '@/components/ProfileSettingsDialog';
 import NewsPanel from '@/components/NewsPanel';
-import YouTubeVideoSection from '@/components/YouTubeVideoSection';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function ApplicantDashboardPage() {
@@ -236,17 +235,16 @@ export default function ApplicantDashboardPage() {
   // Don't render profile completion card if 100% complete
   const shouldShowProfileCompletion = profileCompletion.percentage < 100;  return (
     <>
-      <div className="min-h-screen bg-background">
-        {/* Three Column Layout: News Panel (left), Main Content (center), YouTube (right) */}
+      <div className="min-h-screen bg-background">        {/* Two Column Layout: News Panel (left), Main Content (right) */}
         <div className="flex flex-col lg:flex-row gap-6 h-screen">
-        {/* Left Sidebar - News Panel */}
-        <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
-          <NewsPanel />
-        </div>
+          {/* Left Sidebar - News Panel */}
+          <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
+            <NewsPanel />
+          </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 lg:flex-shrink-0 overflow-y-auto">
-          <div className="space-y-6 p-6">
+          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="space-y-6 p-6">
             <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
               {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -429,15 +427,9 @@ export default function ApplicantDashboardPage() {
                     </>
                   )}
                 </div>
-              )}
-            </div>
+              )}            </div>
           </div>
         </div>
-          {/* Right Sidebar - YouTube Videos Section */}
-        <div className="lg:w-80 lg:flex-shrink-0 min-h-[400px] lg:h-full">
-          <div className="sticky top-6">
-            <YouTubeVideoSection />
-          </div></div>
       </div>
 
       {/* Profile Settings Dialog */}
