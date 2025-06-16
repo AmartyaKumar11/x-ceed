@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient } from '@/lib/api';
+import PostApplicationRecommendationDialog from './PostApplicationRecommendationDialog';
 
 export default function JobApplicationDialog({ isOpen, onClose, job, onApplicationSubmitted }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,6 +18,8 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
   });
   const [resumeFile, setResumeFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  const [showRecommendationDialog, setShowRecommendationDialog] = useState(false);
+  const [submittedJobData, setSubmittedJobData] = useState(null);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -83,12 +86,15 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         body: applicationFormData
       });
 
-      const result = await response.json();
-
-      if (!response.ok) {
+      const result = await response.json();      if (!response.ok) {
         throw new Error(result.message || 'Failed to submit application');
-      }// Success
-      alert(`Application submitted successfully for ${result.data?.jobTitle || job.title}!`);
+      }
+
+      // Success - store job data for recommendation dialog
+      setSubmittedJobData({
+        jobId: job._id,
+        jobTitle: result.data?.jobTitle || job.title
+      });
       
       // Reset form
       setFormData({
@@ -102,14 +108,37 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         onApplicationSubmitted(result.data);
       }
       
-      onClose();    } catch (error) {
+      // Close application dialog and show recommendation dialog
+      onClose();
+      setShowRecommendationDialog(true);} catch (error) {
       alert(`Error submitting application: ${error.message}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (!isOpen || !job) return null;
+  const handleRecommendedJobClick = (recommendedJob) => {
+    // Pass the recommended job back to the parent for opening in a new dialog
+    if (onApplicationSubmitted) {
+      onApplicationSubmitted(null, recommendedJob);
+    }
+  };
+
+  if (!isOpen || !job) return (
+    <>
+      {/* Post-Application Recommendation Dialog */}
+      <PostApplicationRecommendationDialog
+        isOpen={showRecommendationDialog}
+        onClose={() => {
+          setShowRecommendationDialog(false);
+          setSubmittedJobData(null);
+        }}
+        appliedJobId={submittedJobData?.jobId}
+        appliedJobTitle={submittedJobData?.jobTitle}
+        onRecommendedJobClick={handleRecommendedJobClick}
+      />
+    </>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -243,8 +272,7 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
                   Submit Application
                 </>
               )}
-            </Button>
-          </div>
+            </Button>          </div>
         </form>
       </DialogContent>
     </Dialog>

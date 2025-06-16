@@ -80,12 +80,18 @@ export default function ApplicantJobsPage() {
     setSelectedJob(job);
     setIsDialogOpen(true);
   };
-
   // Handle successful application submission
-  const handleApplicationSubmitted = () => {
+  const handleApplicationSubmitted = (applicationData, recommendedJob) => {
     console.log('Application submitted successfully!');
     setIsDialogOpen(false);
     setSelectedJob(null);
+    
+    // If a recommended job was clicked, open it in the dialog
+    if (recommendedJob) {
+      console.log('Opening recommended job:', recommendedJob);
+      setSelectedJob(recommendedJob);
+      setIsDialogOpen(true);
+    }
     // You could add a toast notification here or refresh the jobs list
   };
 
