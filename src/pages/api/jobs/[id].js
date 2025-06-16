@@ -8,7 +8,8 @@ export default async function handler(req, res) {
     const { id } = req.query;
     
     if (!ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid job ID' });    }
+      return res.status(400).json({ message: 'Invalid job ID' });
+    }
     
     // Connect to the database
     const db = await getDatabase();
@@ -18,13 +19,20 @@ export default async function handler(req, res) {
       case 'GET':
         // Anyone can view a single job, no auth required
         try {
+          const now = new Date();
           const job = await db.collection('jobs').findOne({ 
             _id: new ObjectId(id),
-            status: 'active'  // Only return active jobs for public viewing
+            status: 'active',  // Only return active jobs for public viewing
+            // Only show jobs that are still accepting applications
+            $or: [
+              { applicationEnd: { $gte: now } }, // Application deadline hasn't passed
+              { applicationEnd: { $exists: false } }, // No deadline set
+              { applicationEnd: null } // Explicit null deadline
+            ]
           });
           
           if (!job) {
-            return res.status(404).json({ message: 'Job not found' });
+            return res.status(404).json({ message: 'Job not found or no longer available' });
           }
           
           // Increment the view count

@@ -175,18 +175,26 @@ export default async function handler(req, res) {  try {
           success: true,
           data: jobsWithStats
         });      } else {
-        // Public jobs listing - show only active jobs
+        // Public jobs listing - show only active jobs that haven't expired
+        const now = new Date();
         const jobs = await db.collection('jobs')
           .find({ 
-            status: 'active'
-            // Removed isPublic requirement since jobs don't have this field yet
+            status: 'active',
+            // Only show jobs that are still accepting applications
+            $or: [
+              { applicationEnd: { $gte: now } }, // Application deadline hasn't passed
+              { applicationEnd: { $exists: false } }, // No deadline set
+              { applicationEnd: null } // Explicit null deadline
+            ]
           })
           .sort({ createdAt: -1 })
           .toArray();
 
+        console.log(`📊 Public jobs query: Found ${jobs.length} active, non-expired jobs`);
+
         return res.status(200).json({
           success: true,
-          data: jobs  // Changed from 'jobs' to 'data' to match component expectation
+          data: jobs
         });
       }
     } else if (req.method === 'PUT') {

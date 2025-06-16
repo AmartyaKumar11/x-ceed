@@ -137,22 +137,27 @@ EDUCATION:
     // Ensure we have job data
     const finalJobTitle = jobTitle || 'Software Developer';
     const finalJobDescription = jobDescription || 'We are looking for a skilled software developer to join our team.';
-    const finalJobRequirements = jobRequirements || ['JavaScript', 'React', 'Problem-solving'];
-
-    // Call Python FastAPI service
+    const finalJobRequirements = jobRequirements || ['JavaScript', 'React', 'Problem-solving'];    // Call Python FastAPI service
     console.log('🐍 Calling Python RAG service...');
     
-    const pythonResponse = await fetch(`${PYTHON_RAG_SERVICE_URL}/analyze`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const requestPayload = {
         resume_text: finalResumeText,
         job_description: finalJobDescription,
         job_title: finalJobTitle,
         job_requirements: finalJobRequirements
-      })
+    };
+    
+    console.log('📤 Sending to Python service:');
+    console.log(`   - Job Title: "${requestPayload.job_title}"`);
+    console.log(`   - Job Description (first 200 chars): "${requestPayload.job_description.substring(0, 200)}..."`);
+    console.log(`   - Job Requirements: [${requestPayload.job_requirements.join(', ')}]`);
+    console.log(`   - Resume Text (first 100 chars): "${requestPayload.resume_text.substring(0, 100)}..."`);
+      const pythonResponse = await fetch(`${PYTHON_RAG_SERVICE_URL}/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestPayload)
     });
 
     if (!pythonResponse.ok) {

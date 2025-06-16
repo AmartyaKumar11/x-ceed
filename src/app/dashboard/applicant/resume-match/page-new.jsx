@@ -334,8 +334,7 @@ export default function ResumeMatchPage() {
                           </div>
                           Comprehensive Analysis
                         </CardTitle>
-                        <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-0">
-                          🐍 AI Powered
+                        <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-0">                          Analysis
                         </Badge>
                       </div>
                     </CardHeader>

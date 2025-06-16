@@ -94,6 +94,15 @@ async def root():
 async def analyze_resume(request: AnalysisRequest):
     """Analyze resume against job description"""
     try:
+        # Debug: Print received data
+        print(f"🔍 Received analysis request:")
+        print(f"   - Job Title: '{request.job_title}'")
+        print(f"   - Job Description Length: {len(request.job_description)} chars")
+        print(f"   - Job Description (first 200 chars): '{request.job_description[:200]}...'")
+        print(f"   - Job Requirements: {request.job_requirements}")
+        print(f"   - Resume Text Length: {len(request.resume_text)} chars")
+        print(f"   - Resume Text (first 100 chars): '{request.resume_text[:100]}...'")
+        
         # Store session data
         session_id = "default"
         session_data[session_id] = {

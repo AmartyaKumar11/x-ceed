@@ -105,14 +105,14 @@ html, body {
   background-color: oklch(from var(--background) l c h);
   color: oklch(from var(--foreground) l c h);
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
   margin: 0;
   padding: 0;
 }
 
 #__next {
   height: 100%;
-  overflow: hidden;
+  overflow: auto;
 }
 
 /* Custom scrollbar styles for notification panel */
@@ -167,4 +167,20 @@ html, body {
 
 .animate-progress {
   animation: progress-fill 1s ease-out forwards;
+}
+
+/* Sidebar specific styles to prevent shrinking */
+.sidebar {
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.sidebar.w-64 {
+  width: 16rem !important;
+  min-width: 16rem !important;
+}
+
+.sidebar.w-0 {
+  width: 0 !important;
+  min-width: 0 !important;
 }

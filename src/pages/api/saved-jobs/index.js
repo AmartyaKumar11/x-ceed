@@ -23,14 +23,19 @@ export default async function handler(req, res) {
         const savedJobs = await db.collection('savedJobs')
           .find({ applicantId: auth.user.userId })
           .sort({ savedAt: -1 })
-          .toArray();
-
-        // Get job details for saved jobs
+          .toArray();        // Get job details for saved jobs - only active and non-expired jobs
+        const now = new Date();
         const jobIds = savedJobs.map(saved => new ObjectId(saved.jobId));
         const jobs = await db.collection('jobs')
           .find({ 
             _id: { $in: jobIds },
-            status: 'active' // Only return active jobs
+            status: 'active', // Only return active jobs
+            // Only show jobs that are still accepting applications
+            $or: [
+              { applicationEnd: { $gte: now } }, // Application deadline hasn't passed
+              { applicationEnd: { $exists: false } }, // No deadline set
+              { applicationEnd: null } // Explicit null deadline
+            ]
           })
           .toArray();
 

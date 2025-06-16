@@ -29,7 +29,7 @@ export default function DashboardLayout({ children }) {
           </div>
         </div>
       </header>      {/* Main content */}
-      <main className="container mx-auto py-6 px-4">
+      <main className="container mx-auto py-6 px-4" style={{ minHeight: '100vh', height: 'auto', overflow: 'visible' }}>
         {children}
       </main>
 

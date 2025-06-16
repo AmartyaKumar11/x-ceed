@@ -65,20 +65,15 @@ export default function Sidebar({ role }) {
       }
     };
   }, []);  return (
-    <>
-      {/* Trigger area - React-based instead of DOM manipulation */}
+    <>      {/* Trigger area - React-based instead of DOM manipulation */}
       <div 
-        className="fixed top-0 left-0 w-5 h-full z-40 cursor-pointer"
-        onMouseEnter={() => setIsOpen(true)}
-        style={{ pointerEvents: isOpen ? 'none' : 'auto' }}
-      />
-      
-      {/* Sidebar */}<div
+        className="fixed top-0 left-0 w-5 h-full z-40 cursor-pointer"        onMouseEnter={() => setIsOpen(true)}
+      />{/* Sidebar */}
+      <div
         ref={sidebarRef}
         className={`sidebar fixed top-0 left-0 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out z-50 ${
-          isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
-        }`}
-      >        <div className="h-16 border-b border-border flex items-center justify-between px-6">
+          isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'        }`}
+      ><div className="h-16 border-b border-border flex items-center justify-between px-6">
           <Link 
             href={role === 'applicant' ? '/dashboard/applicant' : '/dashboard/recruiter'} 
             className="header-link text-xl font-bold text-foreground hover:text-foreground/80 transition-colors cursor-pointer flex-shrink-0"

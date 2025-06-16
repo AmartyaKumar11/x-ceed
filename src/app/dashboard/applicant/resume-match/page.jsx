@@ -67,11 +67,34 @@ export default function ResumeMatchPage() {
       analyzing
     });
   }, [jobId, resumeId, resumeFilename, resumeName, job, userResume, ragAnalysis, loading, analyzing]);
-
   // Fetch data on component mount
   useEffect(() => {
     fetchData();
-  }, [jobId]);
+  }, [jobId]);  // Ensure page is scrollable on mount
+  useEffect(() => {
+    // Fix scrolling issues that might be caused by CSS constraints
+    const fixScrolling = () => {
+      // Only fix document scrolling, don't touch specific elements
+      document.body.style.height = 'auto';
+      document.body.style.overflow = 'auto';
+      document.documentElement.style.height = 'auto';
+      document.documentElement.style.overflow = 'auto';
+      
+      // Fix main content container but be very specific to avoid sidebar
+      const mainContent = document.querySelector('main');
+      if (mainContent && !mainContent.closest('.sidebar')) {
+        mainContent.style.height = 'auto';
+        mainContent.style.maxHeight = 'none';
+        mainContent.style.overflow = 'visible';
+      }
+    };
+
+    // Apply immediately and after a short delay
+    fixScrolling();
+    const timer = setTimeout(fixScrolling, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (chatEndRef.current && chatMessages.length > 0) {
@@ -88,13 +111,19 @@ export default function ResumeMatchPage() {
 
       // Fetch job data
       let jobData = null;
-      if (jobId) {
-        console.log('📋 Fetching job data for:', jobId);
+      if (jobId) {        console.log('📋 Fetching job data for:', jobId);
         const jobResponse = await fetch(`/api/jobs/${jobId}`);
         if (jobResponse.ok) {
-          jobData = await jobResponse.json();
+          const jobResponseData = await jobResponse.json();
+          // API returns { job: jobObject }, so extract the job
+          jobData = jobResponseData.job || jobResponseData;
           setJob(jobData);
           console.log('✅ Job data loaded:', jobData.title);
+          console.log('📋 Job details:', {
+            title: jobData.title,
+            description: jobData.description ? `${jobData.description.substring(0, 100)}...` : 'No description',
+            requirements: jobData.requirements ? `${jobData.requirements.length} requirements` : 'No requirements'
+          });
         }
       }
 
@@ -178,11 +207,23 @@ export default function ResumeMatchPage() {
             structuredAnalysis: analysisData.structuredAnalysis,
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
-          });
-        } else if (analysisData?.comprehensiveAnalysis) {
+          });        } else if (analysisData?.comprehensiveAnalysis) {
           // Fallback to text-based comprehensive analysis from Python service
           console.log('✅ Using Python comprehensive analysis (fallback)');
+          
+          // Parse the JSON string if it's a string
+          let parsedAnalysis = analysisData.comprehensiveAnalysis;
+          if (typeof parsedAnalysis === 'string') {
+            try {
+              parsedAnalysis = JSON.parse(parsedAnalysis);
+              console.log('✅ Successfully parsed JSON analysis:', parsedAnalysis);
+            } catch (parseError) {
+              console.warn('⚠️ Could not parse analysis JSON, using as string:', parseError);
+            }
+          }
+          
           setRagAnalysis({
+            structuredAnalysis: typeof parsedAnalysis === 'object' ? parsedAnalysis : null,
             comprehensiveAnalysis: analysisData.comprehensiveAnalysis,
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
@@ -314,8 +355,8 @@ export default function ResumeMatchPage() {
       </div>
     );
   }  return (
-    <div className="bg-background">
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
+    <div className="bg-background" style={{ minHeight: '100vh', overflow: 'auto' }}>
+      <div className="container mx-auto px-4 py-6 max-w-7xl" style={{ minHeight: 'auto', height: 'auto' }}>
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -342,12 +383,10 @@ export default function ResumeMatchPage() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Main Content - Responsive Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-6">
-          {/* Analysis Results - Takes 2 columns on xl screens */}<div className="xl:col-span-2">
-            {ragAnalysis ? (
+        </div>        {/* Main Content - Responsive Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-20" style={{ minHeight: 'auto', height: 'auto' }}>
+          {/* Analysis Results - Takes 2 columns on xl screens */}
+          <div className="xl:col-span-2" style={{ height: 'auto', overflow: 'visible' }}>{ragAnalysis ? (
               <div className="space-y-6">
                 {/* Check if we have structured analysis */}
                 {ragAnalysis.structuredAnalysis ? (
@@ -360,11 +399,10 @@ export default function ResumeMatchPage() {
                           <CardTitle className="text-xl flex items-center gap-3">
                             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                               <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
-                            </div>
-                            Overall Match
+                            </div>                            Overall Match
                           </CardTitle>
                           <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-0">
-                            🐍 AI Powered
+                            Analysis
                           </Badge>
                         </div>
                       </CardHeader>
@@ -400,12 +438,11 @@ export default function ResumeMatchPage() {
                           Key Strengths
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-3">
+                      <CardContent className="pt-0">                        <div className="space-y-3">
                           {ragAnalysis.structuredAnalysis.keyStrengths?.map((strength, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm">{strength}</span>
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{strength}</span>
                             </div>
                           )) || <p className="text-muted-foreground">No strengths identified</p>}
                         </div>
@@ -452,10 +489,9 @@ export default function ResumeMatchPage() {
                                 <Badge key={index} variant="outline" className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300 mr-2 mb-2">
                                   {skill}
                                 </Badge>
-                              )) : 
-                              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg">
+                              )) :                              <div className="flex items-center gap-2 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                <span className="text-sm text-green-700 dark:text-green-300">All required skills are present!</span>
+                                <span className="text-sm text-gray-900 dark:text-gray-100">All required skills are present!</span>
                               </div>
                             }
                           </div>
@@ -501,14 +537,12 @@ export default function ResumeMatchPage() {
                           Improvement Suggestions
                         </CardTitle>
                       </CardHeader>
-                      <CardContent className="pt-0">
-                        <div className="space-y-3">
-                          {ragAnalysis.structuredAnalysis.improvementSuggestions?.map((suggestion, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-lg">
+                      <CardContent className="pt-0">                        <div className="space-y-3">                          {ragAnalysis.structuredAnalysis.improvementSuggestions?.map((suggestion, index) => (
+                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                               <div className="bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">
                                 {index + 1}
                               </div>
-                              <span className="text-sm">{suggestion}</span>
+                              <span className="text-sm text-gray-900 dark:text-gray-100">{suggestion}</span>
                             </div>
                           )) || <p className="text-muted-foreground">No suggestions available</p>}
                         </div>
@@ -527,12 +561,10 @@ export default function ResumeMatchPage() {
                             Competitive Advantages
                           </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="space-y-2">
-                            {ragAnalysis.structuredAnalysis.competitiveAdvantages?.map((advantage, index) => (
-                              <div key={index} className="flex items-start gap-2 p-2 bg-indigo-50 dark:bg-indigo-950 rounded">
+                        <CardContent className="pt-0">                          <div className="space-y-2">                            {ragAnalysis.structuredAnalysis.competitiveAdvantages?.map((advantage, index) => (
+                              <div key={index} className="flex items-start gap-2 p-2 rounded border bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
                                 <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
-                                <span className="text-sm">{advantage}</span>
+                                <span className="text-sm text-gray-900 dark:text-gray-100">{advantage}</span>
                               </div>
                             )) || <p className="text-muted-foreground text-sm">No advantages identified</p>}
                           </div>
@@ -588,9 +620,8 @@ export default function ResumeMatchPage() {
                             <Brain className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           </div>
                           Comprehensive Analysis
-                        </CardTitle>
-                        <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-0">
-                          🐍 AI Powered
+                        </CardTitle>                        <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-0">
+                          Analysis
                         </Badge>
                       </div>
                     </CardHeader>                    <CardContent className="pt-0">
