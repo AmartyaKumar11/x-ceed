@@ -33,7 +33,7 @@ export default function Sidebar({ role }) {
     { icon: <Bell size={18} />, label: 'Notifications', href: '#', onClick: () => setIsNotificationPanelOpen(true) },
     { icon: <Settings size={18} />, label: 'Settings', href: '#' },  ] : [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/recruiter' },
-    { icon: <Briefcase size={18} />, label: 'Job Postings', href: '#' },
+    { icon: <Briefcase size={18} />, label: 'Job Postings', href: '/dashboard/recruiter/jobs' },
     { icon: <User size={18} />, label: 'Candidates', href: '/candidates' },
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
