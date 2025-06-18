@@ -273,10 +273,8 @@ export default function NewsPanel() {
           >
             <RefreshCw className={`h-4 w-4 text-muted-foreground ${refreshing ? 'animate-spin' : ''}`} />
           </button>        </div>
-      </div>
-
-      {/* News Feed */}
-      <div className="flex-1 overflow-y-auto">
+      </div>      {/* News Feed */}
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
         <div className="p-4 space-y-4">
           {news.map((article) => (
             <div

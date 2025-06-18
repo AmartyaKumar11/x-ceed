@@ -86,8 +86,7 @@ export default function RecruiterJobsPage() {
   const [isConfirmCloseJobDialogOpen, setIsConfirmCloseJobDialogOpen] = useState(false);
   const [jobToClose, setJobToClose] = useState(null);
   const [updatingApplication, setUpdatingApplication] = useState(false);
-  const [updateStatusMessage, setUpdateStatusMessage] = useState('');
-  const [updateStatusSuccess, setUpdateStatusSuccess] = useState(false);  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [updateStatusMessage, setUpdateStatusMessage] = useState('');  const [updateStatusSuccess, setUpdateStatusSuccess] = useState(false);  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -95,6 +94,11 @@ export default function RecruiterJobsPage() {
   // Interview scheduling dialog state
   const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
   const [candidateForInterview, setCandidateForInterview] = useState(null);
+  
+  // Resume viewer dialog state
+  const [resumeViewerOpen, setResumeViewerOpen] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [loadingResume, setLoadingResume] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -231,14 +235,16 @@ export default function RecruiterJobsPage() {
         });
         
         console.log(`📊 Response status: ${response.status}`);
-        
-        if (response.ok) {
+          if (response.ok) {
           const data = await response.json();
           console.log('✅ Fetched job candidates:', data);
+          console.log('🔍 Data structure received:', Object.keys(data));
+          console.log('🔍 Applications array:', data.applications?.length || 0);
           
           if (data.success) {
-            setJobCandidates(data.data || []);
-            setTotalCandidates(data.pagination ? data.pagination.total : (data.data?.length || 0));
+            // Fix: API returns 'applications' not 'data'
+            setJobCandidates(data.applications || []);
+            setTotalCandidates(data.pagination ? data.pagination.total : (data.applications?.length || 0));
           } else {
             console.error('❌ API returned error:', data.message);
             setJobCandidates([]);
@@ -406,11 +412,51 @@ export default function RecruiterJobsPage() {
     setCurrentPage(1);
     setCandidatesDialogOpen(true);
   };
-
   const handleViewCandidateDetails = (candidate) => {
     setSelectedCandidate(candidate);
     setCandidateDetailsDialogOpen(true);
-  };  const handleUpdateApplicationStatus = async (applicationId, status) => {
+  };
+
+  const handleViewResume = async (candidate) => {
+    setLoadingResume(true);
+    try {
+      // Get the resume path from the candidate data
+      const resumePath = candidate.resumeUsed || candidate.resumePath || candidate.resumeUrl;
+      
+      if (!resumePath) {
+        alert('No resume found for this candidate.');
+        return;
+      }
+
+      // Extract filename from resumePath
+      const filename = resumePath.split('/').pop();
+      
+      // Use the secure download API to get the resume
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/download/resume/${filename}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        // Get the blob and create object URL for viewing
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setResumeUrl(url);
+        setResumeViewerOpen(true);
+      } else {
+        console.error('Failed to load resume');
+        alert('Failed to load resume. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading resume:', error);
+      alert('An error occurred while loading the resume.');
+    } finally {
+      setLoadingResume(false);
+    }
+  };const handleUpdateApplicationStatus = async (applicationId, status) => {
     // If status is interview, open the interview scheduling dialog instead
     if (status === 'interview') {
       const candidate = jobCandidates.find(c => c._id === applicationId) || selectedCandidate;
@@ -788,12 +834,16 @@ export default function RecruiterJobsPage() {
         return <Badge variant="secondary" className="bg-muted text-muted-foreground">{status}</Badge>;
     }
   };
-    // Function to filter candidates based on search query
+  // Function to filter candidates based on search query
   const filteredCandidates = jobCandidates.filter(candidate => {
-    // Handle both mock data (applicant) and real API data (applicantDetails)
-    const applicantData = candidate.applicant || candidate.applicantDetails;
+    // Handle different API response formats
+    const applicantData = candidate.applicant || candidate.applicantDetails || candidate;
+    
+    console.log('🔍 Filtering candidate:', candidate);
+    console.log('🔍 Applicant data:', applicantData);
     
     if (!applicantData) {
+      console.log('❌ No applicant data found');
       return false; // Skip candidates without applicant data
     }
     
@@ -808,10 +858,15 @@ export default function RecruiterJobsPage() {
     } else if (applicantData.name) {
       // Alternative structure
       fullName = applicantData.name.toLowerCase();
+    } else if (applicantData.applicantName) {
+      // New API structure - use applicantName field
+      fullName = applicantData.applicantName.toLowerCase();
     }
     
-    const email = (applicantData.email || '').toLowerCase();
+    const email = (applicantData.email || applicantData.applicantEmail || '').toLowerCase();
     const query = searchQuery.toLowerCase();
+    
+    console.log('🔍 Full name:', fullName, 'Email:', email, 'Query:', query);
     
     return fullName.includes(query) || email.includes(query);
   });
@@ -1056,25 +1111,26 @@ export default function RecruiterJobsPage() {
                     key={candidate._id} 
                     className="bg-card p-4 rounded-lg border border-border hover:border-muted-foreground transition-colors"
                   >
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>                    <div className="flex items-center gap-2">
-                      <h4 className="font-medium text-base text-foreground">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">                  <div>                    <div className="flex items-center gap-2">                      <h4 className="font-medium text-base text-foreground">
                         {(() => {
-                          const applicantData = candidate.applicant || candidate.applicantDetails;
+                          const applicantData = candidate.applicant || candidate.applicantDetails || candidate;
                           if (applicantData?.firstName && applicantData?.lastName) {
                             return `${applicantData.firstName} ${applicantData.lastName}`;
                           } else if (applicantData?.personal?.name) {
                             return applicantData.personal.name;
                           } else if (applicantData?.name) {
                             return applicantData.name;
+                          } else if (applicantData?.applicantName) {
+                            return applicantData.applicantName;
                           }
                           return 'Unnamed Candidate';
                         })()}
                       </h4>
                       {getStatusBadge(candidate.status)}
-                    </div><div className="text-muted-foreground text-sm">
+                    </div>                    <div className="text-muted-foreground text-sm">
                       {(() => {
-                        const applicantData = candidate.applicant || candidate.applicantDetails;
-                        return applicantData?.email || 'No email provided';
+                        const applicantData = candidate.applicant || candidate.applicantDetails || candidate;
+                        return applicantData?.email || applicantData?.applicantEmail || 'No email provided';
                       })()}
                     </div>
                     <div className="text-muted-foreground text-xs mt-1">
@@ -1186,10 +1242,12 @@ export default function RecruiterJobsPage() {
               <DialogTitle className="text-xl">
                 {getApplicantFullName(selectedCandidate)}
               </DialogTitle>
-              <DialogDescription className="flex items-center gap-2">
-                <span>Application for {selectedJob?.title}</span>
+              <div className="flex items-center gap-2">
+                <DialogDescription>
+                  Application for {selectedJob?.title}
+                </DialogDescription>
                 {getStatusBadge(selectedCandidate.status)}
-              </DialogDescription>
+              </div>
             </DialogHeader>
 
             <div className="space-y-6 my-4">
@@ -1247,53 +1305,73 @@ export default function RecruiterJobsPage() {
                     </p>
                   </div>
                 </div>
-              )}{/* Resume */}
-              {(selectedCandidate.resumePath || selectedCandidate.resumeUrl) && (
+              )}              {/* Resume */}
+              {(selectedCandidate.resumePath || selectedCandidate.resumeUrl || selectedCandidate.resumeUsed) && (
                 <div>
                   <h3 className="font-semibold text-lg mb-3">Resume</h3>
-                  <Button 
-                    onClick={async () => {
-                      try {
-                        // Extract filename from resumePath
-                        const resumePath = selectedCandidate.resumePath || selectedCandidate.resumeUrl;
-                        const filename = resumePath.split('/').pop();
-                        
-                        // Use the new secure download API
-                        const token = localStorage.getItem('token');
-                        const response = await fetch(`/api/download/resume/${filename}`, {
-                          method: 'GET',
-                          headers: {
-                            'Authorization': `Bearer ${token}`,
-                          },
-                        });
+                  <div className="flex gap-3">
+                    <Button 
+                      onClick={() => handleViewResume(selectedCandidate)}
+                      disabled={loadingResume}
+                      className="flex items-center gap-2"
+                    >
+                      {loadingResume ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="h-4 w-4" />
+                          View Resume
+                        </>
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          // Extract filename from resumePath
+                          const resumePath = selectedCandidate.resumePath || selectedCandidate.resumeUrl || selectedCandidate.resumeUsed;
+                          const filename = resumePath.split('/').pop();
+                          
+                          // Use the new secure download API
+                          const token = localStorage.getItem('token');
+                          const response = await fetch(`/api/download/resume/${filename}`, {
+                            method: 'GET',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                            },
+                          });
 
-                        if (response.ok) {
-                          // Get the blob and create download link
-                          const blob = await response.blob();
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = `${getApplicantFullName(selectedCandidate).replace(' ', '-')}-resume.pdf`;
-                          document.body.appendChild(a);
-                          a.click();
-                          document.body.removeChild(a);
-                          URL.revokeObjectURL(url);
-                        } else {
-                          console.error('Failed to download resume');
-                          alert('Failed to download resume. Please try again.');
+                          if (response.ok) {
+                            // Get the blob and create download link
+                            const blob = await response.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${getApplicantFullName(selectedCandidate).replace(' ', '-')}-resume.pdf`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          } else {
+                            console.error('Failed to download resume');
+                            alert('Failed to download resume. Please try again.');
+                          }
+                        } catch (error) {
+                          console.error('Error downloading resume:', error);
+                          alert('An error occurred while downloading the resume.');
                         }
-                      } catch (error) {
-                        console.error('Error downloading resume:', error);
-                        alert('An error occurred while downloading the resume.');
-                      }
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    Download Resume
-                  </Button>
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download Resume
+                    </Button>
+                  </div>
                 </div>
-              )}              {/* Action Tabs */}              <div className="border-t border-border pt-4 mt-4">
+              )}{/* Action Tabs */}              <div className="border-t border-border pt-4 mt-4">
                 {/* Tab Navigation */}
                 <div className="flex border-b border-border mb-4">
                   <button
@@ -1750,7 +1828,98 @@ export default function RecruiterJobsPage() {
                   Send Email
                 </Button>
               </div>
-            </DialogFooter>          </DialogContent>
+            </DialogFooter>          </DialogContent>        </Dialog>
+      )}
+      
+      {/* Resume Viewer Dialog */}
+      {resumeViewerOpen && (
+        <Dialog open={resumeViewerOpen} onOpenChange={(open) => {
+          setResumeViewerOpen(open);
+          if (!open) {
+            // Clean up the object URL when closing
+            if (resumeUrl) {
+              URL.revokeObjectURL(resumeUrl);
+              setResumeUrl('');
+            }
+          }
+        }}>
+          <DialogContent className="max-w-5xl w-full h-[90vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Resume - {selectedCandidate ? getApplicantFullName(selectedCandidate) : 'Candidate'}
+              </DialogTitle>
+              <DialogDescription>
+                View the candidate's resume
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 w-full h-full min-h-0">
+              {resumeUrl ? (
+                <iframe
+                  src={resumeUrl}
+                  className="w-full h-full border rounded-lg"
+                  title="Resume Viewer"
+                  onError={() => {
+                    alert('Unable to display the resume. Please try downloading it instead.');
+                    setResumeViewerOpen(false);
+                  }}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+                    <p>Loading resume...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button 
+                variant="outline"
+                onClick={() => setResumeViewerOpen(false)}
+              >
+                Close
+              </Button>
+              <Button 
+                onClick={async () => {
+                  try {
+                    // Download the resume
+                    const resumePath = selectedCandidate?.resumePath || selectedCandidate?.resumeUrl || selectedCandidate?.resumeUsed;
+                    const filename = resumePath.split('/').pop();
+                    
+                    const token = localStorage.getItem('token');
+                    const response = await fetch(`/api/download/resume/${filename}`, {
+                      method: 'GET',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                    });
+
+                    if (response.ok) {
+                      const blob = await response.blob();
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `${getApplicantFullName(selectedCandidate).replace(' ', '-')}-resume.pdf`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    } else {
+                      alert('Failed to download resume. Please try again.');
+                    }
+                  } catch (error) {
+                    console.error('Error downloading resume:', error);
+                    alert('An error occurred while downloading the resume.');
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download
+              </Button>
+            </div>
+          </DialogContent>
         </Dialog>
       )}
       

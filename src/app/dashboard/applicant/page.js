@@ -91,10 +91,12 @@ export default function ApplicantDashboardPage() {
       setLoadingSavedJobs(false);
     }
   };
-
   const fetchRecentApplications = async () => {
     try {
+      console.log('🔍 Fetching recent applications...');
       const token = localStorage.getItem('token');
+      console.log('🔍 Token exists:', !!token);
+      
       const headers = {
         'Content-Type': 'application/json'
       };
@@ -102,6 +104,7 @@ export default function ApplicantDashboardPage() {
       // Add auth header if token exists
       if (token && clientAuth.isAuthenticated()) {
         headers['Authorization'] = `Bearer ${token}`;
+        console.log('🔍 Auth header added');
       }
 
       const response = await fetch('/api/applications?limit=5', {
@@ -109,10 +112,17 @@ export default function ApplicantDashboardPage() {
         headers: headers
       });
 
+      console.log('🔍 Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 Response data:', data);
+        
         if (data.success) {
+          console.log('🔍 Applications found:', data.applications?.length || 0);
           setApplications(data.applications || []);
+        } else {
+          console.error('🔍 API returned success: false');
         }
       } else {
         console.error('Failed to fetch applications:', response.status);
@@ -240,10 +250,8 @@ export default function ApplicantDashboardPage() {
           {/* Left Sidebar - News Panel */}
           <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
             <NewsPanel />
-          </div>
-
-          {/* Main Content Area */}
-          <div className="flex-1 overflow-y-auto">
+          </div>          {/* Main Content Area */}
+          <div className="flex-1 overflow-y-auto scrollbar-hide">
             <div className="space-y-6 p-6">
             <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
               {/* Stats Cards */}
@@ -274,19 +282,18 @@ export default function ApplicantDashboardPage() {
                   )}                </div>
               </div>
             </div>            {/* Recent Applications - Full Width */}
-            <div className="bg-card p-6 rounded-lg border border-border shadow-md">
+            <div className="bg-card p-6 rounded-lg border border-border shadow-md overflow-hidden">
               <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
                 <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
                 Recent Applications
               </h3>
-              
-              {loadingApplications ? (
+                {loadingApplications ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
                   <span className="text-sm text-muted-foreground">Loading applications...</span>
-                </div>
-              ) : applications.length > 0 ? (
-                <div className="space-y-4">
+                </div>              ) : applications.length > 0 ? (
+                <div className="space-y-4 overflow-visible">
+                  {console.log('🔍 Rendering applications:', applications.length)}
                   {applications.map((application) => (
                     <div 
                       key={application._id} 
@@ -336,9 +343,9 @@ export default function ApplicantDashboardPage() {
                       <TrendingUp className="h-4 w-4" />
                     </button>
                   </div>
-                </div>
-              ) : (
+                </div>              ) : (
                 <div className="text-center py-8">
+                  {console.log('🔍 No applications to display, applications.length:', applications.length)}
                   <FileText className="h-12 w-12 text-muted-foreground/40 mx-auto mb-4" />
                   <h4 className="font-medium text-foreground mb-2">No Applications Yet</h4>
                   <p className="text-sm text-muted-foreground mb-4">

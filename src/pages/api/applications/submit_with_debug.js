@@ -253,12 +253,11 @@ export default async function handler(req, res) {
         success: false, 
         message: 'Internal server error during resume upload' 
       });
-    }
-
-    // Create the application
+    }    // Create the application
     const application = {
       jobId: jobId,
       applicantId: auth.user.userId,
+      userId: auth.user.userId, // Add userId field for consistency
       resumePath: resumePath,
       coverLetter: coverLetter || '',
       additionalMessage: additionalMessage || '',
