@@ -84,7 +84,6 @@ export default function NewsPanel() {
       }
     }
   }, [news, lastUpdated, refreshCount, currentSeed, isInitialized]);
-
   const fetchNews = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
