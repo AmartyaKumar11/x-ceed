@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 // Google API configuration
 const SCOPES = [
   'https://www.googleapis.com/auth/documents',
-  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive', // Full Drive access needed for sharing
   'https://www.googleapis.com/auth/drive.metadata.readonly'
 ];
 
@@ -50,6 +50,7 @@ export async function createGoogleDoc(title) {
   try {
     const auth = await getGoogleAuth();
     const docs = google.docs({ version: 'v1', auth });
+    const drive = google.drive({ version: 'v3', auth });
     
     // Create the document
     const response = await docs.documents.create({
@@ -59,6 +60,21 @@ export async function createGoogleDoc(title) {
     });
     
     const documentId = response.data.documentId;
+    
+    // Make document publicly accessible with link
+    try {
+      await drive.permissions.create({
+        fileId: documentId,
+        resource: {
+          role: 'writer',
+          type: 'anyone'
+        },
+        fields: 'id'
+      });
+      console.log(`Document made publicly accessible with link`);
+    } catch (publicError) {
+      console.warn('Failed to make document publicly accessible:', publicError.message);
+    }
     
     return {
       documentId,
@@ -188,7 +204,7 @@ ${notes}
 /**
  * Create a folder in Google Drive
  */
-export async function createGoogleDriveFolder(folderName, parentFolderId = null) {
+export async function createGoogleDriveFolder(folderName, parentFolderId = null, userEmail = null) {
   try {
     const auth = await getGoogleAuth();
     const drive = google.drive({ version: 'v3', auth });
@@ -206,6 +222,37 @@ export async function createGoogleDriveFolder(folderName, parentFolderId = null)
       resource: fileMetadata,
       fields: 'id, name, webViewLink'
     });
+
+    // Make folder publicly accessible with link
+    try {
+      await drive.permissions.create({
+        fileId: response.data.id,
+        resource: {
+          role: 'writer',
+          type: 'anyone'
+        },
+        fields: 'id'
+      });
+      console.log(`Folder made publicly accessible with link`);
+    } catch (publicError) {
+      console.warn('Failed to make folder publicly accessible:', publicError.message);
+      
+      // Fallback: try to share with user if email provided
+      if (userEmail) {
+        try {
+          await shareGoogleDriveFolder(response.data.id, userEmail, 'writer');
+          console.log(`Folder shared with ${userEmail}`);
+        } catch (shareError) {
+          console.warn('Primary sharing failed, trying alternative approach:', shareError.message);
+          try {
+            await shareGoogleDriveFolderAlternative(response.data.id, userEmail, 'writer');
+            console.log(`Folder shared using alternative approach with ${userEmail}`);
+          } catch (altError) {
+            console.warn('Alternative sharing also failed:', altError.message);
+          }
+        }
+      }
+    }
     
     return {
       folderId: response.data.id,
@@ -356,5 +403,203 @@ export async function shareGoogleDoc(documentId, emailAddress, role = 'writer') 
   } catch (error) {
     console.error('Error sharing Google Doc:', error);
     throw new Error('Failed to share Google Doc');
+  }
+}
+
+/**
+ * Share a Google Drive folder with a user
+ */
+export async function shareGoogleDriveFolder(folderId, emailAddress, role = 'writer') {
+  try {
+    console.log(`Attempting to share folder ${folderId} with ${emailAddress} as ${role}`);
+    const auth = await getGoogleAuth();
+    const drive = google.drive({ version: 'v3', auth });
+    
+    const permission = {
+      type: 'user',
+      role: role, // 'reader', 'writer', or 'owner'
+      emailAddress: emailAddress
+    };
+    
+    const response = await drive.permissions.create({
+      fileId: folderId,
+      resource: permission,
+      sendNotificationEmail: false // Don't send email notification
+    });
+    
+    console.log(`Successfully shared folder with ${emailAddress}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error sharing Google Drive folder:', error);
+    console.error('Error details:', error.response?.data);
+    throw new Error(`Failed to share Google Drive folder: ${error.message}`);
+  }
+}
+
+/**
+ * Alternative sharing function with more permissive settings
+ */
+export async function shareGoogleDriveFolderAlternative(folderId, emailAddress, role = 'writer') {
+  try {
+    console.log(`Attempting alternative sharing for folder ${folderId} with ${emailAddress}`);
+    const auth = await getGoogleAuth();
+    const drive = google.drive({ version: 'v3', auth });
+    
+    // Try multiple approaches
+    const approaches = [
+      // Approach 1: Direct user permission
+      {
+        type: 'user',
+        role: role,
+        emailAddress: emailAddress
+      },
+      // Approach 2: Anyone with link can edit (if user permission fails)
+      {
+        type: 'anyone',
+        role: 'writer',
+        allowFileDiscovery: false
+      }
+    ];
+    
+    for (const permission of approaches) {
+      try {
+        const response = await drive.permissions.create({
+          fileId: folderId,
+          resource: permission,
+          sendNotificationEmail: false
+        });
+        console.log(`Successfully applied permission:`, permission);
+        return response.data;
+      } catch (err) {
+        console.warn(`Permission approach failed:`, permission, err.message);
+        continue;
+      }
+    }
+    
+    throw new Error('All sharing approaches failed');
+  } catch (error) {
+    console.error('Error in alternative sharing:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get or create a project folder for video notes
+ */
+export async function getOrCreateProjectFolder(projectName, userEmail = null) {
+  try {
+    // First, search for existing folder
+    const existingFolders = await searchGoogleDrive(
+      projectName, 
+      'application/vnd.google-apps.folder'
+    );
+    
+    if (existingFolders.length > 0) {
+      return {
+        folderId: existingFolders[0].id,
+        folderName: existingFolders[0].name,
+        folderUrl: existingFolders[0].webViewLink,
+        isNew: false
+      };
+    }
+    
+    // Create new folder if none exists
+    const newFolder = await createGoogleDriveFolder(projectName, null, userEmail);
+    return {
+      ...newFolder,
+      isNew: true
+    };
+  } catch (error) {
+    console.error('Error getting/creating project folder:', error);
+    throw new Error('Failed to manage project folder');
+  }
+}
+
+/**
+ * Create a Google Doc in a specific folder
+ */
+export async function createGoogleDocInFolder(title, folderId, userEmail = null) {
+  try {
+    const auth = await getGoogleAuth();
+    const docs = google.docs({ version: 'v1', auth });
+    const drive = google.drive({ version: 'v3', auth });
+
+    // First create the document
+    const createResponse = await docs.documents.create({
+      requestBody: {
+        title: title,
+      },
+    });
+
+    const documentId = createResponse.data.documentId;
+    const documentUrl = `https://docs.google.com/document/d/${documentId}/edit`;
+
+    // Move the document to the specified folder
+    await drive.files.update({
+      fileId: documentId,
+      addParents: folderId,
+      removeParents: 'root'
+    });
+
+    // Make document publicly accessible with link
+    try {
+      await drive.permissions.create({
+        fileId: documentId,
+        resource: {
+          role: 'writer',
+          type: 'anyone'
+        },
+        fields: 'id'
+      });
+      console.log(`Document made publicly accessible with link`);
+    } catch (publicError) {
+      console.warn('Failed to make document publicly accessible:', publicError.message);
+      
+      // Fallback: share with user if email provided
+      if (userEmail) {
+        try {
+          await shareGoogleDoc(documentId, userEmail, 'writer');
+          console.log(`Document shared with ${userEmail}`);
+        } catch (shareError) {
+          console.warn('Document sharing failed:', shareError.message);
+        }
+      }
+    }
+
+    return {
+      documentId,
+      documentUrl,
+      title,
+      isNew: true
+    };
+  } catch (error) {
+    console.error('Error creating Google Doc in folder:', error);
+    throw new Error(`Failed to create Google Doc in folder: ${error.message}`);
+  }
+}
+
+/**
+ * List Google Docs in a specific folder
+ */
+export async function listDocsInFolder(folderId) {
+  try {
+    const auth = await getGoogleAuth();
+    const drive = google.drive({ version: 'v3', auth });
+
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and mimeType='application/vnd.google-apps.document' and trashed=false`,
+      fields: 'files(id,name,webViewLink,modifiedTime)',
+      orderBy: 'modifiedTime desc'
+    });
+
+    return response.data.files.map(file => ({
+      documentId: file.id,
+      title: file.name,
+      documentUrl: file.webViewLink,
+      modifiedTime: file.modifiedTime
+    }));
+  } catch (error) {
+    console.error('Error listing docs in folder:', error);
+    throw new Error(`Failed to list docs in folder: ${error.message}`);
   }
 }

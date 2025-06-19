@@ -7,7 +7,10 @@ import {
   createGoogleDriveFolder, 
   uploadToGoogleDrive,
   getOrCreateVideoNotesDoc,
-  searchGoogleDrive
+  getOrCreateProjectFolder,
+  searchGoogleDrive,
+  createGoogleDocInFolder,
+  listDocsInFolder
 } from '@/lib/google-api';
 
 export async function POST(request) {
@@ -24,6 +27,12 @@ export async function POST(request) {
       
       case 'create_project_folder':
         return await createProjectFolder(data);
+      
+      case 'create_doc_in_folder':
+        return await createDocInFolder(data);
+      
+      case 'list_docs_in_folder':
+        return await listProjectDocs(data);
       
       case 'save_notes_to_drive':
         return await saveNotesToDrive(data);
@@ -46,14 +55,20 @@ export async function POST(request) {
   }
 }
 
-async function createDocForVideo({ videoTitle, videoChannel, videoId, userEmail }) {
+async function createDocForVideo({ videoTitle, videoChannel, videoId, userEmail, docTitle, notes }) {
   try {
-    const doc = await getOrCreateVideoNotesDoc(videoTitle, videoChannel, userEmail);
+    const title = docTitle || `${videoTitle} - Notes ${new Date().toLocaleDateString()}`;
+    const doc = await getOrCreateVideoNotesDoc(title, videoChannel, userEmail);
+    
+    // Add notes to the document if provided
+    if (notes) {
+      await addFormattedNotesToDoc(doc.documentId, notes, videoTitle, videoId, videoChannel);
+    }
     
     return NextResponse.json({
       success: true,
       doc: doc,
-      message: doc.isNew ? 'New Google Doc created and shared with you!' : 'Using existing Google Doc'
+      message: doc.isNew ? 'New Google Doc created and notes added!' : 'Notes added to existing Google Doc'
     });
   } catch (error) {
     throw new Error(`Failed to create/get doc: ${error.message}`);
@@ -73,15 +88,15 @@ async function addNotesToDoc({ documentId, notes, videoTitle, videoId, videoChan
   }
 }
 
-async function createProjectFolder({ projectName, videoTitle }) {
+async function createProjectFolder({ projectName, videoTitle, userEmail }) {
   try {
     const folderName = projectName || `${videoTitle} - Video Project`;
-    const folder = await getOrCreateProjectFolder(folderName);
+    const folder = await getOrCreateProjectFolder(folderName, userEmail);
     
     return NextResponse.json({
       success: true,
       folder: folder,
-      message: folder.isNew ? 'New project folder created!' : 'Using existing project folder'
+      message: folder.isNew ? 'New project folder created and shared with you!' : 'Using existing project folder'
     });
   } catch (error) {
     throw new Error(`Failed to create folder: ${error.message}`);
@@ -146,5 +161,38 @@ async function shareDocument({ documentId, userEmail }) {
     });
   } catch (error) {
     throw new Error(`Failed to share document: ${error.message}`);
+  }
+}
+
+async function createDocInFolder({ videoTitle, videoChannel, videoId, folderId, docTitle, userEmail, notes }) {
+  try {
+    const title = docTitle || `${videoTitle} - Notes ${new Date().toLocaleDateString()}`;
+    const doc = await createGoogleDocInFolder(title, folderId, userEmail);
+    
+    // Add notes to the document if provided
+    if (notes) {
+      await addFormattedNotesToDoc(doc.documentId, notes, videoTitle, videoId, videoChannel);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      doc: doc,
+      message: 'Google Doc created in project folder and notes added!'
+    });
+  } catch (error) {
+    throw new Error(`Failed to create doc in folder: ${error.message}`);
+  }
+}
+
+async function listProjectDocs({ folderId }) {
+  try {
+    const docs = await listDocsInFolder(folderId);
+    
+    return NextResponse.json({
+      success: true,
+      docs: docs
+    });
+  } catch (error) {
+    throw new Error(`Failed to list docs in folder: ${error.message}`);
   }
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward } from 'lucide-react';
+import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward, Trash } from 'lucide-react';
 import TypingAnimation from '@/components/TypingAnimation';
 import GoogleIntegration from '@/components/GoogleIntegration';
 
@@ -17,13 +17,74 @@ export default function VideoAIAssistant() {
   const [pausedMessages, setPausedMessages] = useState(new Set());
   const [completedMessages, setCompletedMessages] = useState(new Set());
   const [showFullContent, setShowFullContent] = useState(new Set());
+  const [pendingNotes, setPendingNotes] = useState(null);
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
+  const [showDocumentNameDialog, setShowDocumentNameDialog] = useState(false);
+  const [documentName, setDocumentName] = useState('');
+  const [showProjectSetupDialog, setShowProjectSetupDialog] = useState(false);
+  const [projectFolder, setProjectFolder] = useState(null);
+  const [projectFolderName, setProjectFolderName] = useState('');  const [existingDoc, setExistingDoc] = useState(null);
   const messagesEndRef = useRef(null);
-  useEffect(() => {
-    setVideoId(searchParams.get('videoId') || '');
-    setVideoTitle(decodeURIComponent(searchParams.get('title') || ''));
-    setVideoChannel(decodeURIComponent(searchParams.get('channel') || ''));      // Add welcome message
-    setMessages([
-      {
+
+  // Persist chat state to localStorage
+  const saveToLocalStorage = (key, value) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    } catch (error) {
+      console.warn('Failed to save to localStorage:', error);
+    }
+  };
+  const loadFromLocalStorage = (key, defaultValue = null) => {
+    try {
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          
+          // If loading messages, convert timestamp strings back to Date objects
+          if (key.includes('_messages') && Array.isArray(parsed)) {
+            return parsed.map(message => ({
+              ...message,
+              timestamp: new Date(message.timestamp)
+            }));
+          }
+          
+          return parsed;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load from localStorage:', error);
+    }
+    return defaultValue;
+  };useEffect(() => {
+    const currentVideoId = searchParams.get('videoId') || '';
+    const currentVideoTitle = decodeURIComponent(searchParams.get('title') || '');
+    const currentVideoChannel = decodeURIComponent(searchParams.get('channel') || '');
+    
+    setVideoId(currentVideoId);
+    setVideoTitle(currentVideoTitle);
+    setVideoChannel(currentVideoChannel);
+
+    // Create a unique key for this video's chat
+    const chatKey = `chat_${currentVideoId}_${btoa(currentVideoTitle).slice(0, 10)}`;
+    
+    // Load persisted chat data
+    const savedMessages = loadFromLocalStorage(`${chatKey}_messages`);
+    const savedProjectFolder = loadFromLocalStorage(`${chatKey}_projectFolder`);
+    const savedCompletedMessages = loadFromLocalStorage(`${chatKey}_completedMessages`);
+    const savedShowFullContent = loadFromLocalStorage(`${chatKey}_showFullContent`);
+
+    if (savedMessages && savedMessages.length > 0) {
+      // Restore saved chat
+      setMessages(savedMessages);
+      setProjectFolder(savedProjectFolder);
+      setCompletedMessages(new Set(savedCompletedMessages || []));
+      setShowFullContent(new Set(savedShowFullContent || []));
+    } else {
+      // Create new welcome message
+      const welcomeMessage = {
         id: 1,
         type: 'ai',
         content: `Hi! I'm your AI video assistant. I can help you:
@@ -34,15 +95,18 @@ export default function VideoAIAssistant() {
 • Save content to Google Drive
 • Answer questions about the video content
 
+**Want to stay organized?** I can create a dedicated Google Drive folder for this video project.
+
 What would you like me to help you with?`,
         timestamp: new Date(),
-        isWelcome: true
-      }
-    ]);
-    
-    // Mark welcome message as completed and show full content
-    setCompletedMessages(new Set([1]));
-    setShowFullContent(new Set([1]));
+        isWelcome: true,
+        showProjectSetup: true
+      };
+      
+      setMessages([welcomeMessage]);
+      setCompletedMessages(new Set([1]));
+      setShowFullContent(new Set([1]));
+    }
   }, [searchParams]);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -53,10 +117,18 @@ What would you like me to help you with?`,
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+    
+    // Save chat state whenever messages change
+    if (videoId && messages.length > 0) {
+      const chatKey = `chat_${videoId}_${btoa(videoTitle).slice(0, 10)}`;
+      saveToLocalStorage(`${chatKey}_messages`, messages);
+      saveToLocalStorage(`${chatKey}_projectFolder`, projectFolder);
+      saveToLocalStorage(`${chatKey}_completedMessages`, Array.from(completedMessages));
+      saveToLocalStorage(`${chatKey}_showFullContent`, Array.from(showFullContent));
+    }
+  }, [messages, projectFolder, completedMessages, showFullContent, videoId, videoTitle]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -98,6 +170,15 @@ What would you like me to help you with?`,
           notes: data.notes
         };
         setMessages(prev => [...prev, aiMessage]);
+        
+        // Check if AI generated notes and show document management dialog
+        if (data.notes && data.notes.length > 0) {
+          setPendingNotes({
+            notes: data.notes,
+            messageId: aiMessage.id
+          });
+          setShowDocumentDialog(true);
+        }
       } else {
         throw new Error(data.error || 'Failed to get AI response');
       }
@@ -151,6 +232,247 @@ What would you like me to help you with?`,
       return newSet;
     });
   };
+
+  // Handler Functions
+  const handleSaveToGoogleDrive = (content) => {
+    setPendingNotes(content);
+    setShowDocumentDialog(true);
+  };
+
+  const handleDocumentChoice = async (choice) => {
+    setShowDocumentDialog(false);
+    
+    if (!pendingNotes) return;
+    
+    try {
+      switch (choice) {
+        case 'new':
+          // Show document name dialog for new document
+          setShowDocumentNameDialog(true);
+          setExistingDoc(null);
+          break;
+        case 'existing':
+          // Add to existing document
+          await addToExistingDocument();
+          break;
+        case 'select':
+          // Show document selector
+          await showDocumentSelector();
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling document choice:', error);
+      alert('Failed to process document choice. Please try again.');
+    }
+  };
+  const addToExistingDocument = async () => {
+    try {
+      const response = await fetch('/api/google-integration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'list_docs_in_folder',
+          data: {
+            folderId: projectFolder?.id
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.docs && data.docs.length > 0) {
+        setExistingDoc(data.docs[0]); // Use the first document
+        setShowDocumentNameDialog(true);
+      } else {
+        // No existing docs, create new one
+        setShowDocumentNameDialog(true);
+        setExistingDoc(null);
+      }
+    } catch (error) {
+      console.error('Error listing documents:', error);
+      // Fallback to creating new document
+      setShowDocumentNameDialog(true);
+      setExistingDoc(null);
+    }
+  };
+
+  const showDocumentSelector = async () => {
+    // For now, just add to existing document
+    await addToExistingDocument();
+  };
+  const handleSaveNotes = async () => {
+    try {
+      let response;
+      
+      if (existingDoc) {
+        // Add to existing document
+        response = await fetch('/api/google-integration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: 'add_notes_to_doc',
+            data: {
+              documentId: existingDoc.id,
+              notes: pendingNotes,
+              videoTitle: videoTitle,
+              videoId: videoId,
+              videoChannel: videoChannel
+            }
+          }),
+        });      } else {        // Create new document
+        const action = projectFolder?.id ? 'create_doc_in_folder' : 'create_doc_for_video';
+        const data = projectFolder?.id ? {
+          videoTitle: videoTitle,
+          videoChannel: videoChannel,
+          videoId: videoId,
+          folderId: projectFolder.id,
+          docTitle: documentName.trim(),
+          userEmail: null,
+          notes: pendingNotes
+        } : {
+          videoTitle: videoTitle,
+          videoChannel: videoChannel,
+          videoId: videoId,
+          docTitle: documentName.trim(),
+          userEmail: null,
+          notes: pendingNotes
+        };
+        
+        response = await fetch('/api/google-integration', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            action: action,            data: data
+          }),
+        });
+      }const data = await response.json();
+      
+      if (data.success) {
+        setShowDocumentNameDialog(false);
+        setDocumentName('');
+        setExistingDoc(null);
+        setPendingNotes(null);        // Add a system message to confirm save
+        const systemMessage = {
+          id: Date.now(),
+          type: 'ai',
+          content: `✅ Notes ${existingDoc ? 'added to' : 'saved in'} "${existingDoc ? existingDoc.name : documentName.trim()}". Document created successfully!
+
+📄 [Open Document](${data.doc?.documentUrl || data.doc?.documentUrl || '#'})${projectFolder ? `\n\n📁 [View Project Folder](${projectFolder.folderUrl || projectFolder.webViewLink})` : ''}
+
+*Note: Documents are set to be accessible with the link for easy sharing.*`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, systemMessage]);
+        setCompletedMessages(prev => new Set([...prev, systemMessage.id]));
+        setShowFullContent(prev => new Set([...prev, systemMessage.id]));
+      } else {
+        throw new Error(data.error || data.message || 'Failed to save notes');
+      }
+    } catch (error) {
+      console.error('Error saving notes:', error);
+      
+      // Provide more specific error message to user
+      let userMessage = 'Failed to save notes. ';
+      if (error.message.includes('share')) {
+        userMessage += 'Document was created but sharing failed.';
+      } else if (error.message.includes('folder')) {
+        userMessage += 'Please create a project folder first.';
+      } else {
+        userMessage += 'Please try again.';
+      }
+      
+      alert(userMessage + '\n\nError details: ' + error.message);
+    }
+  };
+  const handleCreateProjectFolder = async () => {
+    try {
+      const folderName = projectFolderName.trim() || `${videoTitle} - Notes`;
+      
+      const response = await fetch('/api/google-integration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },        body: JSON.stringify({
+          action: 'create_project_folder',
+          data: {
+            projectName: folderName,
+            videoTitle: videoTitle,
+            userEmail: null // Don't try to share with a fake email
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        setProjectFolder(data.folder);
+        setShowProjectSetupDialog(false);
+        setProjectFolderName('');        // Add a system message to confirm folder creation
+        const systemMessage = {
+          id: Date.now(),
+          type: 'ai',
+          content: `✅ Created project folder "${folderName}" in your Google Drive. All future notes will be saved here.
+
+📁 [Open Project Folder](${data.folder.folderUrl || data.folder.webViewLink})
+
+*Note: The folder is set to be accessible with the link. You can edit permissions in Google Drive if needed.*`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, systemMessage]);
+        setCompletedMessages(prev => new Set([...prev, systemMessage.id]));
+        setShowFullContent(prev => new Set([...prev, systemMessage.id]));
+      } else {
+        throw new Error(data.error || 'Failed to create folder');
+      }    } catch (error) {
+      console.error('Error creating project folder:', error);
+      alert('Failed to create project folder. Please try again.');
+    }
+  };
+
+  const clearChatHistory = () => {
+    if (confirm('Are you sure you want to clear the chat history? This will remove all messages and start fresh.')) {
+      const chatKey = `chat_${videoId}_${btoa(videoTitle).slice(0, 10)}`;
+      
+      // Clear localStorage
+      localStorage.removeItem(`${chatKey}_messages`);
+      localStorage.removeItem(`${chatKey}_projectFolder`);
+      localStorage.removeItem(`${chatKey}_completedMessages`);
+      localStorage.removeItem(`${chatKey}_showFullContent`);
+      
+      // Reset state
+      const welcomeMessage = {
+        id: Date.now(),
+        type: 'ai',
+        content: `Hi! I'm your AI video assistant. I can help you:
+
+• Create detailed notes and summaries
+• Clip specific sections of the video
+• Take screenshots of key moments
+• Save content to Google Drive
+• Answer questions about the video content
+
+**Want to stay organized?** I can create a dedicated Google Drive folder for this video project.
+
+What would you like me to help you with?`,
+        timestamp: new Date(),
+        isWelcome: true,
+        showProjectSetup: true
+      };
+      
+      setMessages([welcomeMessage]);
+      setCompletedMessages(new Set([welcomeMessage.id]));
+      setShowFullContent(new Set([welcomeMessage.id]));
+      setProjectFolder(null);
+      setPendingNotes(null);
+    }
+  };
+
   const quickActions = [
     { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video" },
     { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video" },
@@ -209,19 +531,27 @@ What would you like me to help you with?`,
       </div>
 
       {/* Right Panel - AI Chat */}
-      <div className="w-1/2 flex flex-col bg-card">
-        {/* Header */}
+      <div className="w-1/2 flex flex-col bg-card">        {/* Header */}
         <div className="px-6 py-5 border-b border-border bg-card">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-primary rounded-xl">
-              <Bot className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">AI Video Assistant</h1>
-              <p className="text-sm text-muted-foreground">Powered by Gemini AI</p>
-            </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary rounded-xl">
+                <Bot className="h-6 w-6 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-foreground">AI Video Assistant</h1>
+                <p className="text-sm text-muted-foreground">Powered by Gemini AI</p>
+              </div>
+            </div>            <button
+              onClick={clearChatHistory}
+              className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors flex items-center gap-2"
+              title="Clear chat history"
+            >
+              <Trash className="h-4 w-4" />
+              Clear History
+            </button>
           </div>
-        </div>        {/* Quick Actions */}
+        </div>{/* Quick Actions */}
         <div className="px-6 py-4 bg-muted/30 border-b border-border">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</p>
           <div className="grid grid-cols-2 gap-2">
@@ -356,26 +686,54 @@ What would you like me to help you with?`,
                         </button>
                       ))}
                     </div>
-                  )}
-
-                  {/* Google Integration - Show for AI messages with notes */}
-                  {message.type === 'ai' && message.content && (
+                  )}                  {/* Save to Google Drive button - Show for AI messages with notes */}
+                  {message.type === 'ai' && completedMessages.has(message.id) && message.content && (
                     message.content.toLowerCase().includes('notes') || 
                     message.content.toLowerCase().includes('summary') ||
                     message.content.length > 500 // Show for long responses
                   ) && (
                     <div className="mt-3">
-                      <GoogleIntegration
-                        videoTitle={videoTitle}
-                        videoChannel={videoChannel}
-                        videoId={videoId}
-                        notes={message.content}
-                      />
+                      <button
+                        onClick={() => handleSaveToGoogleDrive(message.content)}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        <FolderPlus className="h-4 w-4" />
+                        Save to Google Drive
+                      </button>
                     </div>
-                  )}
-
-                  <div className="text-xs opacity-60 mt-1">
-                    {message.timestamp.toLocaleTimeString()}
+                  )}                  {/* Project Setup Button - Show only in welcome message */}
+                  {message.isWelcome && message.showProjectSetup && !projectFolder && (
+                    <div className="mt-4 p-4 bg-muted/30 border border-border rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-2">Stay Organized</h4>
+                      <p className="text-sm text-muted-foreground mb-3">Create a dedicated Google Drive folder for this video project to keep all your notes and content organized.</p>
+                      <button
+                        onClick={() => setShowProjectSetupDialog(true)}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                      >
+                        <FolderPlus className="h-4 w-4" />
+                        Create Project Folder
+                      </button>
+                    </div>
+                  )}                  {/* Project Folder Link - Show when folder exists */}
+                  {message.isWelcome && projectFolder && (
+                    <div className="mt-4 p-4 bg-accent/30 border border-border rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-2">📁 Project Folder</h4>
+                      <p className="text-sm text-muted-foreground mb-3">Your notes are being saved to:</p>
+                      <a
+                        href={projectFolder.folderUrl || projectFolder.webViewLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                      >
+                        <FolderPlus className="h-4 w-4" />
+                        Open Project Folder
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}                  <div className="text-xs opacity-60 mt-1">
+                    {message.timestamp instanceof Date 
+                      ? message.timestamp.toLocaleTimeString() 
+                      : new Date(message.timestamp).toLocaleTimeString()}
                   </div>
                 </div>
               </div>
@@ -414,10 +772,156 @@ What would you like me to help you with?`,
             >
               <Send className="h-3.5 w-3.5" />
               Send
-            </button>
+            </button>          </div>
+        </div>
+      </div>      {/* Document Management Dialog */}
+      {showDocumentDialog && pendingNotes && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Save Notes to Google Docs</h3>
+            <p className="text-muted-foreground mb-6">
+              I've generated detailed notes for you! Where would you like to save them?
+            </p>
+            
+            <div className="space-y-3">
+              <button
+                onClick={() => handleDocumentChoice('new')}
+                className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-medium text-foreground">Create New Document</div>
+                    <div className="text-sm text-muted-foreground">Create a new Google Doc in your project folder</div>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleDocumentChoice('existing')}
+                className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-medium text-foreground">Add to Existing Document</div>
+                    <div className="text-sm text-muted-foreground">Append to your current video notes document</div>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleDocumentChoice('select')}
+                className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FolderPlus className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-medium text-foreground">Select Document</div>
+                    <div className="text-sm text-muted-foreground">Choose from existing documents in your project</div>
+                  </div>
+                </div>
+              </button>
+            </div>
+            
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowDocumentDialog(false)}
+                className="flex-1 px-4 py-2 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}      {/* Document Name Dialog */}
+      {showDocumentNameDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">
+              {existingDoc ? 'Add to Document' : 'Create New Document'}
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {existingDoc ? 'These notes will be appended to the selected document.' : 'Enter a name for your new Google Doc.'}
+            </p>
+            
+            {!existingDoc && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  Document Name
+                </label>
+                <input
+                  type="text"
+                  value={documentName}
+                  onChange={(e) => setDocumentName(e.target.value)}
+                  placeholder="Video Notes"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground placeholder:text-muted-foreground"
+                />
+              </div>
+            )}
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDocumentNameDialog(false);
+                  setDocumentName('');
+                  setExistingDoc(null);
+                  setPendingNotes(null);
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveNotes}
+                disabled={!existingDoc && !documentName.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {existingDoc ? 'Add Notes' : 'Create & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}      {/* Project Setup Dialog */}
+      {showProjectSetupDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Create Project Folder</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Create a dedicated Google Drive folder to organize all content for this video project.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-2">
+                Folder Name
+              </label>
+              <input
+                type="text"
+                value={projectFolderName}
+                onChange={(e) => setProjectFolderName(e.target.value)}
+                placeholder={`${videoTitle} - Notes`}
+                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground placeholder:text-muted-foreground"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowProjectSetupDialog(false);
+                  setProjectFolderName('');
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleCreateProjectFolder}
+                disabled={!projectFolderName.trim()}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Create Folder
+              </button>
+            </div>
+          </div>        </div>
+      )}
     </div>
   );
 }

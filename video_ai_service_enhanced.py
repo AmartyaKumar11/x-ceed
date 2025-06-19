@@ -133,8 +133,7 @@ class VideoAIService:
 
     async def _generate_notes(self, video_context: VideoContext) -> str:
         """Generate structured notes from video content with timestamps"""
-        
-        # Sample the transcript intelligently for large videos
+          # Sample the transcript intelligently for large videos
         transcript_sample = self._sample_transcript_for_notes(
             video_context.transcript_with_timestamps
         )
@@ -144,7 +143,7 @@ class VideoAIService:
         sample_segments = len(transcript_sample)
         
         notes_prompt = f"""
-Create comprehensive, detailed study notes for this video with specific timestamps:
+Create comprehensive, detailed study notes for this video with specific timestamps.
 
 Title: {video_context.title}
 Channel: {video_context.channel}
@@ -153,48 +152,98 @@ Total transcript segments: {total_segments} (analyzing sample of {sample_segment
 Key transcript segments with timestamps:
 {transcript_with_times}
 
-Generate detailed study notes in markdown format with timestamps. Include:
+Generate detailed study notes in **PROPER MARKDOWN FORMAT** with the following structure:
 
-# {video_context.title}
+# 📚 {video_context.title}
 
-## Overview
-[2-3 sentence summary of the video content and its purpose]
+## 🎯 Overview
+Write a comprehensive 2-3 sentence summary of the video content and learning objectives.
 
-## Key Topics Covered
-[List the main topics/sections with their approximate start times]
+## 📋 Key Topics Covered
+- **Topic 1 Name** - Starting at [X:XX]
+- **Topic 2 Name** - Starting at [X:XX]  
+- **Topic 3 Name** - Starting at [X:XX]
+- *(Continue for all major topics)*
 
-## Detailed Notes
+## 📝 Detailed Notes
 
-### Topic 1: [Topic Name] (Starting at [X:XX])
-- **Key Point 1** ([timestamp]): [Detailed explanation]
-- **Key Point 2** ([timestamp]): [Detailed explanation]
-- **Important Quote** ([timestamp]): "[Direct quote from video]"
+### 🔸 Topic 1: [Topic Name]
+**⏰ Starts at:** [X:XX]
 
-### Topic 2: [Topic Name] (Starting at [X:XX])
-- **Key Point 1** ([timestamp]): [Detailed explanation]
-- **Key Point 2** ([timestamp]): [Detailed explanation]
+- **🎯 Key Point 1** `[timestamp]`  
+  Detailed explanation of the concept with clear formatting
+  
+- **💡 Key Point 2** `[timestamp]`  
+  Another important concept with proper explanation
+  
+- **📖 Important Quote** `[timestamp]`  
+  > "*Direct quote from the video in italics*"
 
-[Continue for all major topics]
+---
 
-## Important Concepts & Definitions
-- **[Term 1]** ([timestamp]): [Definition and explanation]
-- **[Term 2]** ([timestamp]): [Definition and explanation]
+### 🔸 Topic 2: [Topic Name]  
+**⏰ Starts at:** [X:XX]
 
-## Key Takeaways
-1. [Main takeaway 1] ([timestamp])
-2. [Main takeaway 2] ([timestamp])
-3. [Main takeaway 3] ([timestamp])
+- **🎯 Key Point 1** `[timestamp]`  
+  Detailed explanation with proper formatting
+  
+- **💡 Key Point 2** `[timestamp]`  
+  Another key concept explained clearly
 
-## Practical Applications
-[How to apply this knowledge in real scenarios]
+---
 
-## Summary
-[Comprehensive summary of the entire video content]
+*(Continue this pattern for all major topics)*
 
-## Quick Reference
-[List of key timestamps for important moments]
+## 🔍 Important Concepts & Definitions
 
-Make the notes extremely detailed, educational, and include specific timestamps throughout. Use the actual content from the transcript to create accurate, useful study material.
+| Term | Timestamp | Definition |
+|------|-----------|------------|
+| **[Term 1]** | `[X:XX]` | Clear definition and explanation |
+| **[Term 2]** | `[X:XX]` | Clear definition and explanation |
+
+## ⭐ Key Takeaways
+
+1. **Main Takeaway 1** `[timestamp]`  
+   Clear explanation of the first key learning point
+
+2. **Main Takeaway 2** `[timestamp]`  
+   Clear explanation of the second key learning point
+
+3. **Main Takeaway 3** `[timestamp]`  
+   Clear explanation of the third key learning point
+
+## 🚀 Practical Applications
+
+**Real-world scenarios where this knowledge applies:**
+- Application scenario 1
+- Application scenario 2
+- Application scenario 3
+
+## 📊 Summary
+
+Write a comprehensive 3-4 sentence summary that captures the essence of the entire video and its main learning objectives.
+
+## ⚡ Quick Reference
+
+**Key Timestamps:**
+- `[X:XX]` - Important moment 1
+- `[X:XX]` - Important moment 2  
+- `[X:XX]` - Important moment 3
+
+---
+
+**FORMATTING REQUIREMENTS:**
+- Use proper markdown headers (# ## ###)
+- Use **bold** for emphasis
+- Use `code blocks` for timestamps
+- Use > blockquotes for direct quotes
+- Use tables for definitions when appropriate
+- Use bullet points with proper spacing
+- Use emojis for visual appeal and section identification
+- Use horizontal rules --- to separate major sections
+- Ensure consistent spacing and formatting throughout
+
+Make the notes extremely detailed, educational, and visually appealing with proper markdown formatting.
 """
         
         notes = await self._generate_ai_response(notes_prompt)

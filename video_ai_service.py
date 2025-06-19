@@ -338,7 +338,7 @@ Respond in JSON format:
         # Create clips every 2 minutes
         current_start = 0
         segment_texts = []
-          for i, item in enumerate(transcript_data):
+        for i, item in enumerate(transcript_data):
             try:
                 # Handle both dict and object formats
                 if hasattr(item, 'text'):
