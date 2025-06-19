@@ -22,8 +22,7 @@ import {
   Youtube,
   Search,
   Filter,
-  SortAsc,
-  Bot
+  SortAsc
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -595,12 +594,11 @@ export default function PrepPlanPage() {
       
       clearTimeout(timeoutId);
       console.log('📊 Response status:', response.status);
-        if (response.ok) {
+      
+      if (response.ok) {
         const data = await response.json();
         console.log('✅ Videos fetched successfully:', data.videos?.length || 0, 'videos');
         console.log('📋 First video data:', data.videos?.[0]);
-        console.log('📋 First video thumbnail:', data.videos?.[0]?.thumbnail);
-        console.log('📋 All videos:', data.videos);
         const videos = data.videos || [];
         setSkillVideos(videos);
         setOriginalSkillVideos(videos); // Store original for local filtering
@@ -692,9 +690,10 @@ export default function PrepPlanPage() {
         fetchSkillVideos(selectedSkill);
       }
     }, 100);
-  };  if (loading) {
+  };
+  if (loading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
         <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -712,10 +711,10 @@ export default function PrepPlanPage() {
           </Card>
         </div>
       </div>
-    );  }
-  if (error) {
+    );
+  }  if (error) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
         <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -732,9 +731,9 @@ export default function PrepPlanPage() {
           </Card>
         </div>
       </div>
-    );
-  }  return (
-    <div className="min-h-screen bg-background" style={{scrollBehavior: 'smooth'}}>
+    );  }
+  return (
+    <div className="fixed inset-0 top-16 overflow-y-auto bg-background" style={{scrollBehavior: 'smooth'}}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1355,26 +1354,15 @@ export default function PrepPlanPage() {
                   // Video Player View
                   <div className="space-y-4">                    <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium">{selectedVideo.title}</h3>
-                      <div className="flex gap-2">
-                        <Button 
-                          variant="default" 
+                      <div className="flex gap-2">                        <Button 
+                          variant="secondary" 
                           size="sm"
                           onClick={() => {
-                            // Open AI Learning Assistant in new tab
-                            const aiLearningUrl = `/video-learning-assistant?video=${encodeURIComponent(JSON.stringify({
-                              id: selectedVideo.id || getYouTubeVideoId(selectedVideo.url),
-                              title: selectedVideo.title,
-                              url: selectedVideo.url,
-                              channel: selectedVideo.channel,
-                              duration: selectedVideo.duration,
-                              views: selectedVideo.views
-                            }))}&skill=${encodeURIComponent(selectedSkill)}`;
-                            window.open(aiLearningUrl, '_blank');
+                            const aiAssistantUrl = `/video-ai-assistant?videoId=${getYouTubeVideoId(selectedVideo.url)}&title=${encodeURIComponent(selectedVideo.title)}&channel=${encodeURIComponent(selectedVideo.channel)}`;
+                            window.open(aiAssistantUrl, '_blank');
                           }}
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
                         >
-                          <Bot className="h-4 w-4 mr-2" />
-                          Open with AI Assistant
+                          🤖 Open with AI Assistant
                         </Button>
                         <Button 
                           variant="outline" 
@@ -1411,54 +1399,71 @@ export default function PrepPlanPage() {
                 ) : (
                   // Video Grid View
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {skillVideos.map((video, index) => (
-                      <div 
+                    {skillVideos.map((video, index) => (                      <div 
                         key={index} 
-                        className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                        onClick={() => setSelectedVideo(video)}                      >                        <div className="relative aspect-video bg-gray-100 border">
+                        className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow bg-white dark:bg-gray-800"
+                        onClick={() => setSelectedVideo(video)}
+                      >                        <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
                           <img 
-                            src={video.thumbnail} 
+                            src={video.thumbnail || video.thumbnailFallback || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iIzAwNjZjYyIvPgogIDxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMzAiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjkiLz4KICA8cG9seWdvbiBwb2ludHM9IjIzMCwxNjUgMjUwLDE4MCAyMzAsMTk1IiBmaWxsPSIjMDA2NmNjIi8+CiAgPHRleHQgeD0iMjQwIiB5PSIyNTAiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIPCfk7ogVmlkZW8KICA8L3RleHQ+Cjwvc3ZnPgo='} 
                             alt={video.title}
-                            className="w-full h-full object-cover relative z-10"
-                            style={{
-                              display: 'block',
-                              visibility: 'visible',
-                              opacity: 1,
-                              zIndex: 10
-                            }}
-                            onLoad={() => {
-                              console.log(`✅ Thumbnail loaded for "${video.title}":`, video.thumbnail);
-                            }}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            style={{ display: 'block', zIndex: 1 }}
                             onError={(e) => {
-                              console.log(`❌ Thumbnail failed for "${video.title}":`, e.target.src);
-                              console.log('Video object:', video);
+                              console.log('Thumbnail failed for:', video.title, 'URL:', e.target.src);
                               
-                              // Try fallback
-                              if (video.thumbnailFallback && e.target.src !== video.thumbnailFallback) {
-                                console.log(`🔄 Trying fallback:`, video.thumbnailFallback);
-                                e.target.src = video.thumbnailFallback;
-                              } else if (video.thumbnailAlternatives?.length > 0) {
-                                const currentIndex = video.thumbnailAlternatives.indexOf(e.target.src);
+                              // First attempt failed, try alternatives
+                              if (video.thumbnailAlternatives && video.thumbnailAlternatives.length > 0) {
+                                const currentSrc = e.target.src;
+                                const currentIndex = video.thumbnailAlternatives.findIndex(alt => alt === currentSrc);
                                 const nextIndex = currentIndex + 1;
+                                
                                 if (nextIndex < video.thumbnailAlternatives.length) {
-                                  console.log(`🔄 Trying alternative ${nextIndex}:`, video.thumbnailAlternatives[nextIndex]);
+                                  console.log('Trying alternative:', video.thumbnailAlternatives[nextIndex]);
                                   e.target.src = video.thumbnailAlternatives[nextIndex];
                                   return;
                                 }
                               }
                               
-                              // Final fallback
-                              const finalFallback = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iIzAwNjZjYyIvPgogIDxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMzAiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjkiLz4KICA8cG9seWdvbiBwb2ludHM9IjIzMCwxNjUgMjUwLDE4MCAyMzAsMTk1IiBmaWxsPSIjMDA2NmNjIi8+CiAgPHRleHQgeD0iMjQwIiB5PSIyNTAiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIPCfk7ogVmlkZW8KICA8L3RleHQ+Cjwvc3ZnPgo=';
+                              // Try the thumbnailFallback if available and not already tried
+                              if (video.thumbnailFallback && e.target.src !== video.thumbnailFallback) {
+                                console.log('Trying thumbnailFallback:', video.thumbnailFallback);
+                                e.target.src = video.thumbnailFallback;
+                                return;
+                              }
+                              
+                              // Final fallback: Create a custom SVG with video info
+                              const finalFallback = `data:image/svg+xml;base64,${btoa(`
+                                <svg width="480" height="360" xmlns="http://www.w3.org/2000/svg">
+                                  <rect width="480" height="360" fill="#374151"/>
+                                  <rect x="40" y="40" width="400" height="280" fill="#4B5563" rx="8"/>
+                                  <circle cx="240" cy="160" r="40" fill="#6B7280"/>
+                                  <polygon points="220,140 260,160 220,180" fill="#F3F4F6"/>
+                                  <text x="240" y="220" font-size="16" fill="#F3F4F6" text-anchor="middle" font-family="Arial, sans-serif">
+                                    ${video.title.substring(0, 30)}${video.title.length > 30 ? '...' : ''}
+                                  </text>
+                                  <text x="240" y="245" font-size="12" fill="#D1D5DB" text-anchor="middle" font-family="Arial, sans-serif">
+                                    ${video.channel}
+                                  </text>
+                                </svg>
+                              `)}`;
+                              
                               if (e.target.src !== finalFallback) {
-                                console.log('🔄 Using final fallback');
+                                console.log('Using final custom SVG fallback');
                                 e.target.src = finalFallback;
                               }
+                            }}                            onLoad={(e) => {
+                              console.log('Thumbnail loaded successfully:', video.title);
+                              e.target.style.opacity = '1';
+                            }}
+                            onLoadStart={(e) => {
+                              e.target.style.opacity = '0.5';
                             }}                          />
-                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
-                            {video.duration}
-                          </div>
-                          <div className="absolute inset-0 flex items-center justify-center hover:bg-black hover:bg-opacity-30 transition-all">
+                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all pointer-events-none hover:pointer-events-auto" style={{ zIndex: 2 }}>
                             <Play className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
+                          </div>
+                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1 rounded" style={{ zIndex: 3 }}>
+                            {video.duration}
                           </div>
                         </div>
                         

@@ -223,41 +223,55 @@ function generateMockVideos(topic, count) {
     const duration = durations[i % durations.length];
     const views = viewCounts[i % viewCounts.length];    // Generate a realistic video ID
     const videoId = generateVideoId(topic, i);
-    
-    // Use actual YouTube thumbnail URLs that work
+      // Use actual YouTube thumbnail URLs that work with better fallbacks
     const mockVideoIds = [
       'dQw4w9WgXcQ', 'ScMzIvxBSi4', 'L_LUpnjgPso', 'fJ9rUzIMcZQ', 'ZbZSe6N_BXs',
-      'DLzxrzFCyOs', '9drEtMBBdAI', 'WrAog6jFkFQ', 'YQHsXMglC9A', 'oHg5SJYRHA0'
+      'DLzxrzFCyOs', '9drEtMBBdAI', 'WrAog6jFkFQ', 'YQHsXMglC9A', 'oHg5SJYRHA0',
+      'jNQXAC9IVRw', 'me2TRQJDfJg', 'WlgrFtqUBzI', 'hTWKbfoikeg', 'Y8Wp3dafaMQ'
     ];
     const thumbnailVideoId = mockVideoIds[i % mockVideoIds.length];
-    const thumbnailUrl = `https://img.youtube.com/vi/${thumbnailVideoId}/mqdefault.jpg`;
     
-    // Backup thumbnail if YouTube thumbnail fails
+    // Try multiple thumbnail URL formats for better reliability
+    const primaryThumbnail = `https://img.youtube.com/vi/${thumbnailVideoId}/mqdefault.jpg`;
+    const backupThumbnails = [
+      `https://i.ytimg.com/vi/${thumbnailVideoId}/hqdefault.jpg`,
+      `https://img.youtube.com/vi/${thumbnailVideoId}/hqdefault.jpg`,
+      `https://i.ytimg.com/vi/${thumbnailVideoId}/mqdefault.jpg`,
+      `https://img.youtube.com/vi/${thumbnailVideoId}/default.jpg`
+    ];
+      // Backup thumbnail if YouTube thumbnail fails - more sophisticated SVG
     const backupThumbnail = `data:image/svg+xml;base64,${Buffer.from(`
       <svg width="480" height="360" xmlns="http://www.w3.org/2000/svg">
-        <rect width="480" height="360" fill="#0066cc"/>
-        <circle cx="240" cy="180" r="30" fill="white" opacity="0.9"/>
-        <polygon points="230,165 250,180 230,195" fill="#0066cc"/>
-        <text x="240" y="250" font-size="18" fill="white" text-anchor="middle">
-          ${topic.split(' ')[0]} Tutorial
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#1f2937;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#374151;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="480" height="360" fill="url(#bg)"/>
+        <rect x="30" y="30" width="420" height="300" fill="#4B5563" rx="8" opacity="0.8"/>
+        <circle cx="240" cy="160" r="45" fill="#6B7280"/>
+        <polygon points="220,140 270,160 220,180" fill="#F9FAFB"/>
+        <text x="240" y="220" font-size="16" fill="#F9FAFB" text-anchor="middle" font-family="Arial, sans-serif" font-weight="500">
+          ${topic.split(' ').slice(0, 3).join(' ')} Tutorial
         </text>
-        <text x="240" y="280" font-size="14" fill="white" text-anchor="middle" opacity="0.8">
+        <text x="240" y="245" font-size="12" fill="#D1D5DB" text-anchor="middle" font-family="Arial, sans-serif">
           ${channel}
+        </text>
+        <text x="240" y="270" font-size="10" fill="#9CA3AF" text-anchor="middle" font-family="Arial, sans-serif">
+          Programming • Tutorial
         </text>
       </svg>
     `).toString('base64')}`;
+      
       videos.push({
       id: videoId,
       title: `${topic} ${videoType} - Learn ${topic} ${i === 0 ? 'for Beginners' : i === 1 ? 'Fast' : 'Complete Course'}`,
       channel: channel,
       channelTitle: channel,
-      thumbnail: thumbnailUrl,
+      thumbnail: primaryThumbnail,
       thumbnailFallback: backupThumbnail,
-      thumbnailAlternatives: [
-        `https://img.youtube.com/vi/${thumbnailVideoId}/hqdefault.jpg`,
-        `https://i.ytimg.com/vi/${thumbnailVideoId}/mqdefault.jpg`,
-        `https://img.youtube.com/vi/${thumbnailVideoId}/default.jpg`
-      ],
+      thumbnailAlternatives: backupThumbnails,
       publishedAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
       duration: duration,
       views: views,
