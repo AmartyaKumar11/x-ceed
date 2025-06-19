@@ -24,6 +24,8 @@ export default function VideoAIAssistant() {
   const [showProjectSetupDialog, setShowProjectSetupDialog] = useState(false);
   const [projectFolder, setProjectFolder] = useState(null);
   const [projectFolderName, setProjectFolderName] = useState('');  const [existingDoc, setExistingDoc] = useState(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(50); // Percentage
+  const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Persist chat state to localStorage
@@ -58,7 +60,7 @@ export default function VideoAIAssistant() {
       console.warn('Failed to load from localStorage:', error);
     }
     return defaultValue;
-  };useEffect(() => {
+  };  useEffect(() => {
     const currentVideoId = searchParams.get('videoId') || '';
     const currentVideoTitle = decodeURIComponent(searchParams.get('title') || '');
     const currentVideoChannel = decodeURIComponent(searchParams.get('channel') || '');
@@ -66,6 +68,10 @@ export default function VideoAIAssistant() {
     setVideoId(currentVideoId);
     setVideoTitle(currentVideoTitle);
     setVideoChannel(currentVideoChannel);
+
+    // Load saved panel width
+    const savedPanelWidth = loadFromLocalStorage('panelWidth', 50);
+    setLeftPanelWidth(savedPanelWidth);
 
     // Create a unique key for this video's chat
     const chatKey = `chat_${currentVideoId}_${btoa(currentVideoTitle).slice(0, 10)}`;
@@ -116,8 +122,7 @@ What would you like me to help you with?`,
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-  useEffect(() => {
+  };  useEffect(() => {
     scrollToBottom();
     
     // Save chat state whenever messages change
@@ -129,6 +134,11 @@ What would you like me to help you with?`,
       saveToLocalStorage(`${chatKey}_showFullContent`, Array.from(showFullContent));
     }
   }, [messages, projectFolder, completedMessages, showFullContent, videoId, videoTitle]);
+
+  // Save panel width when it changes
+  useEffect(() => {
+    saveToLocalStorage('panelWidth', leftPanelWidth);
+  }, [leftPanelWidth]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || isLoading) return;
@@ -472,16 +482,44 @@ What would you like me to help you with?`,
       setPendingNotes(null);
     }
   };
-
   const quickActions = [
     { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video" },
     { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video" },
     { icon: <Camera className="h-4 w-4" />, text: "Screenshot", action: "Take a screenshot of the current video frame" },
     { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive" }
-  ];  return (
-    <div className="h-screen flex bg-background">
+  ];
+
+  // Resizable panel handlers
+  const handleMouseDown = (e) => {
+    setIsDragging(true);
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    
+    const container = document.querySelector('.split-container');
+    if (!container) return;
+    
+    const containerRect = container.getBoundingClientRect();
+    const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+    
+    // Constrain the width between 20% and 80%
+    const constrainedWidth = Math.min(80, Math.max(20, newLeftWidth));
+    setLeftPanelWidth(constrainedWidth);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  return (
+    <div className="h-screen flex bg-background split-container">
       {/* Left Panel - Video Player */}
-      <div className="w-1/2 flex flex-col bg-card border-r border-border">
+      <div 
+        className="flex flex-col bg-card border-r border-border transition-all duration-200 ease-out"
+        style={{ width: `${leftPanelWidth}%` }}
+      >
         {/* Video Header */}
         <div className="px-6 py-4 bg-card border-b border-border">
           <div className="flex items-center gap-3">
@@ -526,12 +564,26 @@ What would you like me to help you with?`,
             <p className="text-sm text-muted-foreground">
               Use the AI assistant to create notes, clips, and analyze this video content
             </p>
-          </div>
+          </div>        </div>
+      </div>
+
+      {/* Resize Handle */}
+      <div
+        className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors duration-200 relative group ${
+          isDragging ? 'bg-primary' : ''
+        }`}
+        onMouseDown={handleMouseDown}
+      >
+        <div className="absolute inset-y-0 -left-1 -right-1 flex items-center justify-center">
+          <div className="w-1 h-8 bg-muted-foreground/30 rounded-full group-hover:bg-primary/70 transition-colors duration-200" />
         </div>
       </div>
 
       {/* Right Panel - AI Chat */}
-      <div className="w-1/2 flex flex-col bg-card">        {/* Header */}
+      <div 
+        className="flex flex-col bg-card transition-all duration-200 ease-out"
+        style={{ width: `${100 - leftPanelWidth}%` }}
+      >{/* Header */}
         <div className="px-6 py-5 border-b border-border bg-card">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -919,8 +971,7 @@ What would you like me to help you with?`,
               >
                 Create Folder
               </button>
-            </div>
-          </div>        </div>
+            </div>          </div>        </div>
       )}
     </div>
   );
