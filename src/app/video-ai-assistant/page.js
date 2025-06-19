@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare } from 'lucide-react';
+import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink } from 'lucide-react';
 
 export default function VideoAIAssistant() {
   const searchParams = useSearchParams();
@@ -35,9 +35,14 @@ What would you like me to help you with?`,
       }
     ]);
   }, [searchParams]);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   useEffect(() => {
@@ -73,15 +78,15 @@ What would you like me to help you with?`,
         }),
       });
 
-      const data = await response.json();
-
-      if (data.success) {
+      const data = await response.json();      if (data.success) {
         const aiMessage = {
           id: Date.now() + 1,
           type: 'ai',
           content: data.response,
           timestamp: new Date(),
-          actions: data.actions || []
+          actions: data.actions || [],
+          clips: data.clips,
+          notes: data.notes
         };
         setMessages(prev => [...prev, aiMessage]);
       } else {
@@ -196,83 +201,135 @@ What would you like me to help you with?`,
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-background">
+        </div>        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-background">
           {messages.map((message) => (
             <div
               key={message.id}
               className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div className={`flex items-start gap-3 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`flex items-start gap-2 max-w-[80%] ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
                 {message.type === 'ai' && (
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-primary-foreground" />
+                  <div className="flex-shrink-0 w-7 h-7 bg-primary rounded-full flex items-center justify-center mt-1">
+                    <Bot className="h-3.5 w-3.5 text-primary-foreground" />
                   </div>
                 )}
                 <div
-                  className={`p-4 rounded-2xl ${
+                  className={`px-3 py-2 rounded-lg text-sm ${
                     message.type === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-br-md'
-                      : 'bg-muted text-foreground border border-border rounded-bl-md'
+                      ? 'bg-primary text-primary-foreground rounded-br-sm'
+                      : 'bg-muted text-foreground border border-border rounded-bl-sm'
                   }`}
                 >
                   <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-                  {message.actions && message.actions.length > 0 && (
-                    <div className="mt-3 space-y-2">
+                  
+                  {/* Display Generated Notes */}
+                  {message.notes && (
+                    <div className="mt-4 p-4 bg-background border border-border rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span className="font-semibold text-foreground">Generated Notes</span>
+                      </div>
+                      <div className="prose prose-sm max-w-none text-foreground">
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {message.notes}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Display Video Clips */}
+                  {message.clips && message.clips.length > 0 && (
+                    <div className="mt-4 p-4 bg-background border border-border rounded-lg">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Scissors className="h-4 w-4 text-primary" />
+                        <span className="font-semibold text-foreground">Suggested Clips ({message.clips.length})</span>
+                      </div>
+                      <div className="space-y-3">
+                        {message.clips.map((clip, clipIndex) => (
+                          <div key={clipIndex} className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                            <div className="flex-shrink-0 p-2 bg-primary/10 rounded-lg">
+                              <Play className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-foreground truncate">{clip.title}</h4>
+                                <div className="flex items-center gap-1 px-2 py-1 bg-primary/20 rounded text-xs font-mono text-primary">
+                                  <Clock className="h-3 w-3" />
+                                  {formatTime(clip.start_time)} - {formatTime(clip.end_time)}
+                                </div>
+                              </div>
+                              <p className="text-sm text-muted-foreground mb-2">{clip.description}</p>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => {
+                                    const startTime = clip.start_time;
+                                    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}&t=${startTime}s`;
+                                    window.open(youtubeUrl, '_blank');
+                                  }}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors"
+                                >
+                                  <ExternalLink className="h-3 w-3" />
+                                  Watch Clip
+                                </button>
+                                <span className="text-xs text-muted-foreground">• {clip.value}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}                  {message.actions && message.actions.length > 0 && (
+                    <div className="mt-2 space-y-1">
                       {message.actions.map((action, index) => (
                         <button
                           key={index}
-                          className="block w-full text-left p-3 text-sm bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg border border-gray-200 dark:border-gray-600 transition-colors"
+                          className="block w-full text-left p-2 text-xs bg-background/20 rounded border border-border hover:bg-background/40 transition-colors"
                         >
                           {action.text}
                         </button>
                       ))}
                     </div>
                   )}
-                  <div className={`text-xs mt-2 ${message.type === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'}`}>
+                  <div className="text-xs opacity-60 mt-1">
                     {message.timestamp.toLocaleTimeString()}
                   </div>
                 </div>
               </div>
-            </div>          ))}
-          {isLoading && (
+            </div>          ))}          {isLoading && (
             <div className="flex justify-start">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-primary-foreground" />
+              <div className="flex items-start gap-2">
+                <div className="flex-shrink-0 w-7 h-7 bg-primary rounded-full flex items-center justify-center mt-1">
+                  <Bot className="h-3.5 w-3.5 text-primary-foreground" />
                 </div>
-                <div className="bg-muted text-foreground p-4 rounded-2xl rounded-bl-md border border-border flex items-center gap-3">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                <div className="bg-muted text-foreground px-3 py-2 rounded-lg rounded-bl-sm border border-border flex items-center gap-2 text-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
                   <span>AI is thinking...</span>
                 </div>
               </div>
             </div>
           )}
           <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
-        <div className="px-6 py-4 border-t border-border bg-card">
-          <div className="flex gap-3">
+        </div>        {/* Input */}
+        <div className="px-4 py-3 border-t border-border bg-card">
+          <div className="flex gap-2">
             <div className="flex-1 relative">
               <textarea
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything about this video..."
-                className="w-full p-4 pr-12 border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground placeholder:text-muted-foreground transition-all"
-                rows="2"
+                className="w-full p-2.5 border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent bg-background text-foreground placeholder:text-muted-foreground transition-all text-sm"
+                rows="1"
                 disabled={isLoading}
               />
             </div>
             <button
               onClick={sendMessage}
               disabled={isLoading || !inputMessage.trim()}
-              className="px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all duration-200 font-medium"
+              className="px-3 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all duration-200 text-sm font-medium"
             >
-              <Send className="h-4 w-4" />
+              <Send className="h-3.5 w-3.5" />
               Send
             </button>
           </div>

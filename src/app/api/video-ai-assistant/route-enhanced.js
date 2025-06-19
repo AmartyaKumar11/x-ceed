@@ -1,87 +1,48 @@
 import { NextResponse } from 'next/server';
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_VIDEO_AI_SERVICE_URL || 'http://localhost:8005';
+const PYTHON_SERVICE_URL = process.env.PYTHON_SERVICE_URL || 'http://localhost:8001';
 
 export async function POST(request) {
   try {
     const { message, videoId, videoTitle, videoChannel, conversationHistory } = await request.json();
 
-    // Check if user is asking for notes specifically
-    const isNotesRequest = message && (
-      message.toLowerCase().includes('notes') ||
-      message.toLowerCase().includes('summarize') ||
-      message.toLowerCase().includes('summary') ||
-      message.toLowerCase().includes('key points')
-    );
-
     // Try to connect to Python service first
     try {
-      console.log('Attempting to connect to Python service at:', PYTHON_SERVICE_URL);
-      
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout for notes
-      
-      // Use different endpoint based on request type
-      const endpoint = isNotesRequest ? '/generate-notes' : '/chat';
-      const requestBody = isNotesRequest ? 
-        { video_id: videoId, title: videoTitle, channel: videoChannel } :
-        {
+      const pythonResponse = await fetch(`${PYTHON_SERVICE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           message,
           video_id: videoId,
           video_title: videoTitle,
           video_channel: videoChannel,
           conversation_history: conversationHistory || []
-        };
-
-      console.log(`Making ${isNotesRequest ? 'notes' : 'chat'} request to:`, `${PYTHON_SERVICE_URL}${endpoint}`);
-      
-      const pythonResponse = await fetch(`${PYTHON_SERVICE_URL}${endpoint}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal
+        }),
+        timeout: 10000 // 10 second timeout
       });
 
-      clearTimeout(timeoutId);      if (pythonResponse.ok) {
+      if (pythonResponse.ok) {
         const pythonData = await pythonResponse.json();
         
-        console.log('Python service responded successfully');
-        
-        if (isNotesRequest) {
-          // Handle notes response
-          return NextResponse.json({
-            success: true,
-            response: `Here are detailed notes for the video:\n\n${pythonData.notes}`,
-            actions: [
-              { type: 'notes', title: 'Generated Notes', content: pythonData.notes }
-            ],
-            clips: [],
-            notes: pythonData.notes,
-            source: 'python_service_notes',
-            video_title: pythonData.video_title
-          });
-        } else {
-          // Handle chat response
-          return NextResponse.json({
-            success: true,
-            response: pythonData.response,
-            actions: pythonData.actions || [],
-            clips: pythonData.clips,
-            notes: pythonData.notes,
-            source: 'python_service_chat'
-          });
-        }
-      } else {
-        console.log('Python service returned non-OK status:', pythonResponse.status);
+        return NextResponse.json({
+          success: true,
+          response: pythonData.response,
+          actions: pythonData.actions || [],
+          clips: pythonData.clips,
+          notes: pythonData.notes,
+          source: 'python_service'
+        });
       }
     } catch (pythonError) {
       console.log('Python service not available, falling back to Gemini:', pythonError.message);
-    }    // Fallback to direct Gemini API call
+    }
+
+    // Fallback to direct Gemini API call
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Updated model name
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     // Build conversation context
     const conversationContext = conversationHistory
