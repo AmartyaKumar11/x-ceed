@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward } from 'lucide-react';
 import TypingAnimation from '@/components/TypingAnimation';
+import GoogleIntegration from '@/components/GoogleIntegration';
 
 export default function VideoAIAssistant() {
   const searchParams = useSearchParams();
@@ -356,6 +357,23 @@ What would you like me to help you with?`,
                       ))}
                     </div>
                   )}
+
+                  {/* Google Integration - Show for AI messages with notes */}
+                  {message.type === 'ai' && message.content && (
+                    message.content.toLowerCase().includes('notes') || 
+                    message.content.toLowerCase().includes('summary') ||
+                    message.content.length > 500 // Show for long responses
+                  ) && (
+                    <div className="mt-3">
+                      <GoogleIntegration
+                        videoTitle={videoTitle}
+                        videoChannel={videoChannel}
+                        videoId={videoId}
+                        notes={message.content}
+                      />
+                    </div>
+                  )}
+
                   <div className="text-xs opacity-60 mt-1">
                     {message.timestamp.toLocaleTimeString()}
                   </div>
