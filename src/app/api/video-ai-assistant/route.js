@@ -48,28 +48,24 @@ export async function POST(request) {
         const pythonData = await pythonResponse.json();
         
         console.log('Python service responded successfully');
-        
-        if (isNotesRequest) {
-          // Handle notes response
+          if (isNotesRequest) {
+          // Handle notes response - only send the notes content, not a separate response
           return NextResponse.json({
             success: true,
-            response: `Here are detailed notes for the video:\n\n${pythonData.notes}`,
+            response: pythonData.notes, // Send notes as the main response content
             actions: [
               { type: 'notes', title: 'Generated Notes', content: pythonData.notes }
             ],
             clips: [],
-            notes: pythonData.notes,
             source: 'python_service_notes',
             video_title: pythonData.video_title
           });
-        } else {
-          // Handle chat response
+        } else {          // Handle chat response
           return NextResponse.json({
             success: true,
             response: pythonData.response,
             actions: pythonData.actions || [],
-            clips: pythonData.clips,
-            notes: pythonData.notes,
+            clips: pythonData.clips || [],
             source: 'python_service_chat'
           });
         }

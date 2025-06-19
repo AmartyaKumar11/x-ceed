@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink } from 'lucide-react';
+import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward } from 'lucide-react';
+import TypingAnimation from '@/components/TypingAnimation';
 
 export default function VideoAIAssistant() {
   const searchParams = useSearchParams();
@@ -12,8 +13,10 @@ export default function VideoAIAssistant() {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pausedMessages, setPausedMessages] = useState(new Set());
+  const [completedMessages, setCompletedMessages] = useState(new Set());
+  const [showFullContent, setShowFullContent] = useState(new Set());
   const messagesEndRef = useRef(null);
-
   useEffect(() => {
     setVideoId(searchParams.get('videoId') || '');
     setVideoTitle(decodeURIComponent(searchParams.get('title') || ''));
@@ -31,9 +34,14 @@ export default function VideoAIAssistant() {
 • Answer questions about the video content
 
 What would you like me to help you with?`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isWelcome: true
       }
     ]);
+    
+    // Mark welcome message as completed and show full content
+    setCompletedMessages(new Set([1]));
+    setShowFullContent(new Set([1]));
   }, [searchParams]);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -105,12 +113,42 @@ What would you like me to help you with?`,
       setIsLoading(false);
     }
   };
-
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const togglePause = (messageId) => {
+    setPausedMessages(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId);
+      } else {
+        newSet.add(messageId);
+      }
+      return newSet;
+    });
+  };
+
+  const skipToEnd = (messageId) => {
+    setShowFullContent(prev => new Set([...prev, messageId]));
+    setPausedMessages(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(messageId);
+      return newSet;
+    });
+    setCompletedMessages(prev => new Set([...prev, messageId]));
+  };
+
+  const handleTypingComplete = (messageId) => {
+    setCompletedMessages(prev => new Set([...prev, messageId]));
+    setPausedMessages(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(messageId);
+      return newSet;
+    });
   };
   const quickActions = [
     { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video" },
@@ -220,22 +258,49 @@ What would you like me to help you with?`,
                       ? 'bg-primary text-primary-foreground rounded-br-sm'
                       : 'bg-muted text-foreground border border-border rounded-bl-sm'
                   }`}
-                >
-                  <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
-                  
-                  {/* Display Generated Notes */}
-                  {message.notes && (
-                    <div className="mt-4 p-4 bg-background border border-border rounded-lg">
-                      <div className="flex items-center gap-2 mb-3">
-                        <FileText className="h-4 w-4 text-primary" />
-                        <span className="font-semibold text-foreground">Generated Notes</span>
-                      </div>
-                      <div className="prose prose-sm max-w-none text-foreground">
-                        <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                          {message.notes}
+                >                  {message.type === 'ai' ? (
+                    <div className="relative">
+                      <TypingAnimation 
+                        content={message.content} 
+                        speed={15} 
+                        isPaused={pausedMessages.has(message.id)}
+                        showFullContent={showFullContent.has(message.id)}
+                        onComplete={() => handleTypingComplete(message.id)}
+                      />
+                        {/* Typing Controls - Only show while typing and not for welcome message */}
+                      {!completedMessages.has(message.id) && !message.isWelcome && (
+                        <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border/50">
+                          <button
+                            onClick={() => togglePause(message.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-muted hover:bg-muted/80 border border-border rounded transition-colors"
+                            title={pausedMessages.has(message.id) ? "Resume typing" : "Pause typing"}
+                          >
+                            {pausedMessages.has(message.id) ? (
+                              <>
+                                <Play className="h-3 w-3" />
+                                Resume
+                              </>
+                            ) : (
+                              <>
+                                <Pause className="h-3 w-3" />
+                                Pause
+                              </>
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={() => skipToEnd(message.id)}
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-muted hover:bg-muted/80 border border-border rounded transition-colors"
+                            title="Show full response"
+                          >
+                            <SkipForward className="h-3 w-3" />
+                            Skip
+                          </button>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  ) : (
+                    <div className="text-sm leading-relaxed">{message.content}</div>
                   )}
 
                   {/* Display Video Clips */}
