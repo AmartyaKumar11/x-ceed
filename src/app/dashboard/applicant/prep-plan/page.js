@@ -22,7 +22,8 @@ import {
   Youtube,
   Search,
   Filter,
-  SortAsc
+  SortAsc,
+  Bot
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -691,10 +692,9 @@ export default function PrepPlanPage() {
         fetchSkillVideos(selectedSkill);
       }
     }, 100);
-  };
-  if (loading) {
+  };  if (loading) {
     return (
-      <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
+      <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -712,10 +712,10 @@ export default function PrepPlanPage() {
           </Card>
         </div>
       </div>
-    );
-  }  if (error) {
+    );  }
+  if (error) {
     return (
-      <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
+      <div className="min-h-screen bg-background">
         <div className="max-w-7xl mx-auto p-6">
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-16">
@@ -732,9 +732,9 @@ export default function PrepPlanPage() {
           </Card>
         </div>
       </div>
-    );  }
-  return (
-    <div className="fixed inset-0 top-16 overflow-y-auto bg-background" style={{scrollBehavior: 'smooth'}}>
+    );
+  }  return (
+    <div className="min-h-screen bg-background" style={{scrollBehavior: 'smooth'}}>
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
@@ -1353,16 +1353,37 @@ export default function PrepPlanPage() {
               <div className="space-y-4">
                 {selectedVideo ? (
                   // Video Player View
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-4">                    <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium">{selectedVideo.title}</h3>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => setSelectedVideo(null)}
-                      >
-                        ← Back to Videos
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          onClick={() => {
+                            // Open AI Learning Assistant in new tab
+                            const aiLearningUrl = `/video-learning-assistant?video=${encodeURIComponent(JSON.stringify({
+                              id: selectedVideo.id || getYouTubeVideoId(selectedVideo.url),
+                              title: selectedVideo.title,
+                              url: selectedVideo.url,
+                              channel: selectedVideo.channel,
+                              duration: selectedVideo.duration,
+                              views: selectedVideo.views
+                            }))}&skill=${encodeURIComponent(selectedSkill)}`;
+                            window.open(aiLearningUrl, '_blank');
+                          }}
+                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                        >
+                          <Bot className="h-4 w-4 mr-2" />
+                          Open with AI Assistant
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedVideo(null)}
+                        >
+                          ← Back to Videos
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="aspect-video w-full">
