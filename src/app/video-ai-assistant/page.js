@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward, Trash } from 'lucide-react';
 import TypingAnimation from '@/components/TypingAnimation';
@@ -133,9 +133,7 @@ What would you like me to help you with?`,
       saveToLocalStorage(`${chatKey}_completedMessages`, Array.from(completedMessages));
       saveToLocalStorage(`${chatKey}_showFullContent`, Array.from(showFullContent));
     }
-  }, [messages, projectFolder, completedMessages, showFullContent, videoId, videoTitle]);
-
-  // Save panel width when it changes
+  }, [messages, projectFolder, completedMessages, showFullContent, videoId, videoTitle]);  // Save panel width when it changes
   useEffect(() => {
     saveToLocalStorage('panelWidth', leftPanelWidth);
   }, [leftPanelWidth]);
@@ -487,17 +485,17 @@ What would you like me to help you with?`,
     { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video" },
     { icon: <Camera className="h-4 w-4" />, text: "Screenshot", action: "Take a screenshot of the current video frame" },
     { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive" }
-  ];
-
-  // Resizable panel handlers
-  const handleMouseDown = (e) => {
+  ];  // Resizable panel handlers
+  const handleMouseDown = useCallback((e) => {
+    console.log('Mouse down on resize handle');
     setIsDragging(true);
     e.preventDefault();
-  };
+  }, []);
 
-  const handleMouseMove = (e) => {
+  const handleMouseMove = useCallback((e) => {
     if (!isDragging) return;
     
+    console.log('Mouse move while dragging');
     const container = document.querySelector('.split-container');
     if (!container) return;
     
@@ -506,12 +504,35 @@ What would you like me to help you with?`,
     
     // Constrain the width between 20% and 80%
     const constrainedWidth = Math.min(80, Math.max(20, newLeftWidth));
+    console.log('New width:', constrainedWidth);
     setLeftPanelWidth(constrainedWidth);
-  };
-
-  const handleMouseUp = () => {
+  }, [isDragging]);
+  const handleMouseUp = useCallback(() => {
+    console.log('Mouse up - ending drag');
     setIsDragging(false);
-  };
+  }, []);
+
+  // Add global mouse event listeners for resizing
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   return (
     <div className="h-screen flex bg-background split-container">
@@ -565,18 +586,15 @@ What would you like me to help you with?`,
               Use the AI assistant to create notes, clips, and analyze this video content
             </p>
           </div>        </div>
-      </div>
-
-      {/* Resize Handle */}
+      </div>      {/* Resize Handle */}
       <div
-        className={`w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors duration-200 relative group ${
+        className={`w-2 bg-border hover:bg-primary/50 cursor-col-resize transition-colors duration-200 relative group flex items-center justify-center ${
           isDragging ? 'bg-primary' : ''
         }`}
         onMouseDown={handleMouseDown}
+        title="Drag to resize panels"
       >
-        <div className="absolute inset-y-0 -left-1 -right-1 flex items-center justify-center">
-          <div className="w-1 h-8 bg-muted-foreground/30 rounded-full group-hover:bg-primary/70 transition-colors duration-200" />
-        </div>
+        <div className="w-1 h-12 bg-muted-foreground/50 rounded-full group-hover:bg-primary/70 transition-colors duration-200" />
       </div>
 
       {/* Right Panel - AI Chat */}
