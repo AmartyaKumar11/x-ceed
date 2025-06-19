@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
 import { Download, Eye } from "lucide-react";
 import { ViewApplicationDialog } from "@/components/ViewApplicationDialog";
-import { applicationsAPI, resumeAPI } from "@/lib/api";
 import { useToast } from "@/components/ui/use-toast";
 
 export default function CandidatesPage() {
@@ -26,11 +25,22 @@ export default function CandidatesPage() {
   const fetchApplications = async () => {
     try {
       setLoading(true);
-      const response = await applicationsAPI.getApplications();
       
-      if (response.success) {
+      // Use direct fetch call instead of undefined API
+      const response = await fetch('/api/applications', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
         // Transform the API data to match the component's expected format
-        const transformedApplications = response.data.map(app => ({
+        const applicationsData = data.applications || data.data || [];
+        const transformedApplications = applicationsData.map(app => ({
           id: app._id,
           userId: app.applicantId, // Store userId for resume download
           name: app.applicantDetails?.personal?.name || app.applicantDetails?.email || 'Unknown',
@@ -53,7 +63,7 @@ export default function CandidatesPage() {
         
         setApplications(transformedApplications);
       } else {
-        setError(response.error || 'Failed to fetch applications');
+        setError(data.error || 'Failed to fetch applications');
       }
     } catch (err) {
       console.error('Error fetching applications:', err);
@@ -80,10 +90,31 @@ export default function CandidatesPage() {
         return;
       }
 
-      // Generate a user-friendly filename
-      const fileName = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      // Use direct fetch call for resume download
+      const filename = candidate.resumeUrl || `${candidate.userId}_resume.pdf`;
       
-      await resumeAPI.downloadResumeAsFile(candidate.userId, fileName);
+      const response = await fetch(`/api/download/resume/${filename}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download resume');
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
       
       toast({
         title: "Resume Downloaded",

@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { resumeAPI } from "@/lib/api";
 
 export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
   const { toast } = useToast();
@@ -38,10 +37,31 @@ export function ViewApplicationDialog({ isOpen, onClose, candidate }) {
         return;
       }
 
-      // Generate a user-friendly filename
-      const fileName = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      // Use direct fetch call for resume download
+      const filename = candidate.resumeUrl || `${candidate.userId}_resume.pdf`;
       
-      await resumeAPI.downloadResumeAsFile(candidate.userId, fileName);
+      const response = await fetch(`/api/download/resume/${filename}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download resume');
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `${candidate.name.replace(/\s+/g, '_')}_Resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
       
       toast({
         title: "Resume Downloaded",

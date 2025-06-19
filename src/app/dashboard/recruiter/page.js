@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Briefcase, 
-  Users, 
   FileCheck, 
   PieChart,
   LineChart,
@@ -22,13 +21,11 @@ export default function RecruiterDashboardPage() {
   const router = useRouter();  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isCreateJobDialogOpen, setIsCreateJobDialogOpen] = useState(false);
-  const [stats, setStats] = useState({
+  const [isCreateJobDialogOpen, setIsCreateJobDialogOpen] = useState(false);  const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplications: 0,
-    totalCandidates: 0,
     interviews: 0
-  });  useEffect(() => {
+  });useEffect(() => {
     checkAuthAndFetchData();
     
     // Force cache clear for job data on initial load
@@ -128,11 +125,9 @@ export default function RecruiterDashboardPage() {
   const calculateStats = (jobsData) => {
     const activeJobs = jobsData.filter(job => job.status === 'active').length;
     const totalApplications = jobsData.reduce((sum, job) => sum + (job.applicationsCount || 0), 0);
-    
-    setStats({
+      setStats({
       activeJobs,
       totalApplications,
-      totalCandidates: Math.floor(totalApplications * 0.7), // Estimate unique candidates
       interviews: Math.floor(totalApplications * 0.3) // Estimate interviews
     });
   };
@@ -195,18 +190,7 @@ export default function RecruiterDashboardPage() {
           <div className="min-w-0 flex-1">
             <p className="text-xs text-muted-foreground">Applications</p>
             <h3 className="text-xl font-bold text-card-foreground">{stats.totalApplications}</h3>
-          </div>
-        </div>
-        
-        <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow flex items-start">
-          <div className="p-2 rounded-full bg-cyan-500/10 mr-3">
-            <Users className="h-5 w-5 text-cyan-500" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">Candidates</p>
-            <h3 className="text-xl font-bold text-card-foreground">{stats.totalCandidates}</h3>
-          </div>
-        </div>
+          </div>        </div>
         
         <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow flex items-start">
           <div className="p-2 rounded-full bg-rose-500/10 mr-3">
