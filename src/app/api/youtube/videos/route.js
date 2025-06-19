@@ -5,13 +5,16 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || searchParams.get('search') || 'programming tutorial';
     const maxResults = parseInt(searchParams.get('maxResults') || searchParams.get('limit') || '12');
+    const duration = searchParams.get('duration') || 'any';
+    const order = searchParams.get('order') || 'relevance';
+    const publishedAfter = searchParams.get('publishedAfter');
 
     // Check if we have YouTube API key
     const youtubeApiKey = process.env.YOUTUBE_API_KEY;
     
     if (youtubeApiKey) {
       // Use real YouTube API
-      return await fetchRealYouTubeVideos(query, maxResults, youtubeApiKey);
+      return await fetchRealYouTubeVideos(query, maxResults, youtubeApiKey, duration, order, publishedAfter);
     } else {
       // Use enhanced mock data with working thumbnails
       return await fetchMockVideos(query, maxResults);
@@ -28,14 +31,25 @@ export async function GET(request) {
   }
 }
 
-async function fetchRealYouTubeVideos(query, maxResults, apiKey) {
+async function fetchRealYouTubeVideos(query, maxResults, apiKey, duration = 'any', order = 'relevance', publishedAfter = null) {
   try {
+    // Map duration filter to YouTube API values
+    let videoDuration = 'any';
+    if (duration === 'short') videoDuration = 'short';
+    else if (duration === 'medium') videoDuration = 'medium';
+    else if (duration === 'long') videoDuration = 'long';
+
     // Search for videos with filters to prioritize educational content
     // We'll request more videos than needed to filter out shorts and low-quality content
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?` +
+    let searchUrl = `https://www.googleapis.com/youtube/v3/search?` +
       `part=snippet&type=video&q=${encodeURIComponent(query + ' tutorial complete course programming')}&` +
-      `maxResults=${Math.min(maxResults * 3, 50)}&key=${apiKey}&order=relevance&` +
-      `videoDefinition=any&videoDuration=medium&videoEmbeddable=true`;
+      `maxResults=${Math.min(maxResults * 3, 50)}&key=${apiKey}&order=${order}&` +
+      `videoDefinition=any&videoDuration=${videoDuration}&videoEmbeddable=true`;
+
+    // Add published after filter if provided
+    if (publishedAfter) {
+      searchUrl += `&publishedAfter=${publishedAfter}`;
+    }
 
     const searchResponse = await fetch(searchUrl);
     
@@ -210,8 +224,16 @@ function generateMockVideos(topic, count) {
     const views = viewCounts[i % viewCounts.length];    // Generate a realistic video ID
     const videoId = generateVideoId(topic, i);
     
-    // Create reliable SVG thumbnail that always works
-    const svgThumbnail = `data:image/svg+xml;base64,${Buffer.from(`
+    // Use actual YouTube thumbnail URLs that work
+    const mockVideoIds = [
+      'dQw4w9WgXcQ', 'ScMzIvxBSi4', 'L_LUpnjgPso', 'fJ9rUzIMcZQ', 'ZbZSe6N_BXs',
+      'DLzxrzFCyOs', '9drEtMBBdAI', 'WrAog6jFkFQ', 'YQHsXMglC9A', 'oHg5SJYRHA0'
+    ];
+    const thumbnailVideoId = mockVideoIds[i % mockVideoIds.length];
+    const thumbnailUrl = `https://img.youtube.com/vi/${thumbnailVideoId}/mqdefault.jpg`;
+    
+    // Backup thumbnail if YouTube thumbnail fails
+    const backupThumbnail = `data:image/svg+xml;base64,${Buffer.from(`
       <svg width="480" height="360" xmlns="http://www.w3.org/2000/svg">
         <rect width="480" height="360" fill="#0066cc"/>
         <circle cx="240" cy="180" r="30" fill="white" opacity="0.9"/>
@@ -224,14 +246,18 @@ function generateMockVideos(topic, count) {
         </text>
       </svg>
     `).toString('base64')}`;
-    
-    videos.push({
+      videos.push({
       id: videoId,
       title: `${topic} ${videoType} - Learn ${topic} ${i === 0 ? 'for Beginners' : i === 1 ? 'Fast' : 'Complete Course'}`,
       channel: channel,
       channelTitle: channel,
-      thumbnail: svgThumbnail,
-      thumbnailFallback: svgThumbnail,
+      thumbnail: thumbnailUrl,
+      thumbnailFallback: backupThumbnail,
+      thumbnailAlternatives: [
+        `https://img.youtube.com/vi/${thumbnailVideoId}/hqdefault.jpg`,
+        `https://i.ytimg.com/vi/${thumbnailVideoId}/mqdefault.jpg`,
+        `https://img.youtube.com/vi/${thumbnailVideoId}/default.jpg`
+      ],
       publishedAt: new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000).toISOString(),
       duration: duration,
       views: views,

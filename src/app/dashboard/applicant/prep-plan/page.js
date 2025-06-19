@@ -19,7 +19,10 @@ import {
   Check,
   X,
   Play,
-  Youtube
+  Youtube,
+  Search,
+  Filter,
+  SortAsc
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 export default function PrepPlanPage() {
   const router = useRouter();
@@ -38,11 +42,17 @@ export default function PrepPlanPage() {
   const [loading, setLoading] = useState(true);
   const [parsingJD, setParsingJD] = useState(false);
   const [error, setError] = useState(null);  const [learningDuration, setLearningDuration] = useState('12'); // weeks
-  const [completedTopics, setCompletedTopics] = useState(new Set());
-  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [completedTopics, setCompletedTopics] = useState(new Set());  const [selectedSkill, setSelectedSkill] = useState(null);
   const [skillVideos, setSkillVideos] = useState([]);
   const [videosLoading, setVideosLoading] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState(null);useEffect(() => {
+  const [selectedVideo, setSelectedVideo] = useState(null);
+  
+  // Video search and filter states
+  const [videoSearchTerm, setVideoSearchTerm] = useState('');
+  const [videoDurationFilter, setVideoDurationFilter] = useState('any');
+  const [videoUploadFilter, setVideoUploadFilter] = useState('any');
+  const [videoSortBy, setVideoSortBy] = useState('relevance');
+  const [originalSkillVideos, setOriginalSkillVideos] = useState([]);useEffect(() => {
     const initializePage = async () => {
       // Get job data from URL params
       const jobParam = searchParams.get('job');
@@ -543,15 +553,31 @@ export default function PrepPlanPage() {
     if (!prepPlan) return 0;
     const totalTopics = prepPlan.phases.reduce((total, phase) => total + phase.topics.length, 0);
     return totalTopics > 0 ? (completedTopics.size / totalTopics) * 100 : 0;
-  };
-  const fetchSkillVideos = async (skillTitle) => {
+  };  const fetchSkillVideos = async (skillTitle, customSearchTerm = '') => {
     setVideosLoading(true);
     console.log('🎥 Fetching videos for skill:', skillTitle);
     
     try {
-      // Construct the API URL
-      const searchQuery = encodeURIComponent(skillTitle + ' tutorial programming');
-      const apiUrl = `/api/youtube/videos?search=${searchQuery}&limit=12`;
+      // Use custom search term if provided, otherwise use skill title + current search term
+      const baseQuery = customSearchTerm || `${skillTitle} ${videoSearchTerm}`.trim();
+      const searchQuery = encodeURIComponent(baseQuery + ' tutorial programming');
+      
+      // Build API URL with filters
+      let apiUrl = `/api/youtube/videos?search=${searchQuery}&limit=12`;
+      
+      // Add duration filter
+      if (videoDurationFilter !== 'any') {
+        apiUrl += `&duration=${videoDurationFilter}`;
+      }
+      
+      // Add upload date filter
+      if (videoUploadFilter !== 'any') {
+        apiUrl += `&publishedAfter=${getPublishedAfterDate(videoUploadFilter)}`;
+      }
+      
+      // Add sort order
+      apiUrl += `&order=${videoSortBy}`;
+      
       console.log('🔗 API URL:', apiUrl);
       
       // Make the fetch request with timeout
@@ -568,11 +594,15 @@ export default function PrepPlanPage() {
       
       clearTimeout(timeoutId);
       console.log('📊 Response status:', response.status);
-      
-      if (response.ok) {
+        if (response.ok) {
         const data = await response.json();
         console.log('✅ Videos fetched successfully:', data.videos?.length || 0, 'videos');
-        setSkillVideos(data.videos || []);
+        console.log('📋 First video data:', data.videos?.[0]);
+        console.log('📋 First video thumbnail:', data.videos?.[0]?.thumbnail);
+        console.log('📋 All videos:', data.videos);
+        const videos = data.videos || [];
+        setSkillVideos(videos);
+        setOriginalSkillVideos(videos); // Store original for local filtering
       } else {
         console.error('❌ Failed to fetch videos - Response not OK:', response.status, response.statusText);
         const errorText = await response.text();
@@ -580,6 +610,7 @@ export default function PrepPlanPage() {
         
         // Set empty array but don't show error to user - they'll see "No videos found"
         setSkillVideos([]);
+        setOriginalSkillVideos([]);
       }
     } catch (error) {
       console.error('❌ Error fetching skill videos:', error);
@@ -593,6 +624,7 @@ export default function PrepPlanPage() {
       
       // Set empty array - user will see "No videos found" message
       setSkillVideos([]);
+      setOriginalSkillVideos([]);
     } finally {
       setVideosLoading(false);
     }
@@ -612,10 +644,53 @@ export default function PrepPlanPage() {
     // Fetch videos for the selected skill
     fetchSkillVideos(skillTitle);
   };
-
   const getYouTubeVideoId = (url) => {
     const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
     return match ? match[1] : null;
+  };
+
+  const getPublishedAfterDate = (filter) => {
+    const now = new Date();
+    switch (filter) {
+      case 'hour':
+        return new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      case 'day':
+        return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+      case 'week':
+        return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      case 'month':
+        return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      case 'year':
+        return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+      default:
+        return null;
+    }
+  };
+  const handleVideoSearch = () => {
+    if (selectedSkill) {
+      fetchSkillVideos(selectedSkill);
+    }
+  };
+
+  const handleFilterChange = (filterType, value) => {
+    switch (filterType) {
+      case 'duration':
+        setVideoDurationFilter(value);
+        break;
+      case 'upload':
+        setVideoUploadFilter(value);
+        break;
+      case 'sort':
+        setVideoSortBy(value);
+        break;
+    }
+    
+    // Automatically re-search when filters change
+    setTimeout(() => {
+      if (selectedSkill) {
+        fetchSkillVideos(selectedSkill);
+      }
+    }, 100);
   };
   if (loading) {
     return (
@@ -1147,10 +1222,15 @@ export default function PrepPlanPage() {
               Track your progress by marking topics as complete!
             </p>
           </CardContent>
-        </Card>
-
-        {/* Video Dialog */}
-        <Dialog open={!!selectedSkill} onOpenChange={() => setSelectedSkill(null)}>
+        </Card>        {/* Video Dialog */}
+        <Dialog open={!!selectedSkill} onOpenChange={() => {
+          setSelectedSkill(null);
+          setSelectedVideo(null);
+          setVideoSearchTerm('');
+          setVideoDurationFilter('any');
+          setVideoUploadFilter('any');
+          setVideoSortBy('relevance');
+        }}>
           <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -1158,6 +1238,111 @@ export default function PrepPlanPage() {
                 Related Videos: {selectedSkill}
               </DialogTitle>
             </DialogHeader>
+            
+            {/* Search and Filter Controls */}
+            {!selectedVideo && (
+              <div className="space-y-4 border-b pb-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search for specific videos..."
+                    value={videoSearchTerm}
+                    onChange={(e) => setVideoSearchTerm(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleVideoSearch();
+                      }
+                    }}
+                    className="pl-10 pr-4"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleVideoSearch}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                    disabled={videosLoading}
+                  >
+                    {videosLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Duration Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      Duration
+                    </label>
+                    <Select
+                      value={videoDurationFilter}
+                      onValueChange={(value) => handleFilterChange('duration', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any Duration</SelectItem>
+                        <SelectItem value="short">Under 4 minutes</SelectItem>
+                        <SelectItem value="medium">4-20 minutes</SelectItem>
+                        <SelectItem value="long">Over 20 minutes</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Upload Date Filter */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Upload Time
+                    </label>
+                    <Select
+                      value={videoUploadFilter}
+                      onValueChange={(value) => handleFilterChange('upload', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Any Time</SelectItem>
+                        <SelectItem value="hour">Last Hour</SelectItem>
+                        <SelectItem value="day">Last Day</SelectItem>
+                        <SelectItem value="week">Last Week</SelectItem>
+                        <SelectItem value="month">Last Month</SelectItem>
+                        <SelectItem value="year">Last Year</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Sort Order */}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <SortAsc className="h-4 w-4" />
+                      Sort By
+                    </label>
+                    <Select
+                      value={videoSortBy}
+                      onValueChange={(value) => handleFilterChange('sort', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="relevance">Relevance</SelectItem>
+                        <SelectItem value="date">Upload Date</SelectItem>
+                        <SelectItem value="viewCount">View Count</SelectItem>
+                        <SelectItem value="rating">Rating</SelectItem>
+                        <SelectItem value="title">Title</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {videosLoading ? (
               <div className="flex items-center justify-center py-12">
@@ -1209,59 +1394,50 @@ export default function PrepPlanPage() {
                       <div 
                         key={index} 
                         className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                        onClick={() => setSelectedVideo(video)}
-                      >                        <div className="relative aspect-video">
+                        onClick={() => setSelectedVideo(video)}                      >                        <div className="relative aspect-video bg-gray-100 border">
                           <img 
                             src={video.thumbnail} 
                             alt={video.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover relative z-10"
+                            style={{
+                              display: 'block',
+                              visibility: 'visible',
+                              opacity: 1,
+                              zIndex: 10
+                            }}
+                            onLoad={() => {
+                              console.log(`✅ Thumbnail loaded for "${video.title}":`, video.thumbnail);
+                            }}
                             onError={(e) => {
-                              console.log('Thumbnail failed:', e.target.src);
+                              console.log(`❌ Thumbnail failed for "${video.title}":`, e.target.src);
+                              console.log('Video object:', video);
                               
-                              // Try alternatives in sequence
-                              if (video.thumbnailAlternatives && video.thumbnailAlternatives.length > 0) {
+                              // Try fallback
+                              if (video.thumbnailFallback && e.target.src !== video.thumbnailFallback) {
+                                console.log(`🔄 Trying fallback:`, video.thumbnailFallback);
+                                e.target.src = video.thumbnailFallback;
+                              } else if (video.thumbnailAlternatives?.length > 0) {
                                 const currentIndex = video.thumbnailAlternatives.indexOf(e.target.src);
                                 const nextIndex = currentIndex + 1;
-                                
                                 if (nextIndex < video.thumbnailAlternatives.length) {
-                                  console.log('Trying alternative:', video.thumbnailAlternatives[nextIndex]);
+                                  console.log(`🔄 Trying alternative ${nextIndex}:`, video.thumbnailAlternatives[nextIndex]);
                                   e.target.src = video.thumbnailAlternatives[nextIndex];
                                   return;
                                 }
                               }
                               
-                              // Try the thumbnailFallback if available
-                              if (video.thumbnailFallback && e.target.src !== video.thumbnailFallback) {
-                                console.log('Trying fallback:', video.thumbnailFallback);
-                                e.target.src = video.thumbnailFallback;
-                              } else {
-                                // Final fallback: use a simple reliable SVG
-                                const finalFallback = `data:image/svg+xml;base64,${btoa(`
-                                  <svg width="480" height="360" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="480" height="360" fill="#0066cc"/>
-                                    <circle cx="240" cy="180" r="30" fill="white" opacity="0.9"/>
-                                    <polygon points="230,165 250,180 230,195" fill="#0066cc"/>
-                                    <text x="240" y="250" font-size="18" fill="white" text-anchor="middle">
-                                      📺 Video
-                                    </text>
-                                  </svg>
-                                `)}`;
-                                
-                                if (e.target.src !== finalFallback) {
-                                  console.log('Using final SVG fallback');
-                                  e.target.src = finalFallback;
-                                }
+                              // Final fallback
+                              const finalFallback = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDgwIiBoZWlnaHQ9IjM2MCIgZmlsbD0iIzAwNjZjYyIvPgogIDxjaXJjbGUgY3g9IjI0MCIgY3k9IjE4MCIgcj0iMzAiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjkiLz4KICA8cG9seWdvbiBwb2ludHM9IjIzMCwxNjUgMjUwLDE4MCAyMzAsMTk1IiBmaWxsPSIjMDA2NmNjIi8+CiAgPHRleHQgeD0iMjQwIiB5PSIyNTAiIGZvbnQtc2l6ZT0iMTgiIGZpbGw9IndoaXRlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgIPCfk7ogVmlkZW8KICA8L3RleHQ+Cjwvc3ZnPgo=';
+                              if (e.target.src !== finalFallback) {
+                                console.log('🔄 Using final fallback');
+                                e.target.src = finalFallback;
                               }
-                            }}
-                            onLoad={() => {
-                              console.log('Thumbnail loaded successfully:', video.title);
-                            }}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all">
-                            <Play className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
-                          </div>
+                            }}                          />
                           <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
                             {video.duration}
+                          </div>
+                          <div className="absolute inset-0 flex items-center justify-center hover:bg-black hover:bg-opacity-30 transition-all">
+                            <Play className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
                           </div>
                         </div>
                         
