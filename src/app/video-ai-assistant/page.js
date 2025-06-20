@@ -18,12 +18,13 @@ export default function VideoAIAssistant() {
   const [completedMessages, setCompletedMessages] = useState(new Set());
   const [showFullContent, setShowFullContent] = useState(new Set());
   const [pendingNotes, setPendingNotes] = useState(null);
-  const [showDocumentDialog, setShowDocumentDialog] = useState(false);
-  const [showDocumentNameDialog, setShowDocumentNameDialog] = useState(false);
+  const [showDocumentDialog, setShowDocumentDialog] = useState(false);  const [showDocumentNameDialog, setShowDocumentNameDialog] = useState(false);
   const [documentName, setDocumentName] = useState('');
   const [showProjectSetupDialog, setShowProjectSetupDialog] = useState(false);
   const [projectFolder, setProjectFolder] = useState(null);
   const [projectFolderName, setProjectFolderName] = useState('');  const [existingDoc, setExistingDoc] = useState(null);
+  const [showDocumentSelector, setShowDocumentSelector] = useState(false);
+  const [availableDocs, setAvailableDocs] = useState([]);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // Percentage
   const [isDragging, setIsDragging] = useState(false);
   const messagesEndRef = useRef(null);
@@ -262,18 +263,16 @@ What would you like me to help you with?`,
         case 'existing':
           // Add to existing document
           await addToExistingDocument();
-          break;
-        case 'select':
+          break;        case 'select':
           // Show document selector
-          await showDocumentSelector();
+          await handleShowDocumentSelector();
           break;
       }
     } catch (error) {
       console.error('Error handling document choice:', error);
       alert('Failed to process document choice. Please try again.');
     }
-  };
-  const addToExistingDocument = async () => {
+  };  const addToExistingDocument = async () => {
     try {
       const response = await fetch('/api/google-integration', {
         method: 'POST',
@@ -283,7 +282,7 @@ What would you like me to help you with?`,
         body: JSON.stringify({
           action: 'list_docs_in_folder',
           data: {
-            folderId: projectFolder?.id
+            folderId: projectFolder?.folderId
           }
         }),
       });
@@ -291,24 +290,61 @@ What would you like me to help you with?`,
       const data = await response.json();
       
       if (data.success && data.docs && data.docs.length > 0) {
-        setExistingDoc(data.docs[0]); // Use the first document
-        setShowDocumentNameDialog(true);
+        // Show document selector dialog with all available documents
+        setAvailableDocs(data.docs);
+        setShowDocumentSelector(true);
       } else {
         // No existing docs, create new one
+        alert('No documents found in your project folder. Creating a new document instead.');
         setShowDocumentNameDialog(true);
         setExistingDoc(null);
       }
     } catch (error) {
       console.error('Error listing documents:', error);
       // Fallback to creating new document
+      alert('Failed to fetch documents. Creating a new document instead.');
+      setShowDocumentNameDialog(true);
+      setExistingDoc(null);
+    }
+  };const handleShowDocumentSelector = async () => {
+    try {
+      const response = await fetch('/api/google-integration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'list_docs_in_folder',
+          data: {
+            folderId: projectFolder?.folderId
+          }
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success && data.docs && data.docs.length > 0) {
+        // Show document selector dialog with all available documents
+        setAvailableDocs(data.docs);
+        setShowDocumentSelector(true);
+      } else {
+        // No existing docs, show message and create new one
+        alert('No documents found in your project folder. Creating a new document instead.');
+        setShowDocumentNameDialog(true);
+        setExistingDoc(null);
+      }
+    } catch (error) {
+      console.error('Error listing documents:', error);
+      alert('Failed to fetch documents. Creating a new document instead.');
       setShowDocumentNameDialog(true);
       setExistingDoc(null);
     }
   };
 
-  const showDocumentSelector = async () => {
-    // For now, just add to existing document
-    await addToExistingDocument();
+  const handleSelectDocument = (doc) => {
+    setExistingDoc(doc);
+    setShowDocumentSelector(false);
+    setShowDocumentNameDialog(true);
   };
   const handleSaveNotes = async () => {
     try {
@@ -322,9 +358,8 @@ What would you like me to help you with?`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            action: 'add_notes_to_doc',
-            data: {
-              documentId: existingDoc.id,
+            action: 'add_notes_to_doc',            data: {
+              documentId: existingDoc.documentId || existingDoc.id,
               notes: pendingNotes,
               videoTitle: videoTitle,
               videoId: videoId,
@@ -332,12 +367,12 @@ What would you like me to help you with?`,
             }
           }),
         });      } else {        // Create new document
-        const action = projectFolder?.id ? 'create_doc_in_folder' : 'create_doc_for_video';
-        const data = projectFolder?.id ? {
+        const action = projectFolder?.folderId ? 'create_doc_in_folder' : 'create_doc_for_video';
+        const data = projectFolder?.folderId ? {
           videoTitle: videoTitle,
           videoChannel: videoChannel,
           videoId: videoId,
-          folderId: projectFolder.id,
+          folderId: projectFolder.folderId,
           docTitle: documentName.trim(),
           userEmail: null,
           notes: pendingNotes
@@ -366,12 +401,16 @@ What would you like me to help you with?`,
         setDocumentName('');
         setExistingDoc(null);
         setPendingNotes(null);        // Add a system message to confirm save
+        const documentDisplayName = existingDoc 
+          ? (existingDoc.name || existingDoc.title || 'Selected Document')
+          : documentName.trim();
+          
         const systemMessage = {
           id: Date.now(),
           type: 'ai',
-          content: `✅ Notes ${existingDoc ? 'added to' : 'saved in'} "${existingDoc ? existingDoc.name : documentName.trim()}". Document created successfully!
+          content: `✅ Notes ${existingDoc ? 'added to' : 'saved in'} "${documentDisplayName}". Document ${existingDoc ? 'updated' : 'created'} successfully!
 
-📄 [Open Document](${data.doc?.documentUrl || data.doc?.documentUrl || '#'})${projectFolder ? `\n\n📁 [View Project Folder](${projectFolder.folderUrl || projectFolder.webViewLink})` : ''}
+📄 [Open Document](${data.doc?.documentUrl || data.document?.documentUrl || '#'})${projectFolder ? `\n\n📁 [View Project Folder](${projectFolder.folderUrl || projectFolder.webViewLink})` : ''}
 
 *Note: Documents are set to be accessible with the link for easy sharing.*`,
           timestamp: new Date()
@@ -952,7 +991,63 @@ What would you like me to help you with?`,
             </div>
           </div>
         </div>
-      )}      {/* Project Setup Dialog */}
+      )}
+
+      {/* Document Selector Dialog */}
+      {showDocumentSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Select Document</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Choose a document from your project folder to add these notes to.
+            </p>
+            
+            <div className="max-h-60 overflow-y-auto mb-4">              {availableDocs.map((doc) => (
+                <button
+                  key={doc.documentId || doc.id}
+                  onClick={() => handleSelectDocument(doc)}
+                  className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors mb-2 last:mb-0"
+                >
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-foreground truncate">{doc.name || doc.title}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {doc.modifiedTime ? `Modified: ${new Date(doc.modifiedTime).toLocaleDateString()}` : 'Google Document'}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDocumentSelector(false);
+                  setAvailableDocs([]);
+                  setPendingNotes(null);
+                }}
+                className="px-4 py-2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowDocumentSelector(false);
+                  setShowDocumentNameDialog(true);
+                  setExistingDoc(null);
+                }}
+                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+              >
+                Create New Instead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Setup Dialog */}
       {showProjectSetupDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
@@ -989,7 +1084,57 @@ What would you like me to help you with?`,
               >
                 Create Folder
               </button>
-            </div>          </div>        </div>
+            </div>          </div>        </div>      )}
+
+      {/* Document Selector Dialog */}
+      {showDocumentSelector && availableDocs.length > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-lg w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Select Document</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Choose which document you want to add the notes to:
+            </p>
+            
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {availableDocs.map((doc) => (
+                <button
+                  key={doc.documentId}
+                  onClick={() => handleSelectDocument(doc)}
+                  className="w-full p-4 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <div className="flex items-start gap-3">
+                    <FileText className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground truncate">{doc.title}</div>
+                      <div className="text-sm text-muted-foreground mt-1">
+                        Last modified: {new Date(doc.modifiedTime).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setShowDocumentSelector(false)}
+                className="flex-1 px-4 py-2 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowDocumentSelector(false);
+                  setShowDocumentNameDialog(true);
+                  setExistingDoc(null);
+                }}
+                className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Create New Instead
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

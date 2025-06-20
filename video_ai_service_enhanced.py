@@ -60,10 +60,9 @@ class VideoAIService:
         
         genai.configure(api_key=self.gemini_api_key)
         self.gemini_model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # Video context cache
+          # Video context cache
         self.video_contexts: Dict[str, VideoContext] = {}
-        print("✅ Video AI Service initialized successfully")
+        print("[SUCCESS] Video AI Service initialized successfully")
 
     async def get_video_context(self, video_id: str, title: str = "", channel: str = "") -> VideoContext:
         """Get comprehensive video context including transcript and metadata"""
@@ -94,14 +93,14 @@ class VideoAIService:
 
     def _get_video_transcript(self, video_id: str) -> List[Dict[str, Any]]:
         """Get video transcript with timestamps"""
-        print(f"🔍 Fetching transcript for video: {video_id}")
+        print(f"[INFO] Fetching transcript for video: {video_id}")
         
         try:
             transcript_data = YouTubeTranscriptApi.get_transcript(video_id)
-            print(f"✅ Found transcript with {len(transcript_data)} segments")
+            print(f"[SUCCESS] Found transcript with {len(transcript_data)} segments")
             return transcript_data
         except Exception as e:
-            print(f"❌ Transcript fetch failed: {e}")
+            print(f"[ERROR] Transcript fetch failed: {e}")
             return [{"text": "Transcript not available for this video.", "start": 0, "duration": 0}]
 
     async def _generate_ai_response(self, prompt: str) -> str:
@@ -128,7 +127,7 @@ class VideoAIService:
                 break
             sampled.append(transcript_data[i])
         
-        print(f"📊 Sampled {len(sampled)} segments from {len(transcript_data)} total segments")
+        print(f"[INFO] Sampled {len(sampled)} segments from {len(transcript_data)} total segments")
         return sampled
 
     async def _generate_notes(self, video_context: VideoContext) -> str:
@@ -447,7 +446,7 @@ async def health_check():
     }
 
 if __name__ == "__main__":
-    print("🎬 Starting Video AI Service...")
+    print("[INFO] Starting Video AI Service...")
     print("Available endpoints:")
     print("- POST /chat - Main chat interface")
     print("- POST /generate-notes - Generate notes for a video")
