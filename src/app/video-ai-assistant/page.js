@@ -25,11 +25,58 @@ export default function VideoAIAssistant() {
   const [projectFolderName, setProjectFolderName] = useState('');  const [existingDoc, setExistingDoc] = useState(null);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
   const [availableDocs, setAvailableDocs] = useState([]);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [showScreenshotDialog, setShowScreenshotDialog] = useState(false);
+  const [pendingScreenshot, setPendingScreenshot] = useState(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(50); // Percentage
   const [isDragging, setIsDragging] = useState(false);
-  const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef(null);  // Cloud database functions (replace localStorage)
+  const saveChatToDatabase = async (sessionData) => {
+    try {
+      const response = await fetch('/api/chat-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData)
+      });
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Failed to save to database:', error);
+      // Fallback to localStorage
+      const chatKey = `chat_${sessionData.videoId}_${btoa(sessionData.videoTitle || '').slice(0, 10)}`;
+      saveToLocalStorage(`${chatKey}_messages`, sessionData.messages);
+      saveToLocalStorage(`${chatKey}_projectFolder`, sessionData.projectFolder);
+    }
+  };
 
-  // Persist chat state to localStorage
+  const loadChatFromDatabase = async (videoId, videoTitle) => {
+    try {
+      const response = await fetch(`/api/chat-session?videoId=${videoId}&title=${encodeURIComponent(videoTitle)}`);
+      const data = await response.json();
+      if (data.success && data.session) {
+        return {
+          messages: data.session.messages || [],
+          projectFolder: data.session.projectFolder || null
+        };
+      }
+      return null;
+    } catch (error) {
+      console.warn('Failed to load from database:', error);
+      // Fallback to localStorage
+      const chatKey = `chat_${videoId}_${btoa(videoTitle || '').slice(0, 10)}`;
+      const savedMessages = loadFromLocalStorage(`${chatKey}_messages`);
+      const savedProjectFolder = loadFromLocalStorage(`${chatKey}_projectFolder`);
+      if (savedMessages && savedMessages.length > 0) {
+        return { messages: savedMessages, projectFolder: savedProjectFolder };
+      }
+      return null;
+    }
+  };
+
+  // Keep localStorage as fallback
   const saveToLocalStorage = (key, value) => {
     try {
       if (typeof window !== 'undefined') {
@@ -62,39 +109,36 @@ export default function VideoAIAssistant() {
     }
     return defaultValue;
   };  useEffect(() => {
-    const currentVideoId = searchParams.get('videoId') || '';
-    const currentVideoTitle = decodeURIComponent(searchParams.get('title') || '');
-    const currentVideoChannel = decodeURIComponent(searchParams.get('channel') || '');
-    
-    setVideoId(currentVideoId);
-    setVideoTitle(currentVideoTitle);
-    setVideoChannel(currentVideoChannel);
+    const loadChatData = async () => {
+      const currentVideoId = searchParams.get('videoId') || '';
+      const currentVideoTitle = decodeURIComponent(searchParams.get('title') || '');
+      const currentVideoChannel = decodeURIComponent(searchParams.get('channel') || '');
+      
+      setVideoId(currentVideoId);
+      setVideoTitle(currentVideoTitle);
+      setVideoChannel(currentVideoChannel);
 
-    // Load saved panel width
-    const savedPanelWidth = loadFromLocalStorage('panelWidth', 50);
-    setLeftPanelWidth(savedPanelWidth);
+      // Load saved panel width (keep in localStorage as it's user preference)
+      const savedPanelWidth = loadFromLocalStorage('panelWidth', 50);
+      setLeftPanelWidth(savedPanelWidth);
 
-    // Create a unique key for this video's chat
-    const chatKey = `chat_${currentVideoId}_${btoa(currentVideoTitle).slice(0, 10)}`;
-    
-    // Load persisted chat data
-    const savedMessages = loadFromLocalStorage(`${chatKey}_messages`);
-    const savedProjectFolder = loadFromLocalStorage(`${chatKey}_projectFolder`);
-    const savedCompletedMessages = loadFromLocalStorage(`${chatKey}_completedMessages`);
-    const savedShowFullContent = loadFromLocalStorage(`${chatKey}_showFullContent`);
+      if (!currentVideoId) return;
 
-    if (savedMessages && savedMessages.length > 0) {
-      // Restore saved chat
-      setMessages(savedMessages);
-      setProjectFolder(savedProjectFolder);
-      setCompletedMessages(new Set(savedCompletedMessages || []));
-      setShowFullContent(new Set(savedShowFullContent || []));
-    } else {
-      // Create new welcome message
-      const welcomeMessage = {
-        id: 1,
-        type: 'ai',
-        content: `Hi! I'm your AI video assistant. I can help you:
+      // Try to load chat data from Firebase
+      const savedData = await loadChatFromDatabase(currentVideoId, currentVideoTitle);
+      
+      if (savedData && savedData.messages && savedData.messages.length > 0) {
+        // Restore saved chat from Firebase
+        setMessages(savedData.messages);
+        setProjectFolder(savedData.projectFolder);
+        setCompletedMessages(new Set(savedData.messages.map(m => m.id)));
+        setShowFullContent(new Set(savedData.messages.map(m => m.id)));
+      } else {
+        // Create new welcome message
+        const welcomeMessage = {
+          id: 1,
+          type: 'ai',
+          content: `Hi! I'm your AI video assistant. I can help you:
 
 • Create detailed notes and summaries
 • Clip specific sections of the video
@@ -105,15 +149,18 @@ export default function VideoAIAssistant() {
 **Want to stay organized?** I can create a dedicated Google Drive folder for this video project.
 
 What would you like me to help you with?`,
-        timestamp: new Date(),
-        isWelcome: true,
-        showProjectSetup: true
-      };
-      
-      setMessages([welcomeMessage]);
-      setCompletedMessages(new Set([1]));
-      setShowFullContent(new Set([1]));
-    }
+          timestamp: new Date(),
+          isWelcome: true,
+          showProjectSetup: true
+        };
+        
+        setMessages([welcomeMessage]);
+        setCompletedMessages(new Set([1]));
+        setShowFullContent(new Set([1]));
+      }
+    };
+
+    loadChatData();
   }, [searchParams]);
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -126,15 +173,22 @@ What would you like me to help you with?`,
   };  useEffect(() => {
     scrollToBottom();
     
-    // Save chat state whenever messages change
+    // Save chat state to Firebase whenever messages change
     if (videoId && messages.length > 0) {
-      const chatKey = `chat_${videoId}_${btoa(videoTitle).slice(0, 10)}`;
-      saveToLocalStorage(`${chatKey}_messages`, messages);
-      saveToLocalStorage(`${chatKey}_projectFolder`, projectFolder);
-      saveToLocalStorage(`${chatKey}_completedMessages`, Array.from(completedMessages));
-      saveToLocalStorage(`${chatKey}_showFullContent`, Array.from(showFullContent));
+      // Debounce the save operation to avoid too many writes
+      const timeoutId = setTimeout(() => {
+        saveChatToDatabase({
+          videoId,
+          videoTitle,
+          videoChannel,
+          messages,
+          projectFolder
+        });
+      }, 1000); // Wait 1 second after last change
+
+      return () => clearTimeout(timeoutId);
     }
-  }, [messages, projectFolder, completedMessages, showFullContent, videoId, videoTitle]);  // Save panel width when it changes
+  }, [messages, projectFolder, videoId, videoTitle, videoChannel]);// Save panel width when it changes
   useEffect(() => {
     saveToLocalStorage('panelWidth', leftPanelWidth);
   }, [leftPanelWidth]);
@@ -241,8 +295,234 @@ What would you like me to help you with?`,
         newSet.delete(messageId);
         return newSet;
       });
-    }, 0);
-  }, []);
+    }, 0);  }, []);  // Screenshot Functions
+  const captureVideoScreenshot = async () => {
+    if (!videoId) {
+      alert('No video loaded to capture screenshot from.');
+      return;
+    }
+
+    setIsCapturingScreenshot(true);
+
+    try {
+      // Try to get the current time from the YouTube iframe (if possible)
+      let currentTime = 0;
+      try {
+        // Since we can't directly access YouTube iframe due to CORS,
+        // we'll try to get a timestamp-based thumbnail
+        // Note: This is a limitation - we can't get the exact current frame
+        const iframe = document.querySelector('iframe[src*="youtube.com/embed"]');
+        if (iframe && iframe.contentWindow) {
+          // Unfortunately, we can't access the current time due to CORS
+          console.log('Cannot access current video time due to CORS restrictions');
+        }
+      } catch (error) {
+        console.log('Could not access video current time:', error.message);
+      }
+
+      // Show user dialog to input current timestamp
+      const userTime = prompt(
+        'To capture the current frame, please enter the current video timestamp (in seconds).\n\n' +
+        'For example: enter "125" for 2:05, or "305" for 5:05\n\n' +
+        'You can see the current time in the YouTube player controls.',
+        '0'
+      );
+
+      if (userTime === null) {
+        // User cancelled
+        return;
+      }
+
+      const timestamp = parseInt(userTime) || 0;
+      console.log('Attempting to capture screenshot at timestamp:', timestamp);
+
+      // YouTube provides thumbnails at specific intervals, but we can try to get close
+      // Unfortunately, YouTube doesn't provide frame-perfect thumbnails via public API
+      // We'll use the best available thumbnail and note the timestamp
+      
+      const thumbnailUrls = [
+        `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
+        `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
+        `https://img.youtube.com/vi/${videoId}/default.jpg`
+      ];
+      
+      // Try each thumbnail URL until one works
+      for (let i = 0; i < thumbnailUrls.length; i++) {
+        const thumbnailUrl = thumbnailUrls[i];
+        console.log(`Trying thumbnail URL ${i + 1}:`, thumbnailUrl);
+        
+        try {
+          await new Promise((resolve, reject) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            // Enable CORS for the image
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = async () => {
+              try {
+                console.log('Image loaded successfully, dimensions:', img.width, 'x', img.height);
+                
+                // Set canvas size to image size
+                canvas.width = img.width;
+                canvas.height = img.height;
+                
+                // Draw the image on canvas
+                ctx.drawImage(img, 0, 0);
+
+                // Add timestamp overlay on the image
+                if (timestamp > 0) {
+                  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                  ctx.fillRect(10, 10, 200, 40);
+                  ctx.fillStyle = 'white';
+                  ctx.font = '16px Arial';
+                  const timeStr = `${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, '0')}`;
+                  ctx.fillText(`Timestamp: ${timeStr}`, 20, 35);
+                }
+                  // Convert canvas to blob
+                canvas.toBlob(async (blob) => {
+                  if (!blob) {
+                    reject(new Error('Failed to create image blob'));
+                    return;
+                  }
+
+                  console.log('Created blob with size:', blob.size, 'bytes');
+                  
+                  // Store screenshot data and show dialog
+                  setPendingScreenshot({
+                    blob: blob,
+                    timestamp: timestamp,
+                    fileName: `Screenshot_${videoTitle.replace(/[^a-zA-Z0-9]/g, '_')}_${timestamp > 0 ? `${Math.floor(timestamp / 60)}m${timestamp % 60}s` : 'thumbnail'}_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`
+                  });
+                  setShowScreenshotDialog(true);
+                  resolve();
+                }, 'image/jpeg', 0.9);
+              } catch (error) {
+                console.error('Error processing image:', error);
+                reject(error);
+              }
+            };
+            
+            img.onerror = (e) => {
+              console.error(`Failed to load thumbnail ${i + 1}:`, e);
+              reject(new Error(`Failed to load thumbnail quality ${i + 1}`));
+            };
+            
+            img.src = thumbnailUrl;
+          });
+          
+          // If we get here, the screenshot was successful
+          return;
+        } catch (error) {
+          console.log(`Thumbnail ${i + 1} failed:`, error.message);
+          if (i === thumbnailUrls.length - 1) {
+            // This was the last attempt
+            throw new Error('All thumbnail qualities failed to load. This might be due to the video being private, restricted, or not having thumbnails available.');
+          }
+          // Continue to next thumbnail quality
+        }
+      }
+    } catch (error) {
+      console.error('Error capturing screenshot:', error);
+      alert('Failed to capture screenshot: ' + error.message);
+    } finally {
+      setIsCapturingScreenshot(false);
+    }
+  };  const uploadScreenshotToDrive = async (imageBlob, timestamp = 0, targetFolderId = null) => {
+    try {
+      console.log('Starting screenshot upload, blob size:', imageBlob.size);
+      console.log('Target folder ID:', targetFolderId);
+      
+      // Convert blob to base64
+      const base64Image = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          // Remove the data:image/jpeg;base64, prefix
+          const base64 = reader.result.split(',')[1];
+          console.log('Converted to base64, length:', base64.length);
+          resolve(base64);
+        };
+        reader.onerror = (error) => {
+          console.error('FileReader error:', error);
+          reject(error);
+        };
+        reader.readAsDataURL(imageBlob);
+      });
+
+      const timestampStr = timestamp > 0 ? `_${Math.floor(timestamp / 60)}m${timestamp % 60}s` : '';
+      const fileTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const fileName = `Screenshot_${videoTitle.replace(/[^a-zA-Z0-9]/g, '_')}${timestampStr}_${fileTimestamp}.jpg`;
+
+      console.log('Uploading screenshot with filename:', fileName);
+      console.log('Video timestamp:', timestamp > 0 ? `${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, '0')}` : 'Not specified');
+
+      const response = await fetch('/api/google-integration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'upload_screenshot',
+          data: {
+            imageData: base64Image,
+            fileName: fileName,
+            folderId: targetFolderId,
+            videoTitle: videoTitle,
+            videoId: videoId,
+            videoChannel: videoChannel,
+            timestamp: timestamp
+          }
+        }),
+      });
+
+      const data = await response.json();
+      console.log('API response:', data);
+      
+      if (data.success) {
+        // Add a system message to confirm screenshot saved
+        const timeStr = timestamp > 0 ? ` at ${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, '0')}` : '';
+        const locationStr = targetFolderId ? 
+          (targetFolderId === projectFolder?.folderId ? 'project folder' : 'specified folder') : 
+          'Google Drive root';
+        
+        const systemMessage = {
+          id: Date.now(),
+          type: 'ai',
+          content: `📷 Screenshot captured and saved to your ${locationStr}!
+
+**File:** ${fileName}
+**Video Time:** ${timestamp > 0 ? `${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, '0')}` : 'Default thumbnail'}
+
+📄 [View Screenshot](${data.file?.webViewLink || '#'})${targetFolderId === projectFolder?.folderId && projectFolder ? `\n\n📁 [View Project Folder](${projectFolder.folderUrl || projectFolder.webViewLink})` : ''}
+
+*Note: Due to YouTube's security restrictions, this is the best available thumbnail with timestamp overlay. For exact frame capture, you might need to use a browser extension or screen capture tool.*`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, systemMessage]);
+        setCompletedMessages(prev => new Set([...prev, systemMessage.id]));
+        setShowFullContent(prev => new Set([...prev, systemMessage.id]));
+      } else {
+        throw new Error(data.error || data.message || 'Failed to upload screenshot');
+      }
+    } catch (error) {
+      console.error('Error uploading screenshot:', error);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to upload screenshot to Google Drive. ';
+      if (error.message.includes('thumbnail')) {
+        errorMessage += 'The video thumbnail could not be accessed. This might be due to the video being private or restricted.';
+      } else if (error.message.includes('auth')) {
+        errorMessage += 'Authentication failed. Please check your Google Drive integration.';
+      } else {
+        errorMessage += 'Please try again or check your internet connection.';
+      }
+      
+      alert(errorMessage + '\n\nTechnical details: ' + error.message);
+      throw error;
+    }
+  };
 
   // Handler Functions
   const handleSaveToGoogleDrive = (content) => {
@@ -482,19 +762,30 @@ What would you like me to help you with?`,
       console.error('Error creating project folder:', error);
       alert('Failed to create project folder. Please try again.');
     }
-  };
-
-  const clearChatHistory = () => {
+  };  const clearChatHistory = async () => {
     if (confirm('Are you sure you want to clear the chat history? This will remove all messages and start fresh.')) {
+      try {
+        // First, clear from Firebase cloud database
+        const response = await fetch(`/api/chat-session?videoId=${videoId}&title=${encodeURIComponent(videoTitle)}`, {
+          method: 'DELETE'
+        });
+        const result = await response.json();
+        if (!result.success) {
+          console.warn('Failed to clear from database:', result.error);
+        }
+      } catch (error) {
+        console.warn('Failed to clear from database:', error);
+      }
+      
       const chatKey = `chat_${videoId}_${btoa(videoTitle).slice(0, 10)}`;
       
-      // Clear localStorage
+      // Clear localStorage (fallback)
       localStorage.removeItem(`${chatKey}_messages`);
       localStorage.removeItem(`${chatKey}_projectFolder`);
       localStorage.removeItem(`${chatKey}_completedMessages`);
       localStorage.removeItem(`${chatKey}_showFullContent`);
       
-      // Reset state
+      // Reset state to welcome message
       const welcomeMessage = {
         id: Date.now(),
         type: 'ai',
@@ -519,14 +810,57 @@ What would you like me to help you with?`,
       setShowFullContent(new Set([welcomeMessage.id]));
       setProjectFolder(null);
       setPendingNotes(null);
+      
+      // Save the fresh state to Firebase (just the welcome message)
+      await saveChatToDatabase({
+        videoId,
+        videoTitle,
+        videoChannel,
+        messages: [welcomeMessage],
+        projectFolder: null
+      });
+    }
+  };const quickActions = [
+    { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video", type: "message" },
+    { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video", type: "message" },
+    { icon: <Camera className="h-4 w-4" />, text: "Screenshot", action: captureVideoScreenshot, type: "function" },
+    { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive", type: "message" }
+  ];
+
+  // Screenshot Dialog Handlers
+  const handleScreenshotChoice = async (choice) => {
+    setShowScreenshotDialog(false);
+    
+    if (!pendingScreenshot) return;
+    
+    try {
+      switch (choice) {
+        case 'project':
+          // Save to project folder
+          await uploadScreenshotToDrive(pendingScreenshot.blob, pendingScreenshot.timestamp, projectFolder?.folderId);
+          break;
+        case 'root':
+          // Save to Drive root
+          await uploadScreenshotToDrive(pendingScreenshot.blob, pendingScreenshot.timestamp, null);
+          break;
+        case 'select':
+          // Show folder selector (not implemented yet - for future enhancement)
+          alert('Folder selection coming soon! For now, saving to Google Drive root.');
+          await uploadScreenshotToDrive(pendingScreenshot.blob, pendingScreenshot.timestamp, null);
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling screenshot choice:', error);
+      alert('Failed to save screenshot. Please try again.');
+    } finally {
+      setPendingScreenshot(null);
     }
   };
-  const quickActions = [
-    { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video" },
-    { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video" },
-    { icon: <Camera className="h-4 w-4" />, text: "Screenshot", action: "Take a screenshot of the current video frame" },
-    { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive" }
-  ];  // Resizable panel handlers
+
+  const cancelScreenshot = () => {
+    setShowScreenshotDialog(false);
+    setPendingScreenshot(null);
+  };// Resizable panel handlers
   const handleMouseDown = useCallback((e) => {
     console.log('Mouse down on resize handle');
     setIsDragging(true);
@@ -665,18 +999,28 @@ What would you like me to help you with?`,
         </div>{/* Quick Actions */}
         <div className="px-6 py-4 bg-muted/30 border-b border-border">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Quick Actions</p>
-          <div className="grid grid-cols-2 gap-2">
-            {quickActions.map((action, index) => (
+          <div className="grid grid-cols-2 gap-2">            {quickActions.map((action, index) => (
               <button
                 key={index}
-                onClick={() => setInputMessage(action.action)}
-                className="flex items-center gap-3 p-3 text-sm bg-card border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-all duration-200 group"
+                onClick={() => {
+                  if (action.type === 'function') {
+                    action.action();
+                  } else {
+                    setInputMessage(action.action);
+                  }
+                }}
+                disabled={action.type === 'function' && action.text === 'Screenshot' && isCapturingScreenshot}
+                className="flex items-center gap-3 p-3 text-sm bg-card border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-all duration-200 group disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="text-muted-foreground group-hover:text-foreground transition-colors">
-                  {action.icon}
+                  {action.text === 'Screenshot' && isCapturingScreenshot ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    action.icon
+                  )}
                 </div>
                 <span className="font-medium text-foreground">
-                  {action.text}
+                  {action.text === 'Screenshot' && isCapturingScreenshot ? 'Capturing...' : action.text}
                 </span>
               </button>
             ))}
@@ -1133,6 +1477,77 @@ What would you like me to help you with?`,
                 className="flex-1 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Create New Instead
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Screenshot Management Dialog */}
+      {showScreenshotDialog && pendingScreenshot && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg p-6 max-w-md w-full mx-4 shadow-xl border border-border">
+            <h3 className="text-lg font-semibold text-foreground mb-4">Save Screenshot</h3>
+            <p className="text-muted-foreground mb-6">
+              You've captured a screenshot! Where would you like to save it?
+            </p>
+              <div className="space-y-3">
+              {projectFolder && (
+                <button
+                  onClick={() => handleScreenshotChoice('project')}
+                  className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <FolderPlus className="h-5 w-5 text-primary" />
+                    <div>
+                      <div className="font-medium text-foreground">Save to Project Folder</div>
+                      <div className="text-sm text-muted-foreground">Save in "{projectFolder.name || 'Project'}" folder</div>
+                    </div>
+                  </div>
+                </button>
+              )}
+              
+              <button
+                onClick={() => handleScreenshotChoice('root')}
+                className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FolderPlus className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-medium text-foreground">Save to Google Drive</div>
+                    <div className="text-sm text-muted-foreground">Save in the root directory of your Google Drive</div>
+                  </div>
+                </div>
+              </button>
+              
+              <button
+                onClick={() => handleScreenshotChoice('select')}
+                className="w-full p-3 text-left border border-border rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <FolderPlus className="h-5 w-5 text-primary" />
+                  <div>
+                    <div className="font-medium text-foreground">Select Folder</div>
+                    <div className="text-sm text-muted-foreground">Choose a specific folder in your Google Drive</div>
+                  </div>
+                </div>
+              </button>
+              
+              {!projectFolder && (
+                <div className="p-3 bg-muted/30 border border-border rounded-lg">
+                  <div className="text-sm text-muted-foreground">
+                    💡 <strong>Tip:</strong> Create a project folder to keep your screenshots organized!
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={cancelScreenshot}
+                className="flex-1 px-4 py-2 text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

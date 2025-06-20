@@ -6,6 +6,7 @@ import {
   shareGoogleDoc,
   createGoogleDriveFolder, 
   uploadToGoogleDrive,
+  uploadBinaryToGoogleDrive,
   getOrCreateVideoNotesDoc,
   getOrCreateProjectFolder,
   searchGoogleDrive,
@@ -30,9 +31,11 @@ export async function POST(request) {
       
       case 'create_doc_in_folder':
         return await createDocInFolder(data);
-      
-      case 'list_docs_in_folder':
+        case 'list_docs_in_folder':
         return await listProjectDocs(data);
+      
+      case 'upload_screenshot':
+        return await uploadScreenshot(data);
       
       case 'save_notes_to_drive':
         return await saveNotesToDrive(data);
@@ -194,5 +197,48 @@ async function listProjectDocs({ folderId }) {
     });
   } catch (error) {
     throw new Error(`Failed to list docs in folder: ${error.message}`);
+  }
+}
+
+async function uploadScreenshot({ imageData, fileName, folderId, videoTitle, videoId, videoChannel }) {
+  try {
+    console.log('Upload screenshot request:', {
+      fileName,
+      folderId,
+      videoTitle,
+      imageDataLength: imageData?.length,
+      hasImageData: !!imageData
+    });
+
+    if (!imageData) {
+      throw new Error('No image data provided');
+    }
+
+    // Convert base64 to buffer
+    const buffer = Buffer.from(imageData, 'base64');
+    console.log('Created buffer with size:', buffer.length);
+    
+    // Upload the screenshot to Google Drive
+    const file = await uploadBinaryToGoogleDrive({
+      buffer: buffer,
+      filename: fileName,
+      mimeType: 'image/jpeg',
+      folderId: folderId,
+      description: `Screenshot from video: ${videoTitle} (${videoChannel})`
+    });
+    
+    console.log('File uploaded successfully:', file.id);
+    
+    // Make the file accessible with the link
+    await shareGoogleDoc(file.id, 'anyone');
+    
+    return NextResponse.json({
+      success: true,
+      file: file,
+      message: 'Screenshot uploaded to Google Drive!'
+    });
+  } catch (error) {
+    console.error('Upload screenshot error:', error);
+    throw new Error(`Failed to upload screenshot: ${error.message}`);
   }
 }

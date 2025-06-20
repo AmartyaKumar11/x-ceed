@@ -304,6 +304,125 @@ export async function uploadToGoogleDrive(fileName, content, mimeType, folderId 
 }
 
 /**
+ * Upload binary data (like images) to Google Drive
+ */
+export async function uploadBinaryToGoogleDrive({ buffer, filename, mimeType, folderId = null, description = null }) {
+  try {
+    const auth = await getGoogleAuth();
+    const drive = google.drive({ version: 'v3', auth });
+    
+    // Ensure buffer is properly formatted
+    let finalBuffer;
+    if (typeof buffer === 'string') {
+      // If it's a base64 string, convert to Buffer
+      finalBuffer = Buffer.from(buffer, 'base64');
+    } else if (Buffer.isBuffer(buffer)) {
+      finalBuffer = buffer;
+    } else {
+      throw new Error('Invalid buffer format provided');
+    }
+
+    // Create file metadata
+    const fileMetadata = {
+      name: filename,
+    };
+    
+    if (folderId) {
+      fileMetadata.parents = [folderId];
+    }
+    
+    if (description) {
+      fileMetadata.description = description;
+    }
+
+    // Try a different approach using the older API style that works better with buffers
+    const response = await drive.files.create({
+      resource: fileMetadata,
+      media: {
+        mimeType: mimeType,
+        body: finalBuffer,
+      },
+      fields: 'id, name, webViewLink, webContentLink',
+    });
+    
+    return {
+      id: response.data.id,
+      name: response.data.name,
+      webViewLink: response.data.webViewLink,
+      webContentLink: response.data.webContentLink
+    };
+  } catch (error) {
+    console.error('Error uploading binary to Google Drive:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      bufferType: typeof buffer,
+      bufferLength: Buffer.isBuffer(buffer) ? buffer.length : (typeof buffer === 'string' ? buffer.length : 'unknown'),
+      filename,
+      mimeType,
+      folderId
+    });    // Fallback: Try a different approach using form data if the first method fails
+    if (error.message.includes('pipe')) {
+      console.log('Trying fallback approach with base64 conversion...');
+      try {
+        // Re-initialize auth and drive for fallback approach
+        const fallbackAuth = await getGoogleAuth();
+        const fallbackDrive = google.drive({ version: 'v3', auth: fallbackAuth });
+        
+        // Recreate file metadata for fallback approach
+        const fallbackFileMetadata = {
+          name: filename,
+        };
+        
+        if (folderId) {
+          fallbackFileMetadata.parents = [folderId];
+        }
+        
+        if (description) {
+          fallbackFileMetadata.description = description;
+        }
+        
+        // Re-process the buffer for fallback approach
+        let fallbackBuffer;
+        if (typeof buffer === 'string') {
+          // If it's a base64 string, convert to Buffer
+          fallbackBuffer = Buffer.from(buffer, 'base64');
+        } else if (Buffer.isBuffer(buffer)) {
+          fallbackBuffer = buffer;
+        } else {
+          throw new Error('Invalid buffer format provided');
+        }
+        
+        // Convert buffer to base64 data URL and use that
+        const base64Data = fallbackBuffer.toString('base64');
+        const dataUrl = `data:${mimeType};base64,${base64Data}`;
+        
+        const fallbackResponse = await fallbackDrive.files.create({
+          resource: fallbackFileMetadata,
+          media: {
+            mimeType: mimeType,
+            body: dataUrl,
+          },
+          fields: 'id, name, webViewLink, webContentLink',
+        });
+        
+        return {
+          id: fallbackResponse.data.id,
+          name: fallbackResponse.data.name,
+          webViewLink: fallbackResponse.data.webViewLink,
+          webContentLink: fallbackResponse.data.webContentLink
+        };
+      } catch (fallbackError) {
+        console.error('Fallback approach also failed:', fallbackError);
+        throw new Error(`All upload methods failed: ${fallbackError.message}`);
+      }
+    }
+    
+    throw new Error(`Failed to upload binary file to Google Drive: ${error.message}`);
+  }
+}
+
+/**
  * Search for existing docs or folders
  */
 export async function searchGoogleDrive(query, mimeType = null) {
@@ -387,11 +506,22 @@ export async function shareGoogleDoc(documentId, emailAddress, role = 'writer') 
     const auth = await getGoogleAuth();
     const drive = google.drive({ version: 'v3', auth });
     
-    const permission = {
-      type: 'user',
-      role: role, // 'reader', 'writer', or 'owner'
-      emailAddress: emailAddress
-    };
+    let permission;
+    
+    if (emailAddress === 'anyone') {
+      // Make file accessible to anyone with the link
+      permission = {
+        type: 'anyone',
+        role: 'reader' // For 'anyone', we usually use 'reader' for security
+      };
+    } else {
+      // Share with specific user
+      permission = {
+        type: 'user',
+        role: role, // 'reader', 'writer', or 'owner'
+        emailAddress: emailAddress
+      };
+    }
     
     const response = await drive.permissions.create({
       fileId: documentId,
@@ -402,7 +532,8 @@ export async function shareGoogleDoc(documentId, emailAddress, role = 'writer') 
     return response.data;
   } catch (error) {
     console.error('Error sharing Google Doc:', error);
-    throw new Error('Failed to share Google Doc');
+    console.error('Share details:', { documentId, emailAddress, role });
+    throw new Error(`Failed to share Google Doc: ${error.message}`);
   }
 }
 
