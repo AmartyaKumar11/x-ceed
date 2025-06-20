@@ -232,15 +232,17 @@ What would you like me to help you with?`,
     });
     setCompletedMessages(prev => new Set([...prev, messageId]));
   };
-
-  const handleTypingComplete = (messageId) => {
-    setCompletedMessages(prev => new Set([...prev, messageId]));
-    setPausedMessages(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(messageId);
-      return newSet;
-    });
-  };
+  const handleTypingComplete = useCallback((messageId) => {
+    // Use setTimeout to defer the state update and avoid updating during render
+    setTimeout(() => {
+      setCompletedMessages(prev => new Set([...prev, messageId]));
+      setPausedMessages(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+    }, 0);
+  }, []);
 
   // Handler Functions
   const handleSaveToGoogleDrive = (content) => {
