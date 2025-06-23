@@ -46,8 +46,7 @@ export default function AIShortlistPage() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState({});
-  const [filter, setFilter] = useState('all');
+  const [updatingStatus, setUpdatingStatus] = useState({});  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
     if (params.id) {
