@@ -259,23 +259,23 @@ export default function ResumeMatchPage() {
       });
 
       console.log('📊 API Response status:', response.status);
-      console.log('📊 API Response ok:', response.ok);
-
-      if (response.ok) {
+      console.log('📊 API Response ok:', response.ok);      if (response.ok) {
         const result = await response.json();
         console.log('🔍 Full response from API:', result);
-          // Handle both structured and text-based analysis
+        console.log('📄 Resume text in response:', result.data?.resumeText ? `${result.data.resumeText.length} characters` : 'Missing');
+        
+        // Handle both structured and text-based analysis
         const analysisData = result.data?.analysis || result.data || result;
         console.log('📈 Extracted analysis data:', analysisData);
-        
-        if (analysisData?.structuredAnalysis) {
+          if (analysisData?.structuredAnalysis) {
           // Use structured analysis from Python service (preferred)
           console.log('✅ Using Python structured analysis');
           setRagAnalysis({
             structuredAnalysis: analysisData.structuredAnalysis,
+            resumeText: result.data?.resumeText, // Store the extracted resume text
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
-          });        } else if (analysisData?.comprehensiveAnalysis) {
+          });} else if (analysisData?.comprehensiveAnalysis) {
           // Fallback to text-based comprehensive analysis from Python service
           console.log('✅ Using Python comprehensive analysis (fallback)');
           
@@ -289,17 +289,21 @@ export default function ResumeMatchPage() {
               console.warn('⚠️ Could not parse analysis JSON, using as string:', parseError);
             }
           }
-          
-          setRagAnalysis({
+            setRagAnalysis({
             structuredAnalysis: typeof parsedAnalysis === 'object' ? parsedAnalysis : null,
             comprehensiveAnalysis: analysisData.comprehensiveAnalysis,
+            resumeText: result.data?.resumeText, // Store the extracted resume text 
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
           });
-        } else {
-          // Fallback to any other structured analysis
+        } else {          // Fallback to any other structured analysis
           console.log('⚠️ Using fallback analysis format');
-          setRagAnalysis(analysisData);
+          // Ensure we include resumeText even in fallback case
+          const fallbackAnalysis = {
+            ...analysisData,
+            resumeText: result.data?.resumeText // Store the extracted resume text
+          };
+          setRagAnalysis(fallbackAnalysis);
         }
         
         setChatInitialized(true);
@@ -386,24 +390,40 @@ export default function ResumeMatchPage() {
       // Only add Authorization header if token exists
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
-      }
+      }      const requestBody = {
+        action: 'chat',
+        question: userMessage.content,
+        sessionId: 'default',
+        conversationHistory: chatMessages,
+        analysisContext: ragAnalysis ? {
+          jobTitle: job?.title,
+          jobDescription: job?.description,
+          jobRequirements: job?.requirements || [],
+          resumePath: userResume?.resumePath,
+          resumeText: ragAnalysis.resumeText || ragAnalysis.resumeContent, // Include resume content
+          analysisResult: ragAnalysis.comprehensiveAnalysis || ragAnalysis.overallMatch?.summary,
+          structuredAnalysis: ragAnalysis.structuredAnalysis, // Include detailed analysis
+          timestamp: new Date().toISOString()
+        } : {
+          jobTitle: job?.title,
+          jobDescription: job?.description,
+          jobRequirements: job?.requirements || [],
+          resumePath: userResume?.resumePath
+        }
+      };
+      
+      console.log('💬 Sending chat request:', {
+        question: userMessage.content,
+        hasAnalysisContext: !!ragAnalysis,
+        resumeTextLength: ragAnalysis?.resumeText?.length || 0,
+        contextKeys: ragAnalysis ? Object.keys(requestBody.analysisContext) : []
+      });
 
       const response = await fetch('/api/resume-rag-python', {
         method: 'POST',
         headers: headers,
         signal: newAbortController.signal,
-        body: JSON.stringify({
-          action: 'chat',
-          question: userMessage.content,
-          sessionId: 'default',
-          conversationHistory: chatMessages,
-          analysisContext: ragAnalysis ? {
-            jobTitle: job?.title,
-            jobDescription: job?.description,
-            analysisResult: ragAnalysis.comprehensiveAnalysis || ragAnalysis.overallMatch?.summary,
-            timestamp: new Date().toISOString()
-          } : null
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (response.ok) {

@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { formatDistanceToNow } from 'date-fns';
+import AIShortlistButton from '@/components/AIShortlistButton';
 
 import {
   Card,
@@ -608,11 +609,16 @@ export default function RecruiterJobsPage() {
       return `${applicantData.firstName} ${applicantData.lastName}`;
     }
     return applicantData?.personal?.name || 'Candidate';
-  };
-  // Helper function to get applicant email
+  };  // Helper function to get applicant email
   const getApplicantEmail = (candidate) => {
     const applicantData = getApplicantData(candidate);
-    return applicantData?.email || applicantData?.personal?.email || 'N/A';
+    const accountEmail = applicantData?.email || applicantData?.personal?.email;
+    const contactEmail = applicantData?.contactEmail;
+    
+    if (contactEmail && contactEmail !== accountEmail) {
+      return `${contactEmail} (contact)`;
+    }
+    return accountEmail || 'N/A';
   };
 
   // Helper function to get applicant phone
@@ -671,10 +677,10 @@ export default function RecruiterJobsPage() {
     setUpdateStatusMessage('');
     setUpdateStatusSuccess(false);
     
-    try {
-      // Handle both mock data (applicant) and real API data (applicantDetails)
+    try {      // Handle both mock data (applicant) and real API data (applicantDetails)
       const applicantData = selectedCandidate.applicant || selectedCandidate.applicantDetails;
-      const applicantEmail = applicantData?.email || 'no-email@example.com';
+      // Use contactEmail if provided, otherwise fall back to account email
+      const applicantEmail = applicantData?.contactEmail || applicantData?.email || 'no-email@example.com';
       
       const token = localStorage.getItem('token');
       if (!token) {
@@ -971,8 +977,14 @@ export default function RecruiterJobsPage() {
                     </div>
                   )}
                 </div>
-              </CardContent>
-              <CardFooter className="flex flex-wrap gap-2 justify-end">
+              </CardContent>              <CardFooter className="flex flex-wrap gap-2 justify-end">
+                <AIShortlistButton 
+                  job={job}
+                  onShortlistComplete={(results) => {
+                    console.log('AI Shortlist completed:', results);
+                    // Optionally refresh job data or show notification
+                  }}
+                />
                 <Button 
                   variant="outline"
                   className="flex items-center gap-1"
@@ -1253,11 +1265,39 @@ export default function RecruiterJobsPage() {
             <div className="space-y-6 my-4">
               {/* Personal Information */}
               <div>
-                <h3 className="font-semibold text-lg mb-3">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">                  <div>
-                    <h4 className="text-sm text-muted-foreground">Email</h4>
-                    <p>{getApplicantEmail(selectedCandidate)}</p>
-                  </div>                  <div>
+                <h3 className="font-semibold text-lg mb-3">Personal Information</h3>                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm text-muted-foreground">Email for Notifications</h4>
+                    <p>{(() => {
+                      const applicantData = getApplicantData(selectedCandidate);
+                      const accountEmail = applicantData?.email || applicantData?.personal?.email;
+                      const contactEmail = applicantData?.contactEmail;
+                      
+                      if (contactEmail && contactEmail !== accountEmail) {
+                        return (
+                          <span>
+                            {contactEmail} <span className="text-xs text-muted-foreground">(preferred)</span>
+                          </span>
+                        );
+                      }
+                      return accountEmail || 'N/A';
+                    })()}</p>
+                    {(() => {
+                      const applicantData = getApplicantData(selectedCandidate);
+                      const accountEmail = applicantData?.email || applicantData?.personal?.email;
+                      const contactEmail = applicantData?.contactEmail;
+                      
+                      if (contactEmail && contactEmail !== accountEmail && accountEmail) {
+                        return (
+                          <div className="mt-1">
+                            <h4 className="text-xs text-muted-foreground">Account Email</h4>
+                            <p className="text-sm text-muted-foreground">{accountEmail}</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div><div>
                     <h4 className="text-sm text-muted-foreground">Phone</h4>
                     <p>{getApplicantPhone(selectedCandidate)}</p>
                   </div>

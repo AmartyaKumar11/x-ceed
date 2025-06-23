@@ -56,12 +56,11 @@ export default async function handler(req, res) {
           resolve([fields, files]);
         }
       });
-    });
-
-    // Extract form fields
+    });    // Extract form fields
     const jobId = Array.isArray(fields.jobId) ? fields.jobId[0] : fields.jobId;
     const coverLetter = Array.isArray(fields.coverLetter) ? fields.coverLetter[0] : fields.coverLetter;
     const additionalMessage = Array.isArray(fields.additionalMessage) ? fields.additionalMessage[0] : fields.additionalMessage;
+    const contactEmail = Array.isArray(fields.contactEmail) ? fields.contactEmail[0] : fields.contactEmail;
 
     // Validate required fields
     if (!jobId) {
@@ -213,11 +212,11 @@ export default async function handler(req, res) {
       additionalMessage: additionalMessage || '',
       status: 'pending',
       appliedAt: new Date(),
-      updatedAt: new Date(),
-      // Include key applicant details for easier querying
+      updatedAt: new Date(),      // Include key applicant details for easier querying
       applicantDetails: {
         name: applicant.personal?.name || `${applicant.firstName || ''} ${applicant.lastName || ''}`.trim(),
         email: applicant.email,
+        contactEmail: contactEmail && contactEmail.trim() ? contactEmail.trim() : null, // Optional contact email for notifications
         phone: applicant.contact?.phone || applicant.phone || ''
       },
       // Include key job details

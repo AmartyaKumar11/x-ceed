@@ -4,8 +4,9 @@ import fs from 'fs';
 import path from 'path';
 import { NextResponse } from 'next/server';
 
-// Python FastAPI service URL
+// Python FastAPI service URLs
 const PYTHON_RAG_SERVICE_URL = process.env.PYTHON_RAG_SERVICE_URL || 'http://localhost:8000';
+const PYTHON_GEMINI_CHAT_SERVICE_URL = process.env.PYTHON_GEMINI_CHAT_SERVICE_URL || 'http://localhost:8001';
 
 export async function POST(request) {
   console.log('🤖 Python RAG-Powered Resume Analysis API called');
@@ -169,19 +170,19 @@ EDUCATION:
 
     // Extract the analysis data properly
     const analysisData = analysisResult.data?.analysis || analysisResult.data || analysisResult;
-    console.log('📊 Extracted analysis data:', JSON.stringify(analysisData, null, 2));
-
-    return NextResponse.json({
+    console.log('📊 Extracted analysis data:', JSON.stringify(analysisData, null, 2));    return NextResponse.json({
       success: true,
       data: {
         analysis: analysisData,  // Pass the full analysis data
+        resumeText: finalResumeText, // Include the extracted resume text
         metadata: {
           analyzedAt: new Date().toISOString(),
           jobId,
           userId,
           model: 'llama-3.1-8b-instant',
           ragEnabled: true,
-          service: 'python-fastapi'
+          service: 'python-fastapi',
+          resumeTextLength: finalResumeText ? finalResumeText.length : 0
         }
       }
     });
@@ -198,7 +199,7 @@ EDUCATION:
 
 async function handlePythonChat({ question, conversationHistory, analysisContext }) {
   try {
-    console.log('💬 Processing chat question via Python service:', question);
+    console.log('💬 Processing chat question via Gemini service:', question);
     console.log('📝 Analysis context available:', !!analysisContext);
     console.log('💭 Conversation history length:', conversationHistory?.length || 0);
     
@@ -209,53 +210,53 @@ async function handlePythonChat({ question, conversationHistory, analysisContext
       console.log(`   - Analysis Result: ${analysisContext.analysisResult ? 'Available' : 'Missing'}`);
     }
     
-    // Build enhanced context for the chat
-    let contextualQuestion = question;
-    
-    if (analysisContext) {
-      const contextInfo = [
-        `Based on the resume analysis for the job "${analysisContext.jobTitle}":`,
-        analysisContext.analysisResult ? `Analysis: ${analysisContext.analysisResult.slice(0, 500)}...` : '',
-        `User question: ${question}`
-      ].filter(Boolean).join('\n\n');
-      
-      contextualQuestion = contextInfo;
-    }
-    
-    const pythonResponse = await fetch(`${PYTHON_RAG_SERVICE_URL}/chat`, {
+    // Use Gemini chat service for resume analysis chat
+    const geminiResponse = await fetch(`${PYTHON_GEMINI_CHAT_SERVICE_URL}/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        question: contextualQuestion,
+        question: question,
         session_id: 'default',
         conversation_history: conversationHistory?.slice(-6) || [], // Last 6 messages for context
         context: analysisContext
       })
     });
 
-    if (!pythonResponse.ok) {
-      const errorData = await pythonResponse.json();
-      throw new Error(`Python chat service error: ${errorData.detail || pythonResponse.statusText}`);
+    if (!geminiResponse.ok) {
+      const errorData = await geminiResponse.json().catch(() => ({}));
+      throw new Error(`Gemini chat service error: ${errorData.error || geminiResponse.statusText}`);
     }
 
-    const chatResult = await pythonResponse.json();
+    const chatResult = await geminiResponse.json();
 
     return NextResponse.json({
       success: true,
       data: {
-        response: chatResult.data.response,
-        sources: chatResult.data.sources || [],
+        response: chatResult.response,
         timestamp: new Date().toISOString()
-      }
+      },
+      // For backward compatibility
+      response: chatResult.response
     });
 
   } catch (error) {
-    console.error('❌ Python chat error:', error);
+    console.error('❌ Gemini chat error:', error);
+    
+    // Provide helpful error messages based on the error type
+    if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch')) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Gemini chat service is not running. Please start the service on port 8001.', 
+        error: 'Service unavailable',
+        hint: 'Run: python gemini_resume_chat_service.py'
+      }, { status: 503 });
+    }
+    
     return NextResponse.json({ 
       success: false, 
-      message: 'Python chat failed', 
+      message: 'Chat failed', 
       error: error.message 
     }, { status: 500 });
   }

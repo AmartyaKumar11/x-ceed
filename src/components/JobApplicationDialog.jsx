@@ -11,10 +11,10 @@ import { apiClient } from '@/lib/api';
 import PostApplicationRecommendationDialog from './PostApplicationRecommendationDialog';
 
 export default function JobApplicationDialog({ isOpen, onClose, job, onApplicationSubmitted }) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
+  const [isSubmitting, setIsSubmitting] = useState(false);  const [formData, setFormData] = useState({
     coverLetter: '',
-    additionalMessage: ''
+    additionalMessage: '',
+    contactEmail: ''
   });
   const [resumeFile, setResumeFile] = useState(null);
   const [dragActive, setDragActive] = useState(false);
@@ -71,10 +71,10 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
     
     try {
       // Create FormData for file upload
-      const applicationFormData = new FormData();
-      applicationFormData.append('jobId', job._id);
+      const applicationFormData = new FormData();      applicationFormData.append('jobId', job._id);
       applicationFormData.append('coverLetter', formData.coverLetter);
       applicationFormData.append('additionalMessage', formData.additionalMessage);
+      applicationFormData.append('contactEmail', formData.contactEmail);
       applicationFormData.append('resume', resumeFile);
 
       // Submit application
@@ -95,11 +95,11 @@ export default function JobApplicationDialog({ isOpen, onClose, job, onApplicati
         jobId: job._id,
         jobTitle: result.data?.jobTitle || job.title
       });
-      
-      // Reset form
+        // Reset form
       setFormData({
         coverLetter: '',
-        additionalMessage: ''
+        additionalMessage: '',
+        contactEmail: ''
       });
       setResumeFile(null);
       

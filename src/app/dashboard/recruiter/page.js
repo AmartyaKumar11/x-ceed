@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { clientAuth } from '@/lib/auth';
 import CreateJobDialog from '@/components/CreateJobDialog';
+import ApplicationStatusCards from '@/components/ApplicationStatusCards';
+import { AnalyticsProvider } from '@/contexts/AnalyticsContext';
 
 export default function RecruiterDashboardPage() {
   const router = useRouter();  const [jobs, setJobs] = useState([]);
@@ -166,10 +168,14 @@ export default function RecruiterDashboardPage() {
         return 'Location';
     }
   };  return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <h2 className="text-3xl font-bold mb-6 text-foreground">Recruitment Overview</h2>
-      
-      {/* Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">        
+    <AnalyticsProvider>
+      <div className="space-y-6 max-w-7xl mx-auto">
+        <h2 className="text-3xl font-bold mb-6 text-foreground">Recruitment Overview</h2>
+        
+        {/* Application Status Analytics */}
+        <ApplicationStatusCards />
+        
+        {/* Basic Stats Cards */}      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div 
           className="bg-card text-card-foreground p-4 rounded-lg border shadow-md hover:shadow-lg transition-shadow cursor-pointer flex items-start" 
           onClick={() => router.push('/dashboard/recruiter/jobs')}
@@ -340,12 +346,12 @@ export default function RecruiterDashboardPage() {
           </div>
         </div>
       </div>
-      
-      <CreateJobDialog
+        <CreateJobDialog
         isOpen={isCreateJobDialogOpen}
         onClose={() => setIsCreateJobDialogOpen(false)}
         onJobCreated={handleJobCreated}
       />
-    </div>
+      </div>
+    </AnalyticsProvider>
   );
 }

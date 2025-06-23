@@ -234,11 +234,11 @@ ${recruiter?.recruiter?.name || recruiter?.personal?.name || 'Recruitment Team'}
 ${companyName || job.company}
 
 ${recruiter?.email ? `Email: ${recruiter.email}` : ''}
-${recruiter?.recruiter?.phone ? `Phone: ${recruiter.recruiter.phone}` : ''}`;
-
-    try {
+${recruiter?.recruiter?.phone ? `Phone: ${recruiter.recruiter.phone}` : ''}`;    try {
+      // Use contactEmail if provided, otherwise fall back to account email
+      const emailAddress = application.applicantDetails?.contactEmail || applicant.email;
       await sendEmail(
-        applicant.email,
+        emailAddress,
         emailSubject,
         emailBody
       );

@@ -97,10 +97,11 @@ export default async function handler(req, res) {
         message: 'Applicant email not found'
       });
     }
-    
-    // Send the email notification
+      // Send the email notification
+    // Use contactEmail if provided, otherwise fall back to account email
+    const emailAddress = application.applicantDetails?.contactEmail || applicant.email;
     const emailResult = await sendEmail(
-      applicant.email,
+      emailAddress,
       emailSubject,
       emailBody
     );
