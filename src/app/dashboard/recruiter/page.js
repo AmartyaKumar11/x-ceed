@@ -23,7 +23,11 @@ export default function RecruiterDashboardPage() {
   const router = useRouter();  const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isCreateJobDialogOpen, setIsCreateJobDialogOpen] = useState(false);  const [stats, setStats] = useState({
+  const [isCreateJobDialogOpen, setIsCreateJobDialogOpen] = useState(false);
+  const [upcomingInterviews, setUpcomingInterviews] = useState([]);
+  const [interviewsLoading, setInterviewsLoading] = useState(true);
+
+  const [stats, setStats] = useState({
     activeJobs: 0,
     totalApplications: 0,
     interviews: 0
@@ -42,8 +46,13 @@ export default function RecruiterDashboardPage() {
           });
         });
       }
+    }  }, []);
+    // Update stats when interviews are loaded
+  useEffect(() => {
+    if (jobs.length > 0) {
+      calculateStats(jobs);
     }
-  }, []);
+  }, [upcomingInterviews, jobs]);
   
   // Check URL hash for #create-job
   useEffect(() => {
@@ -78,10 +87,9 @@ export default function RecruiterDashboardPage() {
           router.push('/auth');
         }
         return;
-      }
-
-      setAuthLoading(false);
-      await fetchJobs();    } catch (error) {
+      }      setAuthLoading(false);
+      await fetchJobs();
+      await fetchUpcomingInterviews();} catch (error) {
       router.push('/auth');
     }
   };
@@ -121,16 +129,67 @@ export default function RecruiterDashboardPage() {
       calculateStats([]);
     } finally {
       setLoading(false);
+    }  };
+
+  const fetchUpcomingInterviews = async () => {
+    try {
+      setInterviewsLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUpcomingInterviews([]);
+        return;
+      }      const userData = clientAuth.getUser();
+      console.log('🔍 User data:', userData);
+      
+      if (!userData?._id) {
+        console.error('❌ No user ID found');
+        setUpcomingInterviews([]);
+        return;
+      }
+
+      const apiUrl = `/api/interviews/upcoming?recruiterId=${userData._id}`;
+      console.log('🌐 Calling API:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('📡 API Response status:', response.status);
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📊 API Response data:', data);
+        
+        if (data && data.success) {
+          console.log('✅ Setting interviews:', data.interviews);
+          setUpcomingInterviews(data.interviews || []);
+        } else {
+          console.error('❌ API returned no success');
+          setUpcomingInterviews([]);
+        }
+      } else {
+        const errorText = await response.text();
+        console.error('❌ API Error:', response.status, errorText);
+        setUpcomingInterviews([]);
+      }
+    } catch (error) {
+      console.error('Error fetching upcoming interviews:', error);
+      setUpcomingInterviews([]);
+    } finally {
+      setInterviewsLoading(false);
     }
   };
-
   const calculateStats = (jobsData) => {
     const activeJobs = jobsData.filter(job => job.status === 'active').length;
     const totalApplications = jobsData.reduce((sum, job) => sum + (job.applicationsCount || 0), 0);
       setStats({
       activeJobs,
       totalApplications,
-      interviews: Math.floor(totalApplications * 0.3) // Estimate interviews
+      interviews: upcomingInterviews.length // Use actual interview count
     });
   };
   const handleJobCreated = (newJob) => {
@@ -310,48 +369,74 @@ export default function RecruiterDashboardPage() {
             <LineChart className="h-5 w-5 mr-2 text-muted-foreground" />
             Upcoming Interviews
           </h3>
-          
-          <div className="space-y-3">
-            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm text-card-foreground">John Smith</h4>
+            {interviewsLoading ? (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">Loading interviews...</div>
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-3 border border-border/50 rounded-md animate-pulse">
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-gray-300 rounded-full mr-2"></div>
+                    <div className="h-4 bg-gray-300 rounded w-24"></div>
+                  </div>
+                  <div className="h-3 bg-gray-300 rounded w-40 mt-1"></div>
+                </div>
+              ))}
+            </div>          ) : (
+            <div>
+              <div className="text-xs text-muted-foreground mb-2">
+                Debug: Found {upcomingInterviews.length} interviews
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Frontend Developer • Today, 2:00 PM</p>
+              {upcomingInterviews.length > 0 ? (
+                <div className="space-y-3">
+                  {upcomingInterviews.map((interview) => (
+                    <div 
+                      key={interview.id} 
+                      className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" 
+                      onClick={() => router.push(`/dashboard/recruiter/jobs/${interview.jobId}`)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className={`w-2 h-2 rounded-full mr-2 ${
+                            interview.isToday ? 'bg-red-500' : 
+                            interview.isTomorrow ? 'bg-orange-500' : 
+                            'bg-green-500'
+                          }`}></div>
+                          <h4 className="font-medium text-sm text-card-foreground">{interview.applicantName}</h4>
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          interview.isToday ? 'bg-red-100 text-red-800' :
+                          interview.isTomorrow ? 'bg-orange-100 text-orange-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {interview.timeFromNow}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {interview.jobTitle} • {interview.timeFromNow}, {interview.interviewTime}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {interview.interviewType}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">No upcoming interviews scheduled</p>
+                  <p className="text-xs mt-1">Applications with 'Interview' status will appear here</p>
+                </div>              )}
             </div>
-            
-            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-primary rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm text-card-foreground">Sarah Johnson</h4>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">UI Designer • Today, 4:30 PM</p>
-            </div>
-            
-            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm text-card-foreground">David Lee</h4>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Product Manager • Tomorrow, 10:00 AM</p>
-            </div>
-            
-            <div className="p-3 border border-border/50 rounded-md hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => console.log('Interview clicked')}>
-              <div className="flex items-center">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                <h4 className="font-medium text-sm text-card-foreground">Emily Chen</h4>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Backend Developer • Tomorrow, 1:30 PM</p>
-            </div>
-          </div>
+          )}
         </div>
       </div>
-        <CreateJobDialog
+      
+      <CreateJobDialog
         isOpen={isCreateJobDialogOpen}
         onClose={() => setIsCreateJobDialogOpen(false)}
         onJobCreated={handleJobCreated}
       />
-      </div>
+    </div>
     </AnalyticsProvider>
   );
 }
