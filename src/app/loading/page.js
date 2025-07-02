@@ -11,26 +11,31 @@ export default function LoadingPage() {
   const [fadeOut, setFadeOut] = useState(false);
   
   const fullText = 'X-CEED';
-    useEffect(() => {    // Type out the text character by character with faster speed
+
+  useEffect(() => {
+    let typingTimeout;
+    let fadeOutTimeout;
+
     if (text.length < fullText.length) {
-      const timeout = setTimeout(() => {
+      typingTimeout = setTimeout(() => {
         setText(fullText.substring(0, text.length + 1));
       }, 100); 
-      
-      return () => clearTimeout(timeout);
-    } else {      // When typing is complete, wait a moment before fade out
+    } else {      
       setComplete(true);
-      const timeout = setTimeout(() => {
+      fadeOutTimeout = setTimeout(() => {
         setFadeOut(true);
-        
         // Redirect after slide-up animation completes
-        setTimeout(() => {
+        const redirectTimeout = setTimeout(() => {
           router.replace('/auth');
-        }, 600); // Shorter duration for quicker transition
-      }, 1000); // Reduced time to see complete text
-      
-      return () => clearTimeout(timeout);
+        }, 600); 
+        return () => clearTimeout(redirectTimeout);
+      }, 1000); 
     }
+
+    return () => {
+      clearTimeout(typingTimeout);
+      clearTimeout(fadeOutTimeout);
+    };
   }, [text, router]);
 
   return (
