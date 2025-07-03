@@ -19,6 +19,7 @@ import { clientAuth } from '@/lib/auth';
 import ProfileSettingsDialog from '@/components/ProfileSettingsDialog';
 import NewsPanel from '@/components/NewsPanel';
 import { useToast } from '@/components/ui/use-toast';
+import WebJobsComponent from '@/components/WebJobsComponent';
 
 export default function ApplicantDashboardPage() {
   const router = useRouter();
@@ -360,6 +361,9 @@ export default function ApplicantDashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* --- Web Jobs from the Internet --- */}
+            <WebJobsComponent />
 
             {/* Profile Completion - Only show if not 100% complete */}
             {shouldShowProfileCompletion && (

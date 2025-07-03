@@ -41,6 +41,10 @@ export default function ResumeMatchPage() {
   const resumeId = searchParams.get('resumeId');
   const resumeFilename = searchParams.get('resumeFilename');
   const resumeName = searchParams.get('resumeName');
+  const jobDesc = searchParams.get('jobDesc');
+  const requirementsParam = searchParams.get('requirements');
+  const companyNameParam = searchParams.get('companyName');
+  const jobTypeParam = searchParams.get('jobType');
   
   // State management
   const [job, setJob] = useState(null);
@@ -179,7 +183,21 @@ export default function ResumeMatchPage() {
 
       // Fetch job data
       let jobData = null;
-      if (jobId) {        console.log('📋 Fetching job data for:', jobId);
+      if (jobDesc) {
+        // External job: use jobDesc and requirements from query params
+        jobData = {
+          _id: jobId || 'external',
+          title: searchParams.get('jobTitle') || 'External Job',
+          description: decodeURIComponent(jobDesc),
+          requirements: requirementsParam ? JSON.parse(requirementsParam) : [],
+          companyName: companyNameParam || '',
+          jobType: jobTypeParam || '',
+        };
+        setJob(jobData);
+        console.log('🌐 Using external job data:', jobData);
+      } else if (jobId) {
+        // Internal job: fetch from API
+        console.log('📋 Fetching job data for:', jobId);
         const jobResponse = await fetch(`/api/jobs/${jobId}`);
         if (jobResponse.ok) {
           const jobResponseData = await jobResponse.json();
@@ -727,10 +745,13 @@ The prep plan is ready and waiting for you! 🚀`,
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">AI Resume Analysis</h1>
-                <p className="text-muted-foreground mt-1">
-                  {job?.title && `Analyzing your fit for: ${job.title}`}
-                </p>
+                <h1 className="text-3xl font-bold tracking-tight mb-2">AI Resume Analysis</h1>
+                {job && (
+                  <div className="text-muted-foreground text-base mb-6">
+                    {job.companyName && <span className="font-semibold">{job.companyName}</span>}
+                    {job.jobType && <span className="ml-2">({job.jobType.charAt(0).toUpperCase() + job.jobType.slice(1).replace('_', ' ')})</span>}
+                  </div>
+                )}
               </div>
             </div>
             {analyzing && (
@@ -739,8 +760,7 @@ The prep plan is ready and waiting for you! 🚀`,
                 <span className="text-sm font-medium text-blue-700 dark:text-blue-300">AI analyzing...</span>
               </div>
             )}
-          </div>
-        </div>        {/* Main Content - Responsive Grid */}
+          </div>        {/* Main Content - Responsive Grid */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-20" style={{ minHeight: 'auto', height: 'auto' }}>
           {/* Analysis Results - Takes 2 columns on xl screens */}
           <div className="xl:col-span-2" style={{ height: 'auto', overflow: 'visible' }}>{ragAnalysis ? (
@@ -750,7 +770,7 @@ The prep plan is ready and waiting for you! 🚀`,
                   /* Structured Analysis Cards */
                   <>
                     {/* Overall Match Score */}
-                    <Card className="border-0 shadow-sm bg-card">
+                    <Card className="border border-border rounded-lg shadow-md bg-card">
                       <CardHeader className="pb-4">
                         <div className="flex items-center justify-between">
                           <CardTitle className="text-xl flex items-center gap-3">
@@ -786,7 +806,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     </Card>
 
                     {/* Key Strengths */}
-                    <Card className="border-0 shadow-sm bg-card">
+                    <Card className="border border-border rounded-lg shadow-md bg-card">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-xl flex items-center gap-3">
                           <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
@@ -809,7 +829,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     {/* Skills Analysis Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Matching Skills */}
-                      <Card className="border-0 shadow-sm bg-card">
+                      <Card className="border border-border rounded-lg shadow-md bg-card">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg flex items-center gap-3">
                             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
@@ -830,7 +850,7 @@ The prep plan is ready and waiting for you! 🚀`,
                       </Card>
 
                       {/* Missing Skills */}
-                      <Card className="border-0 shadow-sm bg-card">
+                      <Card className="border border-border rounded-lg shadow-md bg-card">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg flex items-center gap-3">
                             <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
@@ -856,7 +876,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     </div>
 
                     {/* Experience Analysis */}
-                    <Card className="border-0 shadow-sm bg-card">
+                    <Card className="border border-border rounded-lg shadow-md bg-card">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-xl flex items-center gap-3">
                           <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
@@ -884,7 +904,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     </Card>
 
                     {/* Improvement Suggestions */}
-                    <Card className="border-0 shadow-sm bg-card">
+                    <Card className="border border-border rounded-lg shadow-md bg-card">
                       <CardHeader className="pb-4">
                         <CardTitle className="text-xl flex items-center gap-3">
                           <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
@@ -908,7 +928,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     {/* Competitive Advantages & Interview Prep Grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       {/* Competitive Advantages */}
-                      <Card className="border-0 shadow-sm bg-card">
+                      <Card className="border border-border rounded-lg shadow-md bg-card">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg flex items-center gap-3">
                             <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
@@ -928,7 +948,7 @@ The prep plan is ready and waiting for you! 🚀`,
                       </Card>
 
                       {/* Interview Preparation */}
-                      <Card className="border-0 shadow-sm bg-card">
+                      <Card className="border border-border rounded-lg shadow-md bg-card">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg flex items-center gap-3">
                             <div className="p-2 bg-teal-100 dark:bg-teal-900 rounded-lg">
@@ -968,7 +988,7 @@ The prep plan is ready and waiting for you! 🚀`,
                   </>
                 ) : ragAnalysis.comprehensiveAnalysis ? (
                   /* Fallback to Original Text Analysis */
-                  <Card className="border-0 shadow-sm bg-card">
+                  <Card className="border border-border rounded-lg shadow-md bg-card">
                     <CardHeader className="pb-4">
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-xl flex items-center gap-3">
@@ -998,7 +1018,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     </CardContent>
                   </Card>) : (
                   // Fallback - try to find analysis in different formats
-                  <Card className="border-0 shadow-sm">
+                  <Card className="border border-border rounded-lg shadow-md">
                     <CardContent className="p-6">
                       {ragAnalysis.analysis ? (
                         // If there's an 'analysis' property
@@ -1043,7 +1063,7 @@ The prep plan is ready and waiting for you! 🚀`,
               </div>
             ) : (
               // Empty state
-              <Card className="border-0 shadow-sm">
+              <Card className="border border-border rounded-lg shadow-md">
                 <CardContent className="p-12">
                   <div className="text-center">
                     <Brain className="h-16 w-16 text-muted-foreground mx-auto mb-6" />
@@ -1072,17 +1092,18 @@ The prep plan is ready and waiting for you! 🚀`,
             )}
           </div>          {/* AI Chat Assistant - Takes 1 column */}
           <div className="xl:col-span-1">
-            <Card className="border-0 shadow-sm flex flex-col">
+            <Card className="border border-border rounded-lg shadow-md flex flex-col">
               <CardHeader className="pb-4 flex-shrink-0">
                 <CardTitle className="flex items-center gap-3">
                   <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                     <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
                   </div>
                   AI Career Assistant
-                </CardTitle>                <CardDescription className="text-sm">
+                </CardTitle>
+                <CardDescription className="text-sm">
                   Ask questions about your resume, the job, or get interview tips
                 </CardDescription>
-              </CardHeader>              {/* Create/View Prep Plan Buttons */}
+              </CardHeader>
               {job && (
                 <div className="px-4 pb-2 space-y-2">
                   {!prepPlanCreated ? (<Button
@@ -1115,14 +1136,11 @@ The prep plan is ready and waiting for you! 🚀`,
                         <GraduationCap className="h-4 w-4 mr-2" />
                         View Prep Plan
                       </Button>
-                      <p className="text-xs text-center text-green-600 dark:text-green-400">
-                        ✅ Learning plan created! Access it anytime from Prep Plans section.
-                      </p>
                     </div>
                   )}
                 </div>
               )}
-                <CardContent className="flex-1 flex flex-col p-0">
+              <CardContent className="flex-1 flex flex-col p-0">
                 {/* Chat Messages */}
                 <div className="flex-1 p-4 min-h-[400px] max-h-[500px] overflow-y-auto">
                   <div className="space-y-4">
@@ -1207,7 +1225,7 @@ The prep plan is ready and waiting for you! 🚀`,
                     <div ref={chatEndRef} />
                   </div>
                 </div>
-                  {/* Chat Input */}
+                {/* Chat Input */}
                 <div className="p-4 border-t bg-muted/20 flex-shrink-0">
                   <div className="flex gap-2">                    <Input
                       placeholder={chatInitialized ? "Ask me anything about your resume analysis..." : "Please wait for analysis to complete..."}
@@ -1244,7 +1262,7 @@ The prep plan is ready and waiting for you! 🚀`,
                       Chat will be available after analysis is complete
                     </p>
                   )}
-                    {/* Status indicator */}
+                  {/* Status indicator */}
                   {(chatLoading || isTypingResponse) && (
                     <p className="text-xs text-muted-foreground mt-2 text-center">
                       {chatLoading ? 'Processing your question...' : 'AI is responding...'}
@@ -1256,6 +1274,7 @@ The prep plan is ready and waiting for you! 🚀`,
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
