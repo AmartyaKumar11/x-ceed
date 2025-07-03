@@ -207,7 +207,7 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     
-    port = int(os.getenv("AI_SERVICE_PORT", 8003))
+    port = int(os.getenv("AI_SERVICE_PORT", 8004))
     logger.info(f"🚀 Starting AI Resume Analysis Service on port {port}")
     
     uvicorn.run(
