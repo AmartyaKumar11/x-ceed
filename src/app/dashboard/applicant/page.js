@@ -20,6 +20,7 @@ import ProfileSettingsDialog from '@/components/ProfileSettingsDialog';
 import NewsPanel from '@/components/NewsPanel';
 import { useToast } from '@/components/ui/use-toast';
 import WebJobsComponent from '@/components/WebJobsComponent';
+import ApplicationContributionCalendar from '@/components/ApplicationContributionCalendar';
 
 export default function ApplicantDashboardPage() {
   const router = useRouter();
@@ -94,7 +95,7 @@ export default function ApplicantDashboardPage() {
   };
   const fetchRecentApplications = async () => {
     try {
-      console.log('🔍 Fetching recent applications...');
+      console.log('🔍 Fetching all applications for activity chart...');
       const token = localStorage.getItem('token');
       console.log('🔍 Token exists:', !!token);
       
@@ -108,7 +109,8 @@ export default function ApplicantDashboardPage() {
         console.log('🔍 Auth header added');
       }
 
-      const response = await fetch('/api/applications?limit=5', {
+      // Fetch ALL applications (no limit)
+      const response = await fetch('/api/applications', {
         method: 'GET',
         headers: headers
       });
@@ -129,7 +131,7 @@ export default function ApplicantDashboardPage() {
         console.error('Failed to fetch applications:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching recent applications:', error);
+      console.error('Error fetching applications:', error);
     } finally {
       setLoadingApplications(false);
     }
@@ -254,35 +256,15 @@ export default function ApplicantDashboardPage() {
           </div>          {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             <div className="space-y-6 p-6">
-            <h2 className="text-3xl font-bold text-foreground">Welcome back</h2>
-              {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={() => window.location.href = '/dashboard/applicant/jobs'}>
-                <div className="p-3 rounded-full bg-blue-50 dark:bg-blue-950 mr-4">
-                  <Briefcase className="h-6 w-6 text-blue-500 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Available Jobs</p>
-                  <JobCountBadge />
+            {/* --- Contribution Chart --- */}
+            <div className="mb-8">
+              <div className="bg-card p-6 rounded-lg border border-border shadow-md flex flex-col items-start justify-center h-[220px] w-full min-w-0">
+                <div className="w-full min-w-0 flex flex-col h-full">
+                  <ApplicationContributionCalendar applications={applications} minCellSize={14} maxCellSize={20} weeks={52} />
                 </div>
               </div>
-              
-              <div className="bg-card p-6 rounded-lg border border-border flex items-start shadow-md hover:shadow-lg transition-shadow cursor-pointer" onClick={handleSavedJobsClick}>
-                <div className="p-3 rounded-full bg-amber-50 dark:bg-amber-950 mr-4">
-                  <Star className="h-6 w-6 text-amber-500 dark:text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Saved Jobs</p>
-                  {loadingSavedJobs ? (
-                    <div className="flex items-center">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                      <span className="text-sm text-muted-foreground">Loading...</span>
-                    </div>
-                  ) : (
-                    <h3 className="text-2xl font-bold text-foreground">{savedJobsCount}</h3>
-                  )}                </div>
-              </div>
-            </div>            {/* Recent Applications - Full Width */}
+            </div>
+            {/* Recent Applications - Full Width */}
             <div className="bg-card p-6 rounded-lg border border-border shadow-md overflow-hidden">
               <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
                 <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
@@ -361,9 +343,6 @@ export default function ApplicantDashboardPage() {
                 </div>
               )}
             </div>
-
-            {/* --- Web Jobs from the Internet --- */}
-            <WebJobsComponent />
 
             {/* Profile Completion - Only show if not 100% complete */}
             {shouldShowProfileCompletion && (

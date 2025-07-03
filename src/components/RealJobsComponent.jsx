@@ -27,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import ResumeUploadDialog from './ResumeUploadDialog';
 
-export default function RealJobsComponent({ onJobClick, searchQuery = '', filters = {} }) {
+export default function RealJobsComponent({ onJobClick, searchQuery = '', filters = {}, showSavedOnly = false }) {
   const { resolvedTheme } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -356,6 +356,11 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
           return jobDate >= cutoffDate;
         });
       }
+    }
+
+    // Apply saved jobs filter if showSavedOnly is true
+    if (showSavedOnly) {
+      filteredJobs = filteredJobs.filter(job => savedJobs.has(job._id));
     }
 
     return filteredJobs;

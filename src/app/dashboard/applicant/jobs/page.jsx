@@ -60,6 +60,7 @@ export default function ApplicantJobsPage() {
     salaryRange: [0, 200000],
     postedWithin: '',
   });
+  const [showSavedOnly, setShowSavedOnly] = useState(false);
     // Available filter options - comprehensive list to handle variations
   const filterOptions = {
     jobType: ['Full-time', 'Part-time', 'Contract', 'Internship', 'Freelance', 'Temporary'],
@@ -217,6 +218,15 @@ export default function ApplicantJobsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          
+          {/* Saved Filter Toggle */}
+          <Button
+            variant={showSavedOnly ? "default" : "outline"}
+            onClick={() => setShowSavedOnly((prev) => !prev)}
+            className={showSavedOnly ? "bg-primary text-primary-foreground" : ""}
+          >
+            {showSavedOnly ? "Showing Saved" : "Saved"}
+          </Button>
           
           {/* Filter button */}
           <Dialog open={isFilterDialogOpen} onOpenChange={setIsFilterDialogOpen}>
@@ -427,6 +437,7 @@ export default function ApplicantJobsPage() {
         onJobClick={handleJobClick} 
         searchQuery={searchQuery}
         filters={filters}
+        showSavedOnly={showSavedOnly}
       />
 
       {/* Job Application Dialog */}
