@@ -411,7 +411,7 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
         {filteredJobs.map((job) => (<Card 
           key={job._id} 
-          className="job-card hover:shadow-lg transition-all cursor-pointer border-border"
+          className="job-card p-4 border border-white/10 rounded-lg shadow-lg hover:shadow-xl transition-all cursor-pointer"
           onClick={() => onJobClick(job)}
         >
           <CardHeader className="pb-2">
@@ -471,7 +471,6 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
                 {job.level || 'Entry Level'}
               </Badge>
             </div>          </CardContent>          <CardFooter className="flex flex-wrap gap-2 justify-end">            <Button 
-              variant="outline" 
               size="sm"
               onClick={async (e) => {
                 e.stopPropagation();
@@ -535,23 +534,25 @@ Description: ${job.description || 'No description provided.'}
                   URL.revokeObjectURL(url);
                 }
               }}
-              className="flex items-center gap-1"
+              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
             >
               <Download className="h-3 w-3" />
               Download JD
             </Button>            <Button 
-              variant="outline" 
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
                 handleResumeMatch(job._id);
               }}
-              className="flex items-center gap-1"
+              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
             >
               <FileText className="h-3 w-3" />
               Match Resume
             </Button>
-            <Button variant="outline" size="sm">View Details</Button>
+            <Button 
+              size="sm"
+              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
+            >View Details</Button>
           </CardFooter>
         </Card>      ))}      </div>
       

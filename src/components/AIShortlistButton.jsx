@@ -38,7 +38,7 @@ const AIShortlistButton = ({ job, onShortlistComplete }) => {
       <Button
         onClick={handleAIShortlist}
         disabled={isAnalyzing}
-        className="flex items-center gap-2 bg-gradient-to-r from-blue-100 to-purple-100 hover:from-blue-200 hover:to-purple-200 border border-blue-200 text-blue-700 dark:from-blue-900/30 dark:to-purple-900/30 dark:hover:from-blue-800/40 dark:hover:to-purple-800/40 dark:border-blue-800 dark:text-blue-300"
+        className="flex items-center gap-2 bg-primary text-primary-foreground border border-border rounded-lg shadow-sm hover:shadow-md transition-all focus:ring-2 focus:ring-ring focus:outline-none"
       >
         <Brain className="h-4 w-4" />
         {isAnalyzing ? (
@@ -52,8 +52,8 @@ const AIShortlistButton = ({ job, onShortlistComplete }) => {
       </Button>
       
       {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
-          <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+        <div className="p-3 bg-destructive/10 border border-destructive rounded-lg">
+          <p className="text-destructive text-sm">{error}</p>
         </div>
       )}
     </div>  );

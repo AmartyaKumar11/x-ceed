@@ -995,7 +995,7 @@ export default function RecruiterJobsPage() {
                 </Button>
                 <Button 
                   variant="destructive"
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 rounded-lg bg-destructive text-destructive-foreground border border-destructive hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all"
                   onClick={() => handleConfirmCloseJob(job._id)}
                 >
                   <XCircle className="h-3 w-3" />
