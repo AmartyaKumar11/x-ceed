@@ -24,9 +24,9 @@ const RANGE_OPTIONS = [
 ];
 
 // Use theme variables for harmonious colors
-const acceptedColor = "var(--primary)";
-const interviewColor = "var(--accent)";
-const rejectedColor = "var(--destructive)";
+const acceptedColor = "var(--chart-2)"; // green
+const interviewColor = "var(--chart-3)"; // blue
+const rejectedColor = "var(--chart-4)"; // red
 
 function formatDate(dateStr) {
   const d = new Date(dateStr);
@@ -87,14 +87,14 @@ export default function ApplicationStatusAreaChart() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-6 pt-6">
         {/* Legend as pill cards */}
         <div className="flex gap-3 mb-2">
-          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--primary)]/10 text-[var(--primary)] text-xs font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-[var(--primary)]" /> Accepted
+          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--chart-2)]/10 text-[var(--chart-2)] text-xs font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--chart-2)]" /> Accepted
           </span>
-          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] text-xs font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-[var(--accent)]" /> Interview
+          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--chart-3)]/10 text-[var(--chart-3)] text-xs font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--chart-3)]" /> Interview
           </span>
-          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--destructive)]/10 text-[var(--destructive)] text-xs font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-[var(--destructive)]" /> Rejected
+          <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--chart-4)]/10 text-[var(--chart-4)] text-xs font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-[var(--chart-4)]" /> Rejected
           </span>
         </div>
         <Select value={range} onValueChange={setRange}>
