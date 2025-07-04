@@ -44,9 +44,39 @@ export default function ApplicationContributionCalendar({ applications = [], wee
         setCellSize(Math.max(minCellSize, Math.min(maxCellSize, possibleCell)));
       }
     }
+    
+    // Multiple attempts to ensure proper sizing on page load
+    const timeouts = [
+      setTimeout(updateSize, 100),
+      setTimeout(updateSize, 300),
+      setTimeout(updateSize, 600),
+      setTimeout(updateSize, 1000)
+    ];
+    
+    // Initial size calculation
     updateSize();
+    
     window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    window.addEventListener('load', updateSize);
+    // Also listen for orientation change on mobile
+    window.addEventListener('orientationchange', () => {
+      setTimeout(updateSize, 200);
+    });
+    
+    // Force recalculation when document is ready
+    if (document.readyState === 'complete') {
+      updateSize();
+    } else {
+      document.addEventListener('DOMContentLoaded', updateSize);
+    }
+    
+    return () => {
+      timeouts.forEach(clearTimeout);
+      window.removeEventListener('resize', updateSize);
+      window.removeEventListener('load', updateSize);
+      window.removeEventListener('orientationchange', updateSize);
+      document.removeEventListener('DOMContentLoaded', updateSize);
+    };
   }, [weeks, minCellSize, maxCellSize]);
 
   // 1. Build date -> count map
@@ -104,7 +134,7 @@ export default function ApplicationContributionCalendar({ applications = [], wee
   });
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="contribution-chart-container w-full">
       {/* Month labels */}
       <div className="flex ml-8 mb-1" style={{ height: 16 }}>
         {grid.map((_, wi) => {

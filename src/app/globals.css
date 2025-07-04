@@ -272,3 +272,65 @@ img[data-loading="true"] {
   width: 0 !important;
   min-width: 0 !important;
 }
+
+/* Contribution Chart Sizing Fixes */
+/* Ensure contribution chart container stays within card boundaries */
+.contribution-chart-container {
+  width: 100% !important;
+  min-width: 600px !important;
+  height: auto !important;
+  min-height: 160px;
+  max-height: 200px;
+  box-sizing: border-box;
+  overflow: visible;
+  padding: 10px 0;
+  margin: 0;
+}
+
+/* Fix for contribution calendar specifically */
+.contribution-calendar {
+  width: 100%;
+  min-width: 600px !important;
+  height: auto;
+  min-height: 140px;
+  overflow: visible;
+}
+
+/* Ensure the parent container of charts doesn't collapse */
+.chart-parent-container {
+  width: 100% !important;
+  min-width: 620px !important;
+  flex: 1;
+  height: auto !important;
+  min-height: 240px;
+  overflow: visible;
+  position: relative;
+  padding: 10px;
+}
+
+/* Force resize recalculation after layout shifts */
+.contribution-chart-container > div {
+  transition: all 0.1s ease-out;
+  height: auto !important;
+  width: 100% !important;
+  min-width: 600px !important;
+  max-width: 100%;
+  overflow: visible;
+}
+
+/* Ensure consistent sizing on page refresh */
+.contribution-chart-container,
+.contribution-calendar {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Animation to prevent flash of wrong size */
+@keyframes chart-resize {
+  0% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+.contribution-chart-container {
+  animation: chart-resize 0.3s ease-out;
+}

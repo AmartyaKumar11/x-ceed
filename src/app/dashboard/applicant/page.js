@@ -258,8 +258,8 @@ export default function ApplicantDashboardPage() {
             <div className="space-y-6 p-6">
             {/* --- Contribution Chart --- */}
             <div className="mb-8">
-              <div className="bg-card p-6 rounded-lg border border-border shadow-md flex flex-col items-start justify-center h-[220px] w-full min-w-0">
-                <div className="w-full min-w-0 flex flex-col h-full">
+              <div className="bg-card p-6 rounded-lg border border-border shadow-md flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">
+                <div className="w-full min-w-0 flex flex-col h-full contribution-calendar">
                   <ApplicationContributionCalendar applications={applications} minCellSize={14} maxCellSize={20} weeks={52} />
                 </div>
               </div>
