@@ -34,27 +34,52 @@ export default function ApplicationContributionCalendar({ applications = [], wee
   // Responsive cell size
   const containerRef = useRef(null);
   const [cellSize, setCellSize] = useState(minCellSize);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     function updateSize() {
       if (containerRef.current) {
         const width = containerRef.current.offsetWidth;
+        // Ensure we have a reasonable minimum width
+        const actualWidth = Math.max(width, 600);
         // 8px gap per week, 7px for 7 rows
-        const possibleCell = Math.floor((width - (weeks - 1) * 2 - 32) / weeks);
-        setCellSize(Math.max(minCellSize, Math.min(maxCellSize, possibleCell)));
+        const possibleCell = Math.floor((actualWidth - (weeks - 1) * 2 - 32) / weeks);
+        const newCellSize = Math.max(minCellSize, Math.min(maxCellSize, possibleCell));
+        setCellSize(newCellSize);
+        
+        // Mark as loaded after first successful resize
+        if (!isLoaded && actualWidth > 0) {
+          setIsLoaded(true);
+        }
       }
     }
     
-    // Multiple attempts to ensure proper sizing on page load
+    // Force multiple resize attempts with increasing delays
     const timeouts = [
-      setTimeout(updateSize, 100),
-      setTimeout(updateSize, 300),
-      setTimeout(updateSize, 600),
-      setTimeout(updateSize, 1000)
+      setTimeout(updateSize, 0),      // Immediate
+      setTimeout(updateSize, 50),     // Very quick
+      setTimeout(updateSize, 100),    // Quick
+      setTimeout(updateSize, 200),    // Medium
+      setTimeout(updateSize, 400),    // Slower
+      setTimeout(updateSize, 800),    // Even slower
+      setTimeout(updateSize, 1200),   // Final attempt
     ];
     
     // Initial size calculation
     updateSize();
+    
+    // Use ResizeObserver for more reliable container size detection
+    let resizeObserver;
+    if (containerRef.current && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          if (entry.target === containerRef.current) {
+            setTimeout(updateSize, 10);
+          }
+        }
+      });
+      resizeObserver.observe(containerRef.current);
+    }
     
     window.addEventListener('resize', updateSize);
     window.addEventListener('load', updateSize);
@@ -65,19 +90,37 @@ export default function ApplicationContributionCalendar({ applications = [], wee
     
     // Force recalculation when document is ready
     if (document.readyState === 'complete') {
-      updateSize();
+      setTimeout(updateSize, 50);
     } else {
-      document.addEventListener('DOMContentLoaded', updateSize);
+      document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(updateSize, 100);
+      });
     }
+    
+    // Additional check after images and other resources load
+    window.addEventListener('load', () => {
+      setTimeout(updateSize, 150);
+    });
+    
+    // Fallback: mark as loaded after a reasonable timeout
+    const fallbackTimeout = setTimeout(() => {
+      if (!isLoaded) {
+        setIsLoaded(true);
+      }
+    }, 1000);
     
     return () => {
       timeouts.forEach(clearTimeout);
+      clearTimeout(fallbackTimeout);
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
       window.removeEventListener('resize', updateSize);
       window.removeEventListener('load', updateSize);
       window.removeEventListener('orientationchange', updateSize);
       document.removeEventListener('DOMContentLoaded', updateSize);
     };
-  }, [weeks, minCellSize, maxCellSize]);
+  }, [weeks, minCellSize, maxCellSize, isLoaded]);
 
   // 1. Build date -> count map
   const counts = useMemo(() => {
@@ -133,8 +176,8 @@ export default function ApplicationContributionCalendar({ applications = [], wee
     }
   });
 
-  return (
-    <div ref={containerRef} className="contribution-chart-container w-full">
+    return (
+    <div ref={containerRef} className={`contribution-chart-container w-full ${isLoaded ? 'loaded' : ''}`}>
       {/* Month labels */}
       <div className="flex ml-8 mb-1" style={{ height: 16 }}>
         {grid.map((_, wi) => {
