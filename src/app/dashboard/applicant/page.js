@@ -21,6 +21,7 @@ import NewsPanel from '@/components/NewsPanel';
 import { useToast } from '@/components/ui/use-toast';
 import WebJobsComponent from '@/components/WebJobsComponent';
 import ApplicationContributionCalendar from '@/components/ApplicationContributionCalendar';
+import ApplicationStatusAreaChart from '@/components/ApplicationStatusAreaChart';
 
 export default function ApplicantDashboardPage() {
   const router = useRouter();
@@ -256,6 +257,10 @@ export default function ApplicantDashboardPage() {
           </div>          {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             <div className="space-y-6 p-6">
+            {/* --- Application Status Area Chart --- */}
+            <div className="mb-8">
+              <ApplicationStatusAreaChart />
+            </div>
             {/* --- Contribution Chart --- */}
             <div className="mb-8">
               <div className="bg-card p-6 rounded-lg border border-border shadow-md flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">

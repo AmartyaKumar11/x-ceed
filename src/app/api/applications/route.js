@@ -412,3 +412,88 @@ function getRelativeTimeString(date) {
   if (diffInDays < 365) return `${Math.floor(diffInDays / 30)} months ago`;
   return `${Math.floor(diffInDays / 365)} years ago`;
 }
+
+// New endpoint: /api/applications/status-daily
+export async function GET_status_daily(request) {
+  try {
+    // Get user ID from JWT token
+    const authHeader = request.headers.get('authorization');
+    let userId = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        userId = decoded.userId;
+      } catch (error) {
+        console.log('Invalid token, proceeding without authentication');
+      }
+    }
+    if (!userId) {
+      userId = 'amartya3'; // Default test user
+    }
+    const db = await getDatabase();
+    // Aggregate daily status counts
+    const pipeline = [
+      { $match: { userId: userId } },
+      { $project: {
+          status: 1,
+          appliedAt: 1,
+          date: { $dateToString: { format: "%Y-%m-%d", date: "$appliedAt" } }
+        }
+      },
+      { $match: { status: { $in: ["accepted", "interview", "rejected"] } } },
+      { $group: {
+          _id: { date: "$date", status: "$status" },
+          count: { $sum: 1 }
+        }
+      },
+      { $group: {
+          _id: "$_id.date",
+          counts: {
+            $push: { status: "$_id.status", count: "$count" }
+          }
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $project: {
+          _id: 0,
+          date: "$_id",
+          accepted: {
+            $ifNull: [
+              { $first: { $filter: { input: "$counts", as: "c", cond: { $eq: ["$$c.status", "accepted"] } } } },
+              { count: 0 }
+            ]
+          },
+          interview: {
+            $ifNull: [
+              { $first: { $filter: { input: "$counts", as: "c", cond: { $eq: ["$$c.status", "interview"] } } } },
+              { count: 0 }
+            ]
+          },
+          rejected: {
+            $ifNull: [
+              { $first: { $filter: { input: "$counts", as: "c", cond: { $eq: ["$$c.status", "rejected"] } } } },
+              { count: 0 }
+            ]
+          }
+        }
+      },
+      { $project: {
+          date: 1,
+          accepted: "$accepted.count",
+          interview: "$interview.count",
+          rejected: "$rejected.count"
+        }
+      }
+    ];
+    const results = await db.collection('applications').aggregate(pipeline).toArray();
+    return NextResponse.json(results);
+  } catch (error) {
+    console.error('Error fetching status-daily:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch daily status counts',
+      details: error.message
+    }, { status: 500 });
+  }
+}
