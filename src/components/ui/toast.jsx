@@ -76,19 +76,27 @@ const ToastClose = React.forwardRef(({ className, ...props }, ref) => (
 ))
 ToastClose.displayName = ToastPrimitives.Close.displayName
 
-const ToastTitle = React.forwardRef(({ className, ...props }, ref) => (
+const ToastTitle = React.forwardRef(({ className, variant, ...props }, ref) => (
   <ToastPrimitives.Title
     ref={ref}
-    className={cn("text-sm font-semibold text-white", className)}
+    className={cn(
+      "text-sm font-semibold",
+      variant === 'destructive' ? 'text-destructive-foreground' : 'text-card-foreground',
+      className
+    )}
     {...props}
   />
 ))
 ToastTitle.displayName = ToastPrimitives.Title.displayName
 
-const ToastDescription = React.forwardRef(({ className, ...props }, ref) => (
+const ToastDescription = React.forwardRef(({ className, variant, ...props }, ref) => (
   <ToastPrimitives.Description
     ref={ref}
-    className={cn("text-sm text-white/90", className)}
+    className={cn(
+      "text-sm",
+      variant === 'destructive' ? 'text-destructive-foreground/90' : 'text-card-foreground/90',
+      className
+    )}
     {...props}
   />
 ))

@@ -487,3 +487,18 @@ img[data-loading="true"] {
     letter-spacing: var(--tracking-normal);
   }
 }
+
+/* Toast error/destructive override */
+[data-sonner-toast][data-type="error"],
+.group.destructive,
+.bg-destructive {
+  background: var(--destructive, #ef4444) !important;
+  color: var(--destructive-foreground, #fff) !important;
+  border-color: var(--destructive, #ef4444) !important;
+}
+
+[data-sonner-toast][data-type="error"] .text-white,
+.group.destructive .text-white,
+.bg-destructive .text-white {
+  color: var(--destructive-foreground, #fff) !important;
+}

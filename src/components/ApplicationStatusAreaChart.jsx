@@ -43,16 +43,16 @@ function CustomTooltip({ active, payload }) {
   return (
     <div className="flex gap-3 px-3 py-2 rounded-lg bg-[var(--popover)] shadow border border-[var(--border)]">
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-sm bg-[var(--primary)] inline-block" />
-        <span className="text-sm font-medium text-[var(--primary)]">{accepted}</span>
+        <span className="w-3 h-3 rounded-sm bg-[var(--chart-2)] inline-block" />
+        <span className="text-sm font-medium text-[var(--chart-2)]">{accepted}</span>
       </span>
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-sm bg-[var(--accent)] inline-block" />
-        <span className="text-sm font-medium text-[var(--accent)]">{interview}</span>
+        <span className="w-3 h-3 rounded-sm bg-[var(--chart-3)] inline-block" />
+        <span className="text-sm font-medium text-[var(--chart-3)]">{interview}</span>
       </span>
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-sm bg-[var(--destructive)] inline-block" />
-        <span className="text-sm font-medium text-[var(--destructive)]">{rejected}</span>
+        <span className="w-3 h-3 rounded-sm bg-[var(--chart-4)] inline-block" />
+        <span className="text-sm font-medium text-[var(--chart-4)]">{rejected}</span>
       </span>
     </div>
   );

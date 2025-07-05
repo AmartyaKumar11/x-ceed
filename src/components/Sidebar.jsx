@@ -12,7 +12,8 @@ import {
   Bell, 
   Settings, 
   LogOut,
-  GraduationCap
+  GraduationCap,
+  Video
 } from 'lucide-react';
 import ProfileSettingsDialog from './ProfileSettingsDialog';
 import NotificationPanel from './NotificationPanel';
@@ -26,12 +27,15 @@ export default function Sidebar({ role }) {
     // Define menu items based on role
   const menuItems = role === 'applicant' ? [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/applicant' },
-    { icon: <User size={18} />, label: 'Profile', href: '#', onClick: () => setIsProfileDialogOpen(true) },    { icon: <Briefcase size={18} />, label: 'Jobs', href: '/dashboard/applicant/jobs' },
+    { icon: <User size={18} />, label: 'Profile', href: '#', onClick: () => setIsProfileDialogOpen(true) },
+    { icon: <Briefcase size={18} />, label: 'Jobs', href: '/dashboard/applicant/jobs' },
     { icon: <GraduationCap size={18} />, label: 'Prep Plans', href: '/dashboard/applicant/prep-plans' },
+    { icon: <Video size={18} />, label: 'Mock Interview', href: '/dashboard/applicant/mock-interview' },
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
     { icon: <MessageSquare size={18} />, label: 'Messages', href: '#' },
     { icon: <Bell size={18} />, label: 'Notifications', href: '#', onClick: () => setIsNotificationPanelOpen(true) },
-    { icon: <Settings size={18} />, label: 'Settings', href: '#' },  ] : [
+    { icon: <Settings size={18} />, label: 'Settings', href: '#' },
+  ] : [
     { icon: <Home size={18} />, label: 'Dashboard', href: '/dashboard/recruiter' },
     { icon: <Briefcase size={18} />, label: 'Job Postings', href: '/dashboard/recruiter/jobs' },
     { icon: <FileText size={18} />, label: 'Applications', href: '#' },
