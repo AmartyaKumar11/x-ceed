@@ -63,9 +63,31 @@ export default function MockInterviewPage() {
   const [jobDescription, setJobDescription] = useState('');
   const [interviewDuration, setInterviewDuration] = useState(0);
   const [startTime, setStartTime] = useState(null);
+  
+  // Backend service status
+  const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'online', 'offline'
 
   const handleJobDescriptionSet = (description) => {
     setJobDescription(description);
+  };
+
+  // Check backend service status
+  const checkBackendStatus = async () => {
+    try {
+      const response = await fetch('/api/mock-interview/generate-question', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ test: true }),
+      });
+      
+      if (response.status === 503) {
+        setBackendStatus('offline');
+      } else {
+        setBackendStatus('online');
+      }
+    } catch (error) {
+      setBackendStatus('offline');
+    }
   };
 
   useEffect(() => {
@@ -104,6 +126,9 @@ export default function MockInterviewPage() {
     if ('speechSynthesis' in window) {
       setSpeechSynthesis(window.speechSynthesis);
     }
+    
+    // Check backend service status
+    checkBackendStatus();
     
     // Load job description from localStorage or fetch from API
     const savedJobDescription = localStorage.getItem('mockInterviewJobDescription');
@@ -204,10 +229,20 @@ export default function MockInterviewPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate question');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 503 && errorData.fallback) {
+          throw new Error(errorData.message || 'Backend service unavailable');
+        }
+        throw new Error(errorData.error || 'Failed to generate question');
       }
 
       const data = await response.json();
+      
+      // Check if we have a valid question
+      if (!data.question || typeof data.question !== 'string') {
+        throw new Error('Invalid question received from server');
+      }
+      
       const newQuestion = data.question;
       
       setCurrentQuestion(newQuestion);
@@ -224,9 +259,22 @@ export default function MockInterviewPage() {
       
     } catch (error) {
       console.error('Error generating question:', error);
+      
+      // Provide specific error messages based on the error type
+      let errorTitle = "Error generating question";
+      let errorDescription = "Please try again.";
+      
+      if (error.message.includes('Backend service unavailable') || error.message.includes('port 8008')) {
+        errorTitle = "Backend service unavailable";
+        errorDescription = "The Python backend service is not running. Please start the service using 'npm run job-desc-service' and try again.";
+      } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
+        errorTitle = "Connection timeout";
+        errorDescription = "The backend service is taking too long to respond. Please check if the service is running.";
+      }
+      
       toast({
-        title: "Error generating question",
-        description: "Please try again.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {
@@ -352,10 +400,20 @@ export default function MockInterviewPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to analyze interview');
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 503 && errorData.fallback) {
+          throw new Error(errorData.message || 'Backend service unavailable');
+        }
+        throw new Error(errorData.error || 'Failed to analyze interview');
       }
 
       const data = await response.json();
+      
+      // Validate the response data
+      if (!data.score && !data.analysis) {
+        throw new Error('Invalid analysis data received from server');
+      }
+      
       setInterviewScore(data.score);
       setAnalysis(data.analysis);
       
@@ -366,9 +424,22 @@ export default function MockInterviewPage() {
       
     } catch (error) {
       console.error('Error analyzing interview:', error);
+      
+      // Provide specific error messages
+      let errorTitle = "Analysis failed";
+      let errorDescription = "Could not analyze the interview. Please try again.";
+      
+      if (error.message.includes('Backend service unavailable') || error.message.includes('port 8008')) {
+        errorTitle = "Backend service unavailable";
+        errorDescription = "The Python backend service is not running. Analysis requires the backend service. Please start it using 'npm run job-desc-service'.";
+      } else if (error.message.includes('timeout') || error.message.includes('fetch')) {
+        errorTitle = "Analysis timeout";
+        errorDescription = "The analysis is taking too long. Please check if the backend service is running properly.";
+      }
+      
       toast({
-        title: "Analysis failed",
-        description: "Could not analyze the interview. Please try again.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive",
       });
     } finally {
@@ -400,6 +471,54 @@ export default function MockInterviewPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
+        {/* Backend Status Indicator */}
+        {backendStatus === 'offline' && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <div className="text-sm text-red-800 dark:text-red-200">
+                  <span className="font-medium">Backend service offline:</span> The Python backend service (port 8008) is not running. 
+                  Mock interview features will not work. Please start the service using the command: <code className="bg-red-100 px-1 rounded">npm run job-desc-service</code>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={checkBackendStatus}
+                  className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
+                >
+                  Recheck
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {backendStatus === 'online' && (
+          <Card className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <div className="text-sm text-green-800 dark:text-green-200">
+                  <span className="font-medium">Backend service online:</span> All systems ready for mock interview.
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {backendStatus === 'checking' && (
+          <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
+                <div className="text-sm text-yellow-800 dark:text-yellow-200">
+                  Checking backend service status...
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

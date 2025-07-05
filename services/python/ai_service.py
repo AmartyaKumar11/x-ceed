@@ -15,6 +15,11 @@ from dotenv import load_dotenv
 # Load environment variables from .env.local
 load_dotenv('.env.local')
 
+# Add current directory to Python path for imports
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
 # Import our AI analyzer
 from ai_resume_analyzer import AIResumeAnalyzer
 

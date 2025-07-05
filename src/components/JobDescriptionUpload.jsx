@@ -16,11 +16,14 @@ export default function JobDescriptionUpload({ onJobDescriptionSet }) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Check file type
-    if (!file.type.includes('pdf') && !file.type.includes('text')) {
+    // Check file type - be more permissive with text files
+    const isTextFile = file.type.includes('text') || file.name.endsWith('.txt');
+    const isPdfFile = file.type.includes('pdf') || file.name.endsWith('.pdf');
+    
+    if (!isTextFile && !isPdfFile) {
       toast({
         title: "Invalid file type",
-        description: "Please upload a PDF or text file.",
+        description: "Please upload a PDF or text (.txt) file.",
         variant: "destructive",
       });
       return;
@@ -30,30 +33,47 @@ export default function JobDescriptionUpload({ onJobDescriptionSet }) {
     setUploadedFile(file);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      let extractedText = '';
+      
+      // Try text files first (simple client-side processing)
+      if (isTextFile) {
+        extractedText = await file.text();
+      } else if (isPdfFile) {
+        // For PDF files, try the backend service
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
 
-      const response = await fetch('/api/parse-job-description', {
-        method: 'POST',
-        body: formData,
-      });
+          const response = await fetch('/api/parse-job-description', {
+            method: 'POST',
+            body: formData,
+          });
 
-      if (!response.ok) {
-        throw new Error('Failed to parse job description');
-      }
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Server error: ${response.status}`);
+          }
 
-      const data = await response.json();
-      // Try to extract text from the correct field in the backend response
-      let extractedText = data.text || data.description || '';
-      if (!extractedText && data.data) {
-        extractedText = data.data.text || data.data.description || '';
-        // If still not found, fallback to stringified data for display
-        if (!extractedText && typeof data.data === 'object') {
-          extractedText = JSON.stringify(data.data, null, 2);
+          const data = await response.json();
+          // Try to extract text from the correct field in the backend response
+          extractedText = data.text || data.description || '';
+          if (!extractedText && data.data) {
+            extractedText = data.data.text || data.data.description || '';
+          }
+        } catch (backendError) {
+          console.warn('Backend service unavailable, suggesting manual input:', backendError);
+          toast({
+            title: "PDF parsing unavailable",
+            description: "Please copy and paste the job description manually below, or ensure the Python backend service is running.",
+            variant: "destructive",
+          });
+          setUploadedFile(null);
+          setIsUploading(false);
+          return;
         }
       }
 
-      if (extractedText.trim()) {
+      if (extractedText && extractedText.trim()) {
         setJobDescription(extractedText);
         localStorage.setItem('mockInterviewJobDescription', extractedText);
         onJobDescriptionSet(extractedText);
@@ -69,7 +89,7 @@ export default function JobDescriptionUpload({ onJobDescriptionSet }) {
       console.error('Error uploading file:', error);
       toast({
         title: "Upload failed",
-        description: "Could not extract text from the file. Please try again or enter manually.",
+        description: error.message || "Could not extract text from the file. Please try again or enter manually.",
         variant: "destructive",
       });
       setUploadedFile(null);
@@ -150,10 +170,21 @@ export default function JobDescriptionUpload({ onJobDescriptionSet }) {
             {/* Manual Input */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Or enter manually</label>
+              <div className="text-xs text-muted-foreground mb-2">
+                💡 Tip: For PDF files, copy and paste the job description text here if upload fails
+              </div>
               <textarea
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste or type the job description here..."
+                placeholder="Paste or type the job description here...
+
+Example:
+Job Title: Software Developer
+Company: Tech Corp
+Requirements:
+- 3+ years experience
+- React/JavaScript knowledge
+- etc..."
                 className="w-full min-h-[120px] p-3 border rounded-md bg-background resize-none"
               />
               <Button
