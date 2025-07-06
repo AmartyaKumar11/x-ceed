@@ -276,10 +276,12 @@ export default function NewsPanel() {
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         <div className="p-4 space-y-4">
           {news.map((article) => (
-            <div
+            <a
               key={article.id}
-              className="group border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer"
-              onClick={() => window.open(article.url, '_blank')}
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group border border-border rounded-lg p-4 hover:bg-muted/50 transition-colors cursor-pointer block"
             >
               {/* Article Image */}
               <div className="mb-3">
@@ -291,7 +293,8 @@ export default function NewsPanel() {
                     e.target.src = "https://via.placeholder.com/300x200/6b7280/ffffff?text=Tech+News";
                   }}
                 />
-              </div>              {/* Article Content */}
+              </div>
+              {/* Article Content */}
               <div className="space-y-2">
                 <h4 className="font-medium text-sm text-foreground group-hover:text-primary transition-colors leading-tight overflow-hidden" 
                     style={{
@@ -320,7 +323,7 @@ export default function NewsPanel() {
                   </div>
                 </div>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </div>
