@@ -13,8 +13,13 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 
 # Load environment variables
-load_dotenv('.env.local')  # Load from .env.local explicitly
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+env_file_path = os.path.join(project_root, '.env.local')
+print(f"Loading environment variables from: {env_file_path}")
+load_dotenv(env_file_path)
 load_dotenv()  # Also load from .env as fallback
+print(f"Environment variables loaded. GEMINI_API_KEY present: {bool(os.getenv('GEMINI_API_KEY'))}")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -33,11 +38,16 @@ app.add_middleware(
 )
 
 # Gemini API configuration
+print(f"Loading environment variables from: {os.path.abspath('../../.env.local')}")
+print(f"Environment variables loaded. GEMINI_API_KEY present: {bool(os.getenv('GEMINI_API_KEY'))}")
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
-    print("❌ GEMINI_API_KEY not found in environment variables")
+    print("ERROR: GEMINI_API_KEY not found in environment variables")
+    print("Please check your .env.local file in the project root")
     raise ValueError("GEMINI_API_KEY is required")
 
+print(f"Gemini API Key configured: {bool(GEMINI_API_KEY)}")
 genai.configure(api_key=GEMINI_API_KEY)
 model = genai.GenerativeModel('gemini-1.5-flash')  # Updated model name
 
@@ -241,4 +251,4 @@ if __name__ == "__main__":
     import uvicorn
     print("Starting Gemini Resume Chat Service...")
     print(f"Gemini API Key configured: {bool(GEMINI_API_KEY)}")
-    uvicorn.run(app, host="0.0.0.0", port=8003)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

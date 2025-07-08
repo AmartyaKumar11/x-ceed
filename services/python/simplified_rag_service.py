@@ -13,7 +13,13 @@ import json
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv()
+import os
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+env_file_path = os.path.join(project_root, '.env.local')
+print(f"Loading environment variables from: {env_file_path}")
+load_dotenv(env_file_path)
+load_dotenv()  # Also load from .env as fallback
+print(f"Environment variables loaded. GROQ_API_KEY present: {bool(os.getenv('GROQ_API_KEY'))}")
 
 # Initialize FastAPI app
 app = FastAPI(
