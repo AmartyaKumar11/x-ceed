@@ -18,24 +18,57 @@ export default async function handler(req, res) {
     const db = client.db(dbName);
     
     // Extract data from request body
-    const { email, password } = req.body;    // Validate required fields
+    const { email, password } = req.body;
+    
+    // Debug logging
+    console.log("🔍 Login attempt:");
+    console.log("  Email:", email);
+    console.log("  Password length:", password ? password.length : 'undefined');
+    console.log("  Request body:", JSON.stringify(req.body, null, 2));
+    
+    // Validate required fields
     if (!email || !password) {
+      console.log("❌ Missing email or password");
       return res.status(400).json({ message: 'Missing email or password' });
     }
 
     // Find user by email
-    const user = await db.collection('users').findOne({ email });
+    console.log("🔍 Searching for user with email:", email);
+    let user = await db.collection('users').findOne({ email });
     
     // Check if user exists
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });    }
+      console.log("❌ User not found with exact email:", email);
+      
+      // Try case-insensitive search
+      const userCaseInsensitive = await db.collection('users').findOne({ 
+        email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } 
+      });
+      
+      if (userCaseInsensitive) {
+        console.log("✅ Found user with case-insensitive search:", userCaseInsensitive.email);
+        user = userCaseInsensitive;
+      } else {
+        console.log("❌ No user found even with case-insensitive search");
+        return res.status(401).json({ message: 'Invalid email or password' });
+      }
+    } else {
+      console.log("✅ User found:", user.email);
+    }
     
     // Verify password
+    console.log("🔑 Verifying password...");
+    console.log("  Stored hash:", user.password ? user.password.substring(0, 20) + "..." : "No password");
+    
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    console.log("  Password valid:", isPasswordValid);
     
     if (!isPasswordValid) {
+      console.log("❌ Password verification failed");
       return res.status(401).json({ message: 'Invalid email or password' });
     }
+    
+    console.log("✅ Login successful for user:", user.email);
     
     // Generate JWT token with user information
     const token = await createToken({ 
