@@ -7,12 +7,18 @@
  */
 
 const https = require('https');
+require('dotenv').config({ path: '.env.local' });
 
 // Test the OpenRouter API directly
 async function testOpenRouterAPI() {
     console.log('🤖 Testing OpenRouter AI API directly...');
     
-    const apiKey = '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';
+    const apiKey = process.env.OPENROUTER_API_KEY || 'your-api-key-here';
+    
+    if (!apiKey || apiKey === 'your-api-key-here') {
+        console.log('❌ OpenRouter API key not found in environment variables');
+        return;
+    }
     
     const requestData = JSON.stringify({
         "model": "mistralai/mistral-7b-instruct",

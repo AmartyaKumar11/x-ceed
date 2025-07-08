@@ -2,11 +2,21 @@
 import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 import bcrypt
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv('.env.local')
 
 async def create_test_user():
     try:
-        # MongoDB connection
-        MONGODB_URI = "mongodb+srv://amartya:dreamisop69@x-ceed.2rfbtj5.mongodb.net/x-ceed-db?retryWrites=true&w=majority"
+        # MongoDB connection - using environment variable
+        MONGODB_URI = os.getenv('MONGODB_URI')
+        
+        if not MONGODB_URI:
+            print("❌ MONGODB_URI not found in environment variables")
+            print("Please set MONGODB_URI in your .env.local file")
+            return False
         
         print(f"🔗 Connecting to MongoDB...")
         client = AsyncIOMotorClient(MONGODB_URI)
