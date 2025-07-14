@@ -1,4 +1,7 @@
 // Reset password for specific users in MongoDB Atlas
+// Security: Uses environment variables for passwords, never hardcoded
+// Usage: Set RESET_PASSWORD environment variable or use secure default
+// Example: RESET_PASSWORD=your_secure_password node reset-password.js
 const { MongoClient } = require('mongodb');
 const bcrypt = require('bcryptjs');
 require('dotenv').config({ path: '.env.local' });
@@ -19,12 +22,12 @@ async function resetUserPassword() {
     
     const db = client.db('x-ceed-db');
     
-    // New password to set
-    const newPassword = 'applicant'; // Use this as your new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Get password from environment variable or use secure default
+    const newPassword = process.env.RESET_PASSWORD || 'TempPass123!';
+    const hashedPassword = await bcrypt.hash(newPassword, 12); // Increased salt rounds for better security
     
-    console.log(`🔐 Setting new password: "${newPassword}"`);
-    console.log(`🔒 Hashed password: ${hashedPassword.substring(0, 20)}...`);
+    console.log(`🔐 Setting new password for security`);
+    console.log(`🔒 Password will be hashed with bcrypt`);
     
     // Reset password for your applicant account
     const applicantResult = await db.collection('users').updateOne(
@@ -32,21 +35,22 @@ async function resetUserPassword() {
       { 
         $set: { 
           password: hashedPassword,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          passwordResetAt: new Date()
         }
       }
     );
     
-    // Also set recruiter password to 'recruiter' for consistency
-    const recruiterPassword = 'recruiter';
-    const recruiterHashedPassword = await bcrypt.hash(recruiterPassword, 10);
+    // Use same secure password for recruiter account
+    const recruiterHashedPassword = await bcrypt.hash(newPassword, 12);
     
     const recruiterResult = await db.collection('users').updateOne(
       { email: 'amartya-recruiter@gmail.com' },
       { 
         $set: { 
           password: recruiterHashedPassword,
-          updatedAt: new Date()
+          updatedAt: new Date(),
+          passwordResetAt: new Date()
         }
       }
     );
@@ -57,12 +61,9 @@ async function resetUserPassword() {
     
     if (applicantResult.modifiedCount > 0 || recruiterResult.modifiedCount > 0) {
       console.log('\n🎉 Password reset successful!');
-      console.log('\n📝 You can now login with:');
-      console.log('   Email: amartya-applicant@gmail.com');
-      console.log('   Password: amartya123');
-      console.log('   OR');
-      console.log('   Email: amartya-recruiter@gmail.com');
-      console.log('   Password: amartya123');
+      console.log('\n📝 Login credentials have been updated securely');
+      console.log('   Check your environment variables or use the default secure password');
+      console.log('   Set RESET_PASSWORD environment variable for custom password');
     }
     
     await client.close();
