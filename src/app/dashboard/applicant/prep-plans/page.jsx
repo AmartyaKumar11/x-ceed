@@ -18,7 +18,15 @@ import {
   FileText,
   Loader2,
   Plus,
-  AlertCircle
+  AlertCircle,
+  BookOpen,
+  Brain,
+  TrendingUp,
+  CheckSquare,
+  ArrowRight,
+  Star,
+  Users,
+  Lightbulb
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +56,9 @@ export default function PrepPlansPage() {
   const [deletingPlan, setDeletingPlan] = useState(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [planToDelete, setPlanToDelete] = useState(null);
+  const [generatingPlan, setGeneratingPlan] = useState(null);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [viewDetailedPlan, setViewDetailedPlan] = useState(false);
 
   useEffect(() => {
     fetchPrepPlans();
@@ -142,6 +153,67 @@ export default function PrepPlansPage() {
       day: 'numeric',
       year: 'numeric'
     });
+  };
+
+  const generateDetailedPlan = async (prepPlanId) => {
+    try {
+      setGeneratingPlan(prepPlanId);
+      
+      const response = await fetch('/api/prep-plans/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ prepPlanId }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Refresh the prep plans to show the generated plan
+        await fetchPrepPlans();
+        
+        // Show success message
+        alert('✅ Detailed study plan generated successfully!');
+      } else {
+        const error = await response.json();
+        console.error('Failed to generate detailed plan:', error);
+        alert('❌ Failed to generate study plan. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error generating detailed plan:', error);
+      alert('❌ Error generating study plan. Please check your connection.');
+    } finally {
+      setGeneratingPlan(null);
+    }
+  };
+
+  const viewDetailedStudyPlan = async (prepPlan) => {
+    try {
+      // If the plan doesn't have a detailed plan yet, fetch the latest data
+      if (!prepPlan.detailedPlan) {
+        const response = await fetch(`/api/prep-plans/${prepPlan._id}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          setSelectedPlan(result.data);
+        } else {
+          setSelectedPlan(prepPlan);
+        }
+      } else {
+        setSelectedPlan(prepPlan);
+      }
+      
+      setViewDetailedPlan(true);
+    } catch (error) {
+      console.error('Error fetching detailed plan:', error);
+      setSelectedPlan(prepPlan);
+      setViewDetailedPlan(true);
+    }
   };
 
   if (loading) {
@@ -270,13 +342,77 @@ export default function PrepPlansPage() {
                       <span className="capitalize">{plan.jobType.replace('-', ' ')}</span>
                     </div>
                   )}
-                </div>                {/* Action Button */}                <Button 
-                  onClick={() => openPrepPlan(plan)}
-                  className="w-full mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  {plan.progress > 0 ? 'Continue Learning' : 'Start Learning'}
-                </Button>
+                </div>                {/* AI Study Plan Status */}
+                {plan.detailedPlan ? (
+                  <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                      AI Study Plan Ready
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-950 rounded-lg border border-orange-200 dark:border-orange-800">
+                    <Brain className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-700 dark:text-orange-400">
+                      Generate AI Study Plan
+                    </span>
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  {plan.detailedPlan ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button 
+                        onClick={() => viewDetailedStudyPlan(plan)}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs"
+                      >
+                        <BookOpen className="h-3 w-3 mr-1" />
+                        View Study Plan
+                      </Button>
+                      <Button 
+                        onClick={() => openPrepPlan(plan)}
+                        size="sm"
+                        className="text-xs"
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Continue
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Button 
+                        onClick={() => generateDetailedPlan(plan._id)}
+                        disabled={generatingPlan === plan._id}
+                        className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+                        size="sm"
+                      >
+                        {generatingPlan === plan._id ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating AI Plan...
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="h-4 w-4 mr-2" />
+                            Generate AI Study Plan
+                          </>
+                        )}
+                      </Button>
+                      <Button 
+                        onClick={() => openPrepPlan(plan)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                      >
+                        <Play className="h-4 w-4 mr-2" />
+                        {plan.progress > 0 ? 'Continue Learning' : 'Start Learning'}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}

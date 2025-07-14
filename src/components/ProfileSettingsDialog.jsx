@@ -271,7 +271,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         First Name
                       </label>                      <input
                         type="text"
-                        value={profileData.firstName}
+                        value={profileData.firstName || ''}
                         onChange={(e) => handleInputChange('firstName', e.target.value)}
                         disabled={personalDetailsLocked}
                         className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
@@ -284,7 +284,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         Last Name
                       </label>                      <input
                         type="text"
-                        value={profileData.lastName}
+                        value={profileData.lastName || ''}
                         onChange={(e) => handleInputChange('lastName', e.target.value)}
                         disabled={personalDetailsLocked}
                         className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
@@ -299,7 +299,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         Email
                       </label>                      <input
                         type="email"
-                        value={profileData.email}
+                        value={profileData.email || ''}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         disabled={personalDetailsLocked}
                         className={`w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all ${
@@ -313,7 +313,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         Phone
                       </label>
                       <input                        type="tel"
-                        value={profileData.phone}
+                        value={profileData.phone || ''}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
                         {...getPersonalInputProps()}
                       />
@@ -324,7 +324,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       Address
                     </label>                    <input
                       type="text"
-                      value={profileData.address}
+                      value={profileData.address || ''}
                       onChange={(e) => handleInputChange('address', e.target.value)}
                       {...getPersonalInputProps()}
                     />
@@ -332,7 +332,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-3">City</label>                      <input
                         type="text"
-                        value={profileData.city}
+                        value={profileData.city || ''}
                         onChange={(e) => handleInputChange('city', e.target.value)}
                         {...getPersonalInputProps()}
                       />
@@ -340,7 +340,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-3">State</label>                      <input
                         type="text"
-                        value={profileData.state}
+                        value={profileData.state || ''}
                         onChange={(e) => handleInputChange('state', e.target.value)}
                         {...getPersonalInputProps()}
                       />
@@ -348,7 +348,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-3">Zip Code</label>                      <input
                         type="text"
-                        value={profileData.zipCode}
+                        value={profileData.zipCode || ''}
                         onChange={(e) => handleInputChange('zipCode', e.target.value)}
                         {...getPersonalInputProps()}
                       />
@@ -360,7 +360,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         Date of Birth
                       </label>                      <input
                         type="date"
-                        value={profileData.dateOfBirth}
+                        value={profileData.dateOfBirth || ''}
                         onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                         {...getPersonalInputProps()}
                       />
@@ -521,7 +521,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Institution</label>
                           <input
                             type="text"
-                            value={edu.institution}
+                            value={edu.institution || ''}
                             onChange={(e) => handleArrayFieldChange('education', index, 'institution', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -530,7 +530,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Degree</label>
                           <input
                             type="text"
-                            value={edu.degree}
+                            value={edu.degree || ''}
                             onChange={(e) => handleArrayFieldChange('education', index, 'degree', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -540,7 +540,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Field of Study</label>
                           <input
                             type="text"
-                            value={edu.field}
+                            value={edu.field || ''}
                             onChange={(e) => handleArrayFieldChange('education', index, 'field', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -549,7 +549,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Start Date</label>
                           <input
                             type="date"
-                            value={edu.startDate}
+                            value={edu.startDate || ''}
                             onChange={(e) => handleArrayFieldChange('education', index, 'startDate', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -558,7 +558,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">End Date</label>
                           <input
                             type="date"
-                            value={edu.endDate}
+                            value={edu.endDate || ''}
                             onChange={(e) => handleArrayFieldChange('education', index, 'endDate', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -569,7 +569,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                         <label className="block text-sm font-semibold text-foreground mb-3">GPA (Optional)</label>
                         <input
                           type="text"
-                          value={edu.gpa}
+                          value={edu.gpa || ''}
                           onChange={(e) => handleArrayFieldChange('education', index, 'gpa', e.target.value)}
                           className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           placeholder="e.g., 3.8/4.0"
@@ -730,7 +730,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Company</label>
                           <input
                             type="text"
-                            value={exp.company}
+                            value={exp.company || ''}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'company', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -739,7 +739,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Position</label>
                           <input
                             type="text"
-                            value={exp.position}
+                            value={exp.position || ''}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'position', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -749,7 +749,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Start Date</label>
                           <input
                             type="date"
-                            value={exp.startDate}
+                            value={exp.startDate || ''}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'startDate', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -758,7 +758,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">End Date</label>
                           <input
                             type="date"
-                            value={exp.endDate}
+                            value={exp.endDate || ''}
                             onChange={(e) => handleArrayFieldChange('workExperience', index, 'endDate', e.target.value)}
                             disabled={exp.current}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all disabled:bg-muted disabled:text-muted-foreground"
@@ -766,7 +766,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="flex items-center mt-3">
                             <input
                               type="checkbox"
-                              checked={exp.current}
+                              checked={exp.current || false}
                               onChange={(e) => handleArrayFieldChange('workExperience', index, 'current', e.target.checked)}
                               className="mr-3 h-4 w-4 text-primary focus:ring-primary border-border rounded"
                             />
@@ -778,7 +778,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-3">Description</label>
                         <textarea
-                          value={exp.description}
+                          value={exp.description || ''}
                           onChange={(e) => handleArrayFieldChange('workExperience', index, 'description', e.target.value)}
                           rows={4}
                           className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
@@ -1036,7 +1036,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Certification Name</label>
                           <input
                             type="text"
-                            value={cert.name}
+                            value={cert.name || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'name', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -1045,7 +1045,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Issuing Organization</label>
                           <input
                             type="text"
-                            value={cert.issuer}
+                            value={cert.issuer || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'issuer', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -1055,7 +1055,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Date Issued</label>
                           <input
                             type="date"
-                            value={cert.dateIssued}
+                            value={cert.dateIssued || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'dateIssued', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -1064,7 +1064,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Expiry Date (Optional)</label>
                           <input
                             type="date"
-                            value={cert.expiryDate}
+                            value={cert.expiryDate || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'expiryDate', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -1076,7 +1076,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Credential ID (Optional)</label>
                           <input
                             type="text"
-                            value={cert.credentialId}
+                            value={cert.credentialId || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'credentialId', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                           />
@@ -1085,7 +1085,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
                           <label className="block text-sm font-semibold text-foreground mb-3">Credential URL (Optional)</label>
                           <input
                             type="url"
-                            value={cert.url}
+                            value={cert.url || ''}
                             onChange={(e) => handleArrayFieldChange('certifications', index, 'url', e.target.value)}
                             className="w-full px-4 py-3 border-2 border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all"
                             placeholder="https://..."
