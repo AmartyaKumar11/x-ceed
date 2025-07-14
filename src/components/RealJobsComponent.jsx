@@ -414,11 +414,12 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
   return (
     <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
-        {filteredJobs.map((job) => (<Card 
-          key={job._id} 
-          className="job-card p-4 border border-white/10 rounded-lg shadow-lg hover:shadow-xl transition-all cursor-pointer"
-          onClick={() => onJobClick(job)}
-        >
+        {filteredJobs.map((job) => (
+          <Card 
+            key={job._id} 
+            className="job-card p-4 bg-blue-950/30 backdrop-blur-md border border-blue-500/20 rounded-xl shadow-lg hover:shadow-blue-500/20 hover:shadow-xl hover:bg-blue-900/40 transition-all duration-300 cursor-pointer"
+            onClick={() => onJobClick(job)}
+          >
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>
@@ -539,7 +540,7 @@ Description: ${job.description || 'No description provided.'}
                   URL.revokeObjectURL(url);
                 }
               }}
-              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
+              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none rounded-lg hover:from-purple-700 hover:to-blue-700 hover:shadow-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all flex items-center gap-1"
             >
               <Download className="h-3 w-3" />
               Download JD
@@ -549,14 +550,14 @@ Description: ${job.description || 'No description provided.'}
                 e.stopPropagation();
                 handleResumeMatch(job._id);
               }}
-              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
+              className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-none rounded-lg hover:from-green-700 hover:to-teal-700 hover:shadow-lg focus:ring-2 focus:ring-green-500 focus:outline-none transition-all flex items-center gap-1"
             >
               <FileText className="h-3 w-3" />
               Match Resume
             </Button>
             <Button 
               size="sm"
-              className="bg-primary text-primary-foreground border border-primary rounded-lg hover:shadow-md focus:ring-2 focus:ring-ring focus:outline-none transition-all flex items-center gap-1"
+              className="bg-gradient-to-r from-orange-600 to-red-600 text-white border-none rounded-lg hover:from-orange-700 hover:to-red-700 hover:shadow-lg focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all flex items-center gap-1"
             >View Details</Button>
           </CardFooter>
         </Card>      ))}      </div>

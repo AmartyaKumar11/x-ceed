@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ResumeMatchPage() {
   const searchParams = useSearchParams();
@@ -53,6 +54,7 @@ export default function ResumeMatchPage() {
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [prepPlanCreated, setPrepPlanCreated] = useState(false);
+  const [prepPlanDuration, setPrepPlanDuration] = useState(4); // Add duration state
     // Chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');  const [chatLoading, setChatLoading] = useState(false);
@@ -636,6 +638,7 @@ The prep plan is ready and waiting for you! 🚀`,
         department: jobData.department,
         level: jobData.level,
         workMode: jobData.workMode,
+        duration: prepPlanDuration, // Add duration from state
         source: 'resume-match'
       };
       
@@ -1106,24 +1109,51 @@ The prep plan is ready and waiting for you! 🚀`,
               </CardHeader>
               {job && (
                 <div className="px-4 pb-2 space-y-2">
-                  {!prepPlanCreated ? (<Button
-                      onClick={async () => {
-                        console.log('🎯 Create Learning Plan button clicked');
-                        console.log('Button state:', { job: !!job, ragAnalysis: !!ragAnalysis, prepPlanCreated });
-                        try {
-                          await createPrepPlan();
-                        } catch (error) {
-                          console.error('❌ Error in button click handler:', error);
-                        }
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-border hover:bg-accent hover:text-accent-foreground"
-                      disabled={!job}
-                    >
-                      <GraduationCap className="h-4 w-4 mr-2" />
-                      Create Learning Plan for This Job
-                    </Button>
+                  {!prepPlanCreated ? (
+                    <>
+                      {/* Duration Selector */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                          Preparation Duration
+                        </label>
+                        <Select value={prepPlanDuration.toString()} onValueChange={(value) => setPrepPlanDuration(parseInt(value))}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">2 weeks - Intensive (Critical skills only)</SelectItem>
+                            <SelectItem value="4">4 weeks - Balanced (Recommended)</SelectItem>
+                            <SelectItem value="6">6 weeks - Comprehensive</SelectItem>
+                            <SelectItem value="8">8+ weeks - Mastery</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {prepPlanDuration <= 2 ? 'Focus on interview-critical skills only' :
+                           prepPlanDuration <= 4 ? 'Balanced coverage with solid foundation' :
+                           prepPlanDuration <= 6 ? 'Thorough preparation with advanced topics' :
+                           'Deep mastery with comprehensive skill development'}
+                        </p>
+                      </div>
+                      
+                      <Button
+                        onClick={async () => {
+                          console.log('🎯 Create Learning Plan button clicked');
+                          console.log('Button state:', { job: !!job, ragAnalysis: !!ragAnalysis, prepPlanCreated, duration: prepPlanDuration });
+                          try {
+                            await createPrepPlan();
+                          } catch (error) {
+                            console.error('❌ Error in button click handler:', error);
+                          }
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-border hover:bg-accent hover:text-accent-foreground"
+                        disabled={!job}
+                      >
+                        <GraduationCap className="h-4 w-4 mr-2" />
+                        Create Learning Plan for This Job
+                      </Button>
+                    </>
                   ) : (
                     <div className="space-y-2">                      <Button
                         onClick={() => {

@@ -249,28 +249,35 @@ export default function ApplicantDashboardPage() {
   // Don't render profile completion card if 100% complete
   const shouldShowProfileCompletion = profileCompletion.percentage < 100;  return (
     <>
-      <div className="min-h-screen bg-background">        {/* Two Column Layout: News Panel (left), Main Content (right) */}
+      <div className="min-h-screen bg-background">
+        {/* Two Column Layout: News Panel (left), Main Content (right) */}
         <div className="flex flex-col lg:flex-row gap-6 h-screen">
           {/* Left Sidebar - News Panel */}
           <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
-            <NewsPanel />
-          </div>          {/* Main Content Area */}
+            <div className="card claymorphism h-full">
+              <NewsPanel />
+            </div>
+          </div>
+
+          {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             <div className="space-y-6 p-6">
             {/* --- Application Status Area Chart --- */}
             <div className="mb-8">
-              <ApplicationStatusAreaChart />
+              <div className="card claymorphism">
+                <ApplicationStatusAreaChart />
+              </div>
             </div>
             {/* --- Contribution Chart --- */}
             <div className="mb-8">
-              <div className="bg-card p-6 rounded-lg border border-border shadow-md flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">
+              <div className="card claymorphism p-6 flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">
                 <div className="w-full min-w-0 flex flex-col h-full contribution-calendar">
                   <ApplicationContributionCalendar applications={applications} minCellSize={14} maxCellSize={20} weeks={52} />
                 </div>
               </div>
             </div>
             {/* Recent Applications - Full Width */}
-            <div className="bg-card p-6 rounded-lg border border-border shadow-md overflow-hidden">
+            <div className="card claymorphism p-6 overflow-hidden">
               <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
                 <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
                 Recent Applications
@@ -285,7 +292,7 @@ export default function ApplicantDashboardPage() {
                   {applications.map((application) => (
                     <div 
                       key={application._id} 
-                      className="p-4 border border-border rounded-md hover:bg-muted/50 cursor-pointer transition-colors" 
+                      className="p-4 border border-border rounded-lg hover:bg-accent/20 cursor-pointer transition-all duration-200 backdrop-blur-sm claymorphism" 
                       onClick={() => {
                         // Navigate to application details or job details
                         if (application.jobId) {

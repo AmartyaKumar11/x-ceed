@@ -1,5 +1,5 @@
-import { authMiddleware } from '../../../../lib/middleware';
-import { getDatabase } from '../../../../lib/mongodb';
+import { authMiddleware } from '../../../lib/middleware';
+import { getDatabase } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 export default async function handler(req, res) {

@@ -91,8 +91,8 @@ export default function ApplicantJobsPage() {
         </div>
       </div>
 
-      {/* Real Job Cards with plain black container */}
-      <div className="bg-black/95 backdrop-blur-sm border border-white/10 rounded-2xl p-6 shadow-2xl">
+      {/* Real Job Cards with claymorphism container */}
+      <div className="card claymorphism p-6">
         <RealJobsComponent 
           onJobClick={handleJobClick} 
           searchQuery={searchQuery}

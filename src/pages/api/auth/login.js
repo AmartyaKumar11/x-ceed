@@ -110,7 +110,10 @@ export default async function handler(req, res) {
     return res.status(200).json({
       message: 'Login successful',
       token,
-      user: userWithoutSensitiveInfo
+      user: {
+        ...userWithoutSensitiveInfo,
+        userType: userWithoutSensitiveInfo.role // Add userType field for frontend compatibility
+      }
     });
     
   } catch (error) {

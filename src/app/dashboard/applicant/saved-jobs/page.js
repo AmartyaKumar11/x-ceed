@@ -225,6 +225,7 @@ export default function SavedJobsPage() {
           department: jobData.department,
           level: jobData.level,
           workMode: jobData.workMode,
+          duration: 4, // Default duration for saved jobs prep plans
           source: 'saved-jobs'
         })
       });

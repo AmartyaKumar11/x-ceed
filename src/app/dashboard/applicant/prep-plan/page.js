@@ -38,6 +38,8 @@ export default function PrepPlanPage() {
 
   const [jobData, setJobData] = useState(null);
   const [prepPlan, setPrepPlan] = useState(null);
+  const [detailedPlan, setDetailedPlan] = useState(null);
+  const [prepPlanId, setPrepPlanId] = useState(null);
   const [parsedSkills, setParsedSkills] = useState(null);
   const [loading, setLoading] = useState(true);
   const [parsingJD, setParsingJD] = useState(false);
@@ -85,6 +87,42 @@ export default function PrepPlanPage() {
     };
 
     initializePage();  }, [searchParams]);
+
+  // Fetch detailed plan from database
+  const fetchDetailedPlan = async (jobTitle, companyName) => {
+    try {
+      console.log('🔍 Searching for detailed plan:', { jobTitle, companyName });
+      
+      const response = await fetch('/api/prep-plans', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const plans = result.data || [];
+        
+        // Find matching prep plan
+        const matchingPlan = plans.find(plan => 
+          plan.jobTitle?.toLowerCase() === jobTitle?.toLowerCase() && 
+          plan.companyName?.toLowerCase() === companyName?.toLowerCase()
+        );
+        
+        if (matchingPlan && matchingPlan.detailedPlan) {
+          console.log('✅ Found detailed AI plan:', matchingPlan);
+          setDetailedPlan(matchingPlan.detailedPlan);
+          setPrepPlanId(matchingPlan._id);
+          return matchingPlan.detailedPlan;
+        } else {
+          console.log('❌ No detailed plan found for this job');
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching detailed plan:', error);
+    }
+    return null;
+  };
 
   // Generate prep plan when skills are parsed or duration changes
   useEffect(() => {
@@ -153,12 +191,26 @@ export default function PrepPlanPage() {
     try {
       console.log('🔄 generatePrepPlan called with:', { 
         jobTitle: job?.title, 
+        companyName: job?.companyName,
         durationInWeeks, 
         hasParsedSkills: !!parsedSkills,
         parsedSkillsKeys: parsedSkills ? Object.keys(parsedSkills) : 'none'
       });
       
       setLoading(true);
+
+      // First, try to fetch detailed AI plan from database
+      const aiDetailedPlan = await fetchDetailedPlan(job.title, job.companyName);
+      
+      if (aiDetailedPlan) {
+        console.log('✅ Using AI-generated detailed plan');
+        const convertedPlan = convertDetailedPlanToStudyStructure(job, aiDetailedPlan, durationInWeeks);
+        setPrepPlan(convertedPlan);
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 No detailed AI plan found, generating skill-based plan');
       
       // Wait for skills to be parsed if not already done
       if (!parsedSkills) {
@@ -183,7 +235,156 @@ export default function PrepPlanPage() {
       setError('Failed to generate prep plan');
       setLoading(false);
     }
-  };  const generateDynamicPrepPlan = (job, skills, durationInWeeks) => {
+  };
+
+  // Convert AI detailed plan to study structure for UI
+  const convertDetailedPlanToStudyStructure = (job, detailedPlan, durationInWeeks) => {
+    console.log('🔄 Converting AI detailed plan to study structure');
+    
+    const phases = [];
+    let topicId = 1;
+    
+    // Phase 1: Gap Analysis & Critical Skills
+    if (detailedPlan.gapAnalysis?.missingSkills?.length > 0 || detailedPlan.gapAnalysis?.skillsToAdvance?.length > 0) {
+      const gapTopics = [];
+      
+      // Missing skills topics
+      detailedPlan.gapAnalysis.missingSkills?.forEach((skill) => {
+        const relatedTopic = detailedPlan.personalizedTopics?.find(topic => 
+          topic.topicName?.toLowerCase().includes(skill.toLowerCase())
+        );
+        
+        gapTopics.push({
+          id: topicId++,
+          title: `Master ${skill}`,
+          description: relatedTopic?.whyNeeded || `Learn ${skill} as it's missing from your profile but required for this role`,
+          estimatedHours: parseInt(relatedTopic?.studyHours) || Math.ceil(durationInWeeks * 4),
+          resources: [
+            { type: 'course', title: `${skill} Complete Course`, url: '#' },
+            { type: 'practice', title: `${skill} Hands-on Practice`, url: '#' },
+            { type: 'project', title: relatedTopic?.specificProjects?.[0] || `Build ${skill} Project`, url: '#' },
+            { type: 'documentation', title: `${skill} Documentation`, url: '#' }
+          ],
+          completed: false,
+          skillType: 'missing',
+          currentLevel: relatedTopic?.currentLevel || 'Beginner',
+          targetLevel: relatedTopic?.targetLevel || 'Intermediate'
+        });
+      });
+      
+      // Skills to advance topics
+      detailedPlan.gapAnalysis.skillsToAdvance?.forEach((skill) => {
+        const relatedTopic = detailedPlan.personalizedTopics?.find(topic => 
+          topic.topicName?.toLowerCase().includes(skill.toLowerCase())
+        );
+        
+        gapTopics.push({
+          id: topicId++,
+          title: `Advanced ${skill}`,
+          description: relatedTopic?.whyNeeded || `Advance your ${skill} skills to meet job requirements`,
+          estimatedHours: parseInt(relatedTopic?.studyHours) || Math.ceil(durationInWeeks * 3),
+          resources: [
+            { type: 'course', title: `Advanced ${skill} Course`, url: '#' },
+            { type: 'practice', title: `${skill} Advanced Practice`, url: '#' },
+            { type: 'project', title: relatedTopic?.specificProjects?.[0] || `Advanced ${skill} Project`, url: '#' }
+          ],
+          completed: false,
+          skillType: 'advance',
+          currentLevel: relatedTopic?.currentLevel || 'Basic',
+          targetLevel: relatedTopic?.targetLevel || 'Advanced'
+        });
+      });
+      
+      if (gapTopics.length > 0) {
+        phases.push({
+          id: 1,
+          title: '🎯 Critical Skills Gap',
+          duration: `${Math.ceil(durationInWeeks * 0.4)} weeks`,
+          topics: gapTopics,
+          description: detailedPlan.gapAnalysis.criticalLearningPath
+        });
+      }
+    }
+    
+    // Phase 2: Weekly Progression Topics
+    if (detailedPlan.weeklyProgression) {
+      const progressionTopics = [];
+      
+      Object.entries(detailedPlan.weeklyProgression).forEach(([week, weekPlan]) => {
+        weekPlan.topics?.forEach((topic) => {
+          progressionTopics.push({
+            id: topicId++,
+            title: topic,
+            description: `${weekPlan.focus} - ${weekPlan.rationale}`,
+            estimatedHours: Math.ceil(durationInWeeks * 2),
+            resources: [
+              { type: 'course', title: `${topic} Training`, url: '#' },
+              { type: 'practice', title: `${topic} Practice`, url: '#' },
+              { type: 'project', title: `${topic} Project`, url: '#' }
+            ],
+            completed: false,
+            week: week
+          });
+        });
+      });
+      
+      if (progressionTopics.length > 0) {
+        phases.push({
+          id: 2,
+          title: '📚 Structured Learning Path',
+          duration: `${Math.ceil(durationInWeeks * 0.4)} weeks`,
+          topics: progressionTopics
+        });
+      }
+    }
+    
+    // Phase 3: Domain Knowledge & Specialization
+    if (detailedPlan.gapAnalysis?.newDomainKnowledge?.length > 0) {
+      const domainTopics = detailedPlan.gapAnalysis.newDomainKnowledge.map((knowledge) => ({
+        id: topicId++,
+        title: knowledge,
+        description: `Specialized knowledge for ${job.title} role`,
+        estimatedHours: Math.ceil(durationInWeeks * 2),
+        resources: [
+          { type: 'course', title: `${knowledge} Course`, url: '#' },
+          { type: 'research', title: `${knowledge} Research`, url: '#' },
+          { type: 'practice', title: `${knowledge} Application`, url: '#' }
+        ],
+        completed: false,
+        skillType: 'domain'
+      }));
+      
+      phases.push({
+        id: 3,
+        title: '🚀 Domain Expertise',
+        duration: `${Math.ceil(durationInWeeks * 0.2)} weeks`,
+        topics: domainTopics
+      });
+    }
+    
+    // Calculate totals
+    const totalTopics = phases.reduce((total, phase) => total + phase.topics.length, 0);
+    
+    return {
+      overview: {
+        estimatedTimeWeeks: durationInWeeks,
+        difficultyLevel: 'Personalized',
+        totalTopics: totalTopics,
+        completedTopics: 0,
+        aiGenerated: true,
+        gapAnalysis: detailedPlan.gapAnalysis,
+        learningPath: detailedPlan.candidateSpecificResources?.learningPath
+      },
+      phases: phases,
+      metadata: {
+        source: 'ai-detailed-plan',
+        generatedAt: new Date().toISOString(),
+        basedOnGapAnalysis: true
+      }
+    };
+  };
+
+  const generateDynamicPrepPlan = (job, skills, durationInWeeks) => {
     console.log('🔍 generateDynamicPrepPlan called with:', {
       jobTitle: job?.title,
       hasSkills: !!skills,

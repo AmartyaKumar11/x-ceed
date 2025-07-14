@@ -72,15 +72,20 @@ export default function Sidebar({ role }) {
     <>      {/* Trigger area - React-based instead of DOM manipulation */}
       <div 
         className="fixed top-0 left-0 w-5 h-full z-40 cursor-pointer"        onMouseEnter={() => setIsOpen(true)}
-      />{/* Sidebar */}
+      />      {/* Sidebar */}
       <div
         ref={sidebarRef}
-        className={`sidebar fixed top-0 left-0 h-screen bg-background border-r border-border transition-all duration-300 ease-in-out z-50 ${
-          isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'        }`}
-      ><div className="h-16 border-b border-border flex items-center justify-between px-6">
+        className={`sidebar fixed top-0 left-0 h-screen bg-sidebar/95 backdrop-blur-xl border-r border-sidebar-border shadow-2xl transition-all duration-300 ease-in-out z-50 ${
+          isOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'
+        }`}
+        style={{ 
+          backdropFilter: 'blur(20px) saturate(150%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(150%)'
+        }}
+      >        <div className="h-16 border-b border-sidebar-border/50 flex items-center justify-between px-6 bg-sidebar-accent/10">
           <Link 
             href={role === 'applicant' ? '/dashboard/applicant' : '/dashboard/recruiter'} 
-            className="header-link text-xl font-bold text-foreground hover:text-foreground/80 transition-colors cursor-pointer flex-shrink-0"
+            className="header-link text-xl font-bold text-sidebar-foreground hover:text-sidebar-primary transition-colors cursor-pointer flex-shrink-0"
             onClick={(e) => {
               e.stopPropagation();
               setIsOpen(false);
@@ -88,7 +93,8 @@ export default function Sidebar({ role }) {
           >
             X-CEED
           </Link>
-          <div className="header-controls flex items-center space-x-3 flex-shrink-0"><div onClick={(e) => e.stopPropagation()}>
+          <div className="header-controls flex items-center space-x-3 flex-shrink-0">
+            <div onClick={(e) => e.stopPropagation()}>
               <DarkModeToggle />
             </div>
             <button 
@@ -96,7 +102,7 @@ export default function Sidebar({ role }) {
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="text-muted-foreground hover:text-foreground transition-colors p-1"
+              className="text-sidebar-foreground/70 hover:text-sidebar-foreground transition-colors p-2 rounded-md hover:bg-sidebar-accent/20"
               aria-label="Close menu"
             >              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -106,38 +112,41 @@ export default function Sidebar({ role }) {
           </div>
         </div>
         
-        <div className="py-4">
-          <ul className="space-y-1">
+        <div className="py-4 flex-1 overflow-y-auto">
+          <ul className="space-y-1 px-3">
             {menuItems.map((item, index) => (
-              <li key={index}>                {item.onClick ? (                  <button 
+              <li key={index}>
+                {item.onClick ? (
+                  <button 
                     onClick={item.onClick}
-                    className={`sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer w-full text-left transition-colors duration-200 ${
-                      pathname === item.href ? 'active bg-muted' : ''
+                    className={`sidebar-item flex items-center px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-accent-foreground cursor-pointer w-full text-left transition-all duration-200 rounded-lg group ${
+                      pathname === item.href ? 'active bg-sidebar-primary text-sidebar-primary-foreground shadow-md' : ''
                     }`}
                   >
-                    <span className="sidebar-icon mr-4 text-foreground">{item.icon}</span>
-                    <span>{item.label}</span>
+                    <span className="sidebar-icon mr-3 text-current group-hover:scale-110 transition-transform">{item.icon}</span>
+                    <span className="font-medium">{item.label}</span>
                   </button>
-                ) : (                  <Link 
+                ) : (
+                  <Link 
                     href={item.href} 
-                    className={`sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer transition-colors duration-200 ${
-                      pathname === item.href ? 'active bg-muted' : ''
+                    className={`sidebar-item flex items-center px-4 py-3 text-sidebar-foreground hover:bg-sidebar-accent/20 hover:text-sidebar-accent-foreground cursor-pointer transition-all duration-200 rounded-lg group ${
+                      pathname === item.href ? 'active bg-sidebar-primary text-sidebar-primary-foreground shadow-md' : ''
                     }`}
                   >
-                    <span className="sidebar-icon mr-4 text-foreground">{item.icon}</span>
-                    <span>{item.label}</span>
+                    <span className="sidebar-icon mr-3 text-current group-hover:scale-110 transition-transform">{item.icon}</span>
+                    <span className="font-medium">{item.label}</span>
                   </Link>
                 )}
               </li>
             ))}
           </ul>
-        </div>          <div className="absolute bottom-0 w-full border-t border-border py-4">
+        </div>        <div className="border-t border-sidebar-border/50 p-3 bg-sidebar-accent/5">
           <Link 
             href="/auth" 
-            className="sidebar-item flex items-center px-6 py-3 text-foreground hover:bg-muted cursor-pointer transition-colors duration-200"
+            className="sidebar-item flex items-center px-4 py-3 text-sidebar-foreground hover:bg-red-500/20 hover:text-red-400 cursor-pointer transition-all duration-200 rounded-lg group"
           >
-            <span className="sidebar-icon mr-4 text-foreground"><LogOut size={18} /></span>
-            <span>Sign out</span>
+            <span className="sidebar-icon mr-3 text-current group-hover:scale-110 transition-transform"><LogOut size={18} /></span>
+            <span className="font-medium">Sign out</span>
           </Link>
         </div>
       </div>      {/* Profile Settings Dialog - Outside sidebar container */}

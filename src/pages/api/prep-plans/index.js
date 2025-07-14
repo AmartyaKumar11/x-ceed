@@ -66,6 +66,7 @@ export default async function handler(req, res) {
           department,
           level,
           workMode,
+          duration = 4, // Add duration with default value
           source // 'resume-match' or 'saved-jobs'
         } = req.body;
 
@@ -105,6 +106,7 @@ export default async function handler(req, res) {
           department: department || '',
           level: level || '',
           workMode: workMode || '',
+          duration: duration, // Add duration to the prep plan
           source: source || 'unknown',
           status: 'active',
           progress: 0,

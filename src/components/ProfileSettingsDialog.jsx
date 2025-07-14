@@ -225,30 +225,33 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
   ];
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">      <div className="bg-card rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden border-2 border-border shadow-2xl">        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b-2 border-border bg-card">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+      <div className="card claymorphism max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-border/50 bg-card/50 backdrop-blur-sm">
           <h2 className="text-3xl font-bold text-foreground">Profile Settings</h2>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-muted rounded-full transition-colors border border-border hover:border-foreground"
+            className="p-2 hover:bg-muted/50 rounded-full transition-all border border-border hover:border-foreground backdrop-blur-sm"
           >
             <X size={24} className="text-foreground" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="border-b-2 border-border bg-card">
+        <div className="border-b border-border/50 bg-card/30 backdrop-blur-sm">
           <div className="flex overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}                className={`flex items-center gap-3 px-8 py-5 text-sm font-semibold whitespace-nowrap transition-all border-b-2 ${
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-3 px-8 py-5 text-sm font-semibold whitespace-nowrap transition-all border-b-2 backdrop-blur-sm ${
                   activeTab === tab.id
-                    ? 'text-foreground border-foreground bg-muted'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-muted border-transparent hover:border-border'
+                    ? 'text-foreground border-primary bg-primary/10'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/30 border-transparent hover:border-border'
                 }`}
               >
-                <span className={activeTab === tab.id ? 'text-foreground' : 'text-muted-foreground'}>
+                <span className={activeTab === tab.id ? 'text-primary' : 'text-muted-foreground'}>
                   {tab.icon}
                 </span>
                 {tab.label}
@@ -256,7 +259,7 @@ export default function ProfileSettingsDialog({ isOpen, onClose, userRole = 'app
             ))}
           </div>
         </div>        {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[65vh] bg-muted">          {loading ? (
+        <div className="p-8 overflow-y-auto max-h-[65vh] bg-muted/20 backdrop-blur-sm">          {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
             </div>
