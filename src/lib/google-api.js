@@ -12,6 +12,14 @@ const SCOPES = [
  */
 async function getGoogleAuth() {
   try {
+    // Check if any Google credentials are configured
+    const hasServiceAccount = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    const hasOAuth = process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET;
+    
+    if (!hasServiceAccount && !hasOAuth) {
+      throw new Error('Google API credentials not configured. Please add GOOGLE_SERVICE_ACCOUNT_KEY or OAuth credentials to .env.local');
+    }
+    
     // For server-side authentication, we'll use service account
     // You'll need to set up a service account and add the credentials
     if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY) {
@@ -39,7 +47,7 @@ async function getGoogleAuth() {
     return oauth2Client;
   } catch (error) {
     console.error('Error setting up Google Auth:', error);
-    throw new Error('Failed to authenticate with Google APIs');
+    throw new Error(`Failed to authenticate with Google APIs: ${error.message}`);
   }
 }
 

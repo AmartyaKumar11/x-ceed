@@ -222,14 +222,39 @@ function generateMockVideos(topic, count) {
     const videoType = videoTypes[i % videoTypes.length];
     const duration = durations[i % durations.length];
     const views = viewCounts[i % viewCounts.length];    // Generate a realistic video ID
-    const videoId = generateVideoId(topic, i);
-      // Use actual YouTube thumbnail URLs that work with better fallbacks
-    const mockVideoIds = [
-      'dQw4w9WgXcQ', 'ScMzIvxBSi4', 'L_LUpnjgPso', 'fJ9rUzIMcZQ', 'ZbZSe6N_BXs',
-      'DLzxrzFCyOs', '9drEtMBBdAI', 'WrAog6jFkFQ', 'YQHsXMglC9A', 'oHg5SJYRHA0',
-      'jNQXAC9IVRw', 'me2TRQJDfJg', 'WlgrFtqUBzI', 'hTWKbfoikeg', 'Y8Wp3dafaMQ'
+    // Use real working YouTube video IDs for programming topics
+    const programmingVideoIds = [
+      'PkZNo7MFNFg', // Learn JavaScript - Full Course for Beginners
+      'W6NZfCO5SIk', // JavaScript Tutorial for Beginners
+      'hdI2bqOjy3c', // JavaScript Crash Course
+      'Qqx_wzMmFeA', // HTML CSS JavaScript tutorial
+      'PlxWf493en4', // Python Full Course
+      'rfscVS0vtbw', // Python Tutorial
+      'XKHEtdqhLK8', // React Course for Beginners
+      'Ke90Tje7VS0', // React Tutorial
+      'SqcY0GlETPk', // React Project Tutorial
+      'fBNz5xF-Kx4', // CSS Tutorial
+      'yfoY53QXEnI', // CSS Crash Course
+      'UB1O30fR-EE', // HTML Crash Course
+      '2JYT5f2isg4', // Node.js Tutorial
+      'TlB_eWDSMt4', // Node.js Crash Course
+      'ZVnjOPwW4ZA', // Git Tutorial
+      'HVsySz-h9r4', // Git Crash Course
+      'WGJJIrtnfpk', // Python for Beginners
+      'kqtD5dpn9C8', // Python Crash Course
+      'lkIFF4maKMU', // Angular Tutorial
+      'k5E2AVpwsko', // Vue.js Tutorial
     ];
-    const thumbnailVideoId = mockVideoIds[i % mockVideoIds.length];
+    
+    // Cycle through real video IDs based on topic and index
+    const videoId = programmingVideoIds[i % programmingVideoIds.length];
+      // Use real YouTube video IDs for working thumbnails
+    const realVideoIds = [
+      'PkZNo7MFNFg', 'W6NZfCO5SIk', 'hdI2bqOjy3c', 'Qqx_wzMmFeA', 'PlxWf493en4',
+      'rfscVS0vtbw', 'XKHEtdqhLK8', 'Ke90Tje7VS0', 'SqcY0GlETPk', 'fBNz5xF-Kx4',
+      'yfoY53QXEnI', 'UB1O30fR-EE', '2JYT5f2isg4', 'TlB_eWDSMt4', 'ZVnjOPwW4ZA'
+    ];
+    const thumbnailVideoId = realVideoIds[i % realVideoIds.length];
     
     // Try multiple thumbnail URL formats for better reliability
     const primaryThumbnail = `https://img.youtube.com/vi/${thumbnailVideoId}/mqdefault.jpg`;

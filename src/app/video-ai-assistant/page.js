@@ -760,7 +760,23 @@ What would you like me to help you with?`,
         throw new Error(data.error || 'Failed to create folder');
       }    } catch (error) {
       console.error('Error creating project folder:', error);
-      alert('Failed to create project folder. Please try again.');
+      
+      let errorMessage = 'Failed to create project folder. Please try again.';
+      
+      if (error.message.includes('Google API credentials not configured')) {
+        errorMessage = `🔧 Google Drive integration is not set up yet. To use this feature:
+
+1. Go to Google Cloud Console (https://console.cloud.google.com/)
+2. Create a project and enable Google Drive & Docs APIs
+3. Set up OAuth2 credentials or a service account
+4. Add the credentials to your .env.local file
+
+For now, you can still use the video assistant without Google Drive integration.`;
+      } else if (error.message.includes('authenticate')) {
+        errorMessage = 'Google API authentication failed. Please check your credentials in .env.local';
+      }
+      
+      alert(errorMessage);
     }
   };  const clearChatHistory = async () => {
     if (confirm('Are you sure you want to clear the chat history? This will remove all messages and start fresh.')) {

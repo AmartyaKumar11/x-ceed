@@ -32,26 +32,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Missing email or password' });
     }
 
-    // Find user by email
-    console.log("🔍 Searching for user with email:", email);
-    let user = await db.collection('users').findOne({ email });
-    
-    // Check if user exists
+    // Normalize email: trim and lowercase
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log("🔍 Searching for user with normalized email:", normalizedEmail);
+    // Always use case-insensitive search
+    let user = await db.collection('users').findOne({
+      email: { $regex: new RegExp('^' + normalizedEmail.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&') + '$', 'i') }
+    });
     if (!user) {
-      console.log("❌ User not found with exact email:", email);
-      
-      // Try case-insensitive search
-      const userCaseInsensitive = await db.collection('users').findOne({ 
-        email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } 
-      });
-      
-      if (userCaseInsensitive) {
-        console.log("✅ Found user with case-insensitive search:", userCaseInsensitive.email);
-        user = userCaseInsensitive;
-      } else {
-        console.log("❌ No user found even with case-insensitive search");
-        return res.status(401).json({ message: 'Invalid email or password' });
-      }
+      console.log("❌ No user found with normalized/case-insensitive search");
+      return res.status(401).json({ message: 'Invalid email or password' });
     } else {
       console.log("✅ User found:", user.email);
     }

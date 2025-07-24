@@ -251,4 +251,4 @@ if __name__ == "__main__":
     import uvicorn
     print("Starting Gemini Resume Chat Service...")
     print(f"Gemini API Key configured: {bool(GEMINI_API_KEY)}")
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=8003)

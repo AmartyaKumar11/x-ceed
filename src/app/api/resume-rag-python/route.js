@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
 
 // Python FastAPI service URLs
 const PYTHON_RAG_SERVICE_URL = process.env.PYTHON_RAG_SERVICE_URL || 'http://localhost:8000';
-const PYTHON_GEMINI_CHAT_SERVICE_URL = process.env.PYTHON_GEMINI_CHAT_SERVICE_URL || 'http://localhost:8001';
+const PYTHON_GEMINI_CHAT_SERVICE_URL = process.env.PYTHON_GEMINI_CHAT_SERVICE_URL || 'http://localhost:8003';
 
 export async function POST(request) {
   console.log('🤖 Python RAG-Powered Resume Analysis API called');
@@ -248,9 +248,9 @@ async function handlePythonChat({ question, conversationHistory, analysisContext
     if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch')) {
       return NextResponse.json({ 
         success: false, 
-        message: 'Gemini chat service is not running. Please start the service on port 8001.', 
+        message: 'Gemini chat service is not running. Please start the service on port 8003.', 
         error: 'Service unavailable',
-        hint: 'Run: python gemini_resume_chat_service.py'
+        hint: 'Run: npm run dev:full or npm run gemini-chat'
       }, { status: 503 });
     }
     

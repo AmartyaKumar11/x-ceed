@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const PYTHON_SERVICE_URL = process.env.PYTHON_VIDEO_AI_SERVICE_URL || 'http://localhost:8005';
+const PYTHON_SERVICE_URL = process.env.PYTHON_VIDEO_AI_SERVICE_URL || 'http://localhost:8002';
 
 export async function POST(request) {
   try {

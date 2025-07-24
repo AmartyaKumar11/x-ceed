@@ -11,8 +11,12 @@ from dataclasses import dataclass
 # Fix Windows console encoding issues
 if sys.platform == "win32":
     import codecs
-    sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
-    sys.stderr = codecs.getwriter("utf-8")(sys.stderr.detach())
+    import io
+    # Use a more robust approach for Windows console
+    if hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    if hasattr(sys.stderr, 'buffer'):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # Load environment variables
 def load_env_file():
@@ -120,38 +124,111 @@ class VideoAIService:
             print(f"Error generating AI response: {e}")
             return "I'm sorry, I couldn't generate a response at the moment."
 
+    def _sample_transcript_for_notes(self, transcript_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Sample transcript intelligently for notes generation"""
+        if len(transcript_data) <= 100:
+            return transcript_data
+        
+        # For large transcripts, take samples from different parts
+        sample_size = min(100, len(transcript_data))
+        step = len(transcript_data) // sample_size
+        
+        sampled = []
+        for i in range(0, len(transcript_data), step):
+            if len(sampled) >= sample_size:
+                break
+            sampled.append(transcript_data[i])
+        
+        print(f"[INFO] Sampled {len(sampled)} segments from {len(transcript_data)} total segments")
+        return sampled
+
+    def _format_transcript_for_analysis(self, transcript_data: List[Dict[str, Any]]) -> str:
+        """Format transcript data for AI analysis"""
+        formatted = []
+        for item in transcript_data:
+            try:
+                # Handle both dict and object formats
+                if hasattr(item, 'start'):
+                    start_time = int(item.start)
+                    text = item.text.strip()
+                else:
+                    start_time = int(item['start'])
+                    text = item['text'].strip()
+                formatted.append(f"[{start_time}s] {text}")
+            except Exception as e:
+                print(f"Error formatting transcript item: {e}")
+                continue
+        return '\n'.join(formatted)
+
     async def _generate_notes(self, video_context: VideoContext) -> str:
-        """Generate structured notes from video content"""
+        """Generate structured notes from video content with timestamps"""
+        
+        # Sample the transcript intelligently for large videos
+        transcript_sample = self._sample_transcript_for_notes(
+            video_context.transcript_with_timestamps
+        )
+        
+        transcript_with_times = self._format_transcript_for_analysis(transcript_sample)
+        total_segments = len(video_context.transcript_with_timestamps)
+        sample_segments = len(transcript_sample)
         
         notes_prompt = f"""
-        Create comprehensive study notes for this video:
-        
-        Title: {video_context.title}
-        Channel: {video_context.channel}
-        
-        Based on this transcript: {video_context.transcript[:3000]}...
-        
-        Generate well-structured notes including:
-        
-        # {video_context.title}
-        
-        ## Overview
-        [Brief summary of the video]
-        
-        ## Key Points
-        1. [Main point 1]
-        2. [Main point 2]
-        3. [Main point 3]
-        
-        ## Important Concepts
-        - [Concept 1]: [explanation]
-        - [Concept 2]: [explanation]
-        
-        ## Summary
-        [Key takeaways and conclusion]
-        
-        Make the notes detailed, educational, and well-organized using markdown formatting.
-        """
+Create comprehensive, detailed study notes for this video with specific timestamps.
+
+Title: {video_context.title}
+Channel: {video_context.channel}
+Total transcript segments: {total_segments} (analyzing sample of {sample_segments} key segments)
+
+Key transcript segments with timestamps:
+{transcript_with_times}
+
+Generate detailed study notes in **PROPER MARKDOWN FORMAT** with the following structure:
+
+# 📚 {video_context.title}
+
+## 🎯 Overview
+Write a comprehensive 2-3 sentence summary of the video content and learning objectives.
+
+## 📋 Key Topics Covered
+List the main topics discussed in the video with approximate timestamps:
+- **Topic 1** (0:00 - X:XX): Brief description
+- **Topic 2** (X:XX - X:XX): Brief description
+- **Topic 3** (X:XX - X:XX): Brief description
+
+## 📖 Detailed Notes
+
+### 🔥 Main Concepts
+For each major concept, provide:
+- **Concept Name** (timestamp): Detailed explanation with examples
+- **Implementation Details**: Step-by-step breakdown
+- **Key Insights**: Important takeaways
+
+### 💡 Important Points
+- **Point 1** (timestamp): Explanation
+- **Point 2** (timestamp): Explanation
+- **Point 3** (timestamp): Explanation
+
+### ⚡ Best Practices & Tips
+- Practical advice mentioned in the video
+- Common pitfalls to avoid
+- Recommended approaches
+
+## 🎯 Summary & Key Takeaways
+1. **Main Learning Objective**: 
+2. **Practical Applications**:
+3. **Next Steps**:
+
+## 📌 Important Timestamps
+- **Introduction**: 0:00
+- **Key Concept 1**: [timestamp]
+- **Key Concept 2**: [timestamp]
+- **Conclusion**: [timestamp]
+
+---
+*Notes generated from video transcript analysis*
+
+Make the notes comprehensive, educational, and well-organized. Include specific timestamps where possible from the transcript data provided.
+"""
         
         notes = await self._generate_ai_response(notes_prompt)
         return notes
@@ -306,6 +383,88 @@ async def chat_endpoint(request: ChatRequest):
     """Chat endpoint with video context"""
     return await video_ai_service.process_chat_message(request)
 
+@app.post("/generate-notes")
+async def generate_notes_endpoint(request: dict):
+    """Generate detailed notes for a video"""
+    try:
+        video_id = request.get("video_id")
+        title = request.get("title", "Unknown Video")
+        channel = request.get("channel", "Unknown Channel")
+        
+        if not video_id:
+            raise HTTPException(status_code=400, detail="video_id is required")
+        
+        # Get video context with transcript
+        video_context = await video_ai_service.get_video_context(video_id, title, channel)
+        
+        # Generate comprehensive notes
+        notes = await video_ai_service._generate_notes(video_context)
+        
+        return {
+            "success": True,
+            "notes": notes,
+            "video_id": video_id,
+            "title": title,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error generating notes: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate notes: {str(e)}")
+
+@app.post("/suggest-clips")
+async def suggest_clips_endpoint(request: dict):
+    """Suggest interesting clips from a video"""
+    try:
+        video_id = request.get("video_id")
+        title = request.get("title", "Unknown Video")
+        channel = request.get("channel", "Unknown Channel")
+        query = request.get("query", "")
+        
+        if not video_id:
+            raise HTTPException(status_code=400, detail="video_id is required")
+        
+        # Get video context
+        video_context = await video_ai_service.get_video_context(video_id, title, channel)
+        
+        # Generate clip suggestions
+        clips = await video_ai_service._suggest_clips(video_context, query)
+        
+        return {
+            "success": True,
+            "clips": clips,
+            "video_id": video_id,
+            "title": title,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error suggesting clips: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to suggest clips: {str(e)}")
+
+@app.get("/video-context/{video_id}")
+async def get_video_context_endpoint(video_id: str, title: str = "Unknown Video", channel: str = "Unknown Channel"):
+    """Get video context including transcript analysis"""
+    try:
+        video_context = await video_ai_service.get_video_context(video_id, title, channel)
+        
+        return {
+            "success": True,
+            "context": {
+                "video_id": video_context.video_id,
+                "title": video_context.title,
+                "channel": video_context.channel,
+                "duration": video_context.duration,
+                "transcript_segments": len(video_context.transcript_with_timestamps),
+                "description": video_context.description
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error getting video context: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get video context: {str(e)}")
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -318,7 +477,12 @@ async def health_check():
 if __name__ == "__main__":
     print("🎬 Starting Video AI Service...")
     print("Available endpoints:")
-    print("- POST /chat - Main chat interface")
+    print("- POST /chat - Main chat interface with video context")
+    print("- POST /generate-notes - Generate comprehensive video notes")
+    print("- POST /suggest-clips - Suggest interesting video clips")
+    print("- GET /video-context/{video_id} - Get video analysis and transcript info")
     print("- GET /health - Health check")
+    print(f"🌐 Service will be available at: http://localhost:8002")
+    print(f"📚 API Documentation: http://localhost:8002/docs")
     
     uvicorn.run(app, host="0.0.0.0", port=8002)
