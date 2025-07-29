@@ -167,3 +167,11 @@ temp/
 uploads/
 public/uploads/temp-resumes/
 public/uploads/application-resumes/
+
+# Google Cloud Service Account credentials (CRITICAL - NEVER COMMIT)
+*service-account*.json
+*gcp-credentials*.json
+*x-ceed-db*.json
+docs/*service-account*.json
+docs/*gcp*.json
+docs/*x-ceed-db*.json
