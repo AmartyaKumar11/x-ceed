@@ -15,6 +15,14 @@ import {
 
 export async function GET(request) {
   try {
+    // Check if Firebase is available
+    if (!db) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Firebase not configured - using localStorage fallback' 
+      });
+    }
+
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get('videoId');
     const videoTitle = searchParams.get('title');
@@ -71,6 +79,14 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    // Check if Firebase is available
+    if (!db) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Firebase not configured - using localStorage fallback' 
+      });
+    }
+
     const sessionData = await request.json();
     const { videoId, videoTitle, videoChannel, messages, projectFolder } = sessionData;
 
@@ -81,15 +97,36 @@ export async function POST(request) {
     // Create session ID from video info
     const sessionId = `${videoId}_${Buffer.from(videoTitle || '').toString('base64').slice(0, 10)}`;
     
-    // Save/update chat session
-    await setDoc(doc(db, 'chatSessions', sessionId), {
+    // Save/update chat session - Clean data to avoid Firestore errors
+    const sessionDoc = {
       videoId,
-      videoTitle,
-      videoChannel,
-      projectFolder,
       updatedAt: new Date(),
       createdAt: new Date()
-    }, { merge: true });
+    };
+
+    // Only add fields if they have valid values
+    if (videoTitle && videoTitle.trim()) {
+      sessionDoc.videoTitle = videoTitle.trim();
+    }
+    
+    if (videoChannel && videoChannel.trim()) {
+      sessionDoc.videoChannel = videoChannel.trim();
+    }
+    
+    if (projectFolder && typeof projectFolder === 'object') {
+      // Clean project folder data
+      const cleanProjectFolder = {};
+      if (projectFolder.folderId) cleanProjectFolder.folderId = projectFolder.folderId;
+      if (projectFolder.name) cleanProjectFolder.name = projectFolder.name;
+      if (projectFolder.folderUrl) cleanProjectFolder.folderUrl = projectFolder.folderUrl;
+      if (projectFolder.webViewLink) cleanProjectFolder.webViewLink = projectFolder.webViewLink;
+      
+      if (Object.keys(cleanProjectFolder).length > 0) {
+        sessionDoc.projectFolder = cleanProjectFolder;
+      }
+    }
+
+    await setDoc(doc(db, 'chatSessions', sessionId), sessionDoc, { merge: true });
 
     // Clear existing messages for this session
     const existingMessagesQuery = query(
@@ -102,20 +139,40 @@ export async function POST(request) {
       await deleteDoc(docRef.ref);
     }
 
-    // Add new messages
-    const messagePromises = messages.map(message => 
-      addDoc(collection(db, 'chatMessages'), {
+    // Add new messages - Clean data to avoid Firestore errors
+    const messagePromises = messages.map(message => {
+      // Clean the message data to remove undefined values
+      const cleanMessage = {
         sessionId,
-        type: message.type,
-        content: message.content,
-        timestamp: new Date(message.timestamp),
-        actions: message.actions || [],
-        clips: message.clips || [],
-        notes: message.notes || null,
-        isWelcome: message.isWelcome || false,
-        showProjectSetup: message.showProjectSetup || false
-      })
-    );
+        type: message.type || 'user',
+        content: message.content || '',
+        timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
+        messageId: message.id || Date.now().toString()
+      };
+
+      // Only add optional fields if they have valid values
+      if (message.actions && Array.isArray(message.actions) && message.actions.length > 0) {
+        cleanMessage.actions = message.actions;
+      }
+      
+      if (message.clips && Array.isArray(message.clips) && message.clips.length > 0) {
+        cleanMessage.clips = message.clips;
+      }
+      
+      if (message.notes && message.notes !== null && message.notes !== undefined) {
+        cleanMessage.notes = message.notes;
+      }
+      
+      if (message.isWelcome === true) {
+        cleanMessage.isWelcome = true;
+      }
+      
+      if (message.showProjectSetup === true) {
+        cleanMessage.showProjectSetup = true;
+      }
+
+      return addDoc(collection(db, 'chatMessages'), cleanMessage);
+    });
     
     await Promise.all(messagePromises);
 
@@ -136,6 +193,14 @@ export async function POST(request) {
 
 export async function DELETE(request) {
   try {
+    // Check if Firebase is available
+    if (!db) {
+      return NextResponse.json({ 
+        success: false, 
+        error: 'Firebase not configured - using localStorage fallback' 
+      });
+    }
+
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get('videoId');
     const videoTitle = searchParams.get('title');

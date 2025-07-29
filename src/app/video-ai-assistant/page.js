@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward, Trash } from 'lucide-react';
+import { Send, Loader2, Download, Scissors, Camera, FolderPlus, Bot, Video, MessageSquare, FileText, Clock, Play, ExternalLink, Pause, Square, SkipForward, Trash, Brain } from 'lucide-react';
 import TypingAnimation from '@/components/TypingAnimation';
 import GoogleIntegration from '@/components/GoogleIntegration';
 
@@ -836,11 +836,22 @@ What would you like me to help you with?`,
         projectFolder: null
       });
     }
-  };const quickActions = [
+  };
+
+const quickActions = [
     { icon: <Download className="h-4 w-4" />, text: "Create Notes", action: "Create detailed notes for this video", type: "message" },
     { icon: <Scissors className="h-4 w-4" />, text: "Clip Video", action: "Help me clip a specific part of this video", type: "message" },
     { icon: <Camera className="h-4 w-4" />, text: "Screenshot", action: captureVideoScreenshot, type: "function" },
-    { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive", type: "message" }
+    { icon: <FolderPlus className="h-4 w-4" />, text: "Save to Drive", action: "Save this video content to my Google Drive", type: "message" },
+    { icon: <Brain className="h-4 w-4" />, text: "Take Quiz", action: () => {
+      if (!videoId || !videoTitle) {
+        alert('Please select a video first');
+        return;
+      }
+      // Navigate to quiz page with video data
+      const quizUrl = `/quiz?videoId=${videoId}&title=${encodeURIComponent(videoTitle)}&transcript=${encodeURIComponent('Video transcript will be fetched...')}`;
+      window.open(quizUrl, '_blank');
+    }, type: "function" }
   ];
 
   // Screenshot Dialog Handlers
