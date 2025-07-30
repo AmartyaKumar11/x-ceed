@@ -1,50 +1,43 @@
 import { MongoClient } from 'mongodb';
 
-// Use the full MongoDB URI directly
+// Primary MongoDB URI
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/x-ceed-db';
+// Backup MongoDB URI (using direct IPs for DNS issues)
+const backupUri = process.env.MONGODB_URI_BACKUP;
 
-// Extract database name from URI
-let dbName;
-if (uri.includes('mongodb+srv://') || uri.includes('mongodb.net')) {
-  // MongoDB Atlas connection - extract database name from URI path
-  const urlParts = uri.split('/');
-  const dbPart = urlParts[urlParts.length - 1];
-  dbName = dbPart.split('?')[0] || 'x-ceed-db';
-} else {
-  // Local MongoDB connection
-  dbName = uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
+console.log("MongoDB connection URI:", uri.replace(/\/\/[^:]+:[^@]+@/, '//[CREDENTIALS]@'));
+if (backupUri) {
+  console.log("Backup MongoDB URI:", backupUri.replace(/\/\/[^:]+:[^@]+@/, '//[CREDENTIALS]@'));
 }
 
-console.log("MongoDB connection URI:", uri.replace(/\/\/[^:]+:[^@]+@/, '//[CREDENTIALS]@')); // Debug log with hidden credentials
-console.log("Database name:", dbName); // Debug log
+// Extract database name from URI
+function extractDbName(uri) {
+  if (uri.includes('mongodb+srv://') || uri.includes('mongodb.net')) {
+    // MongoDB Atlas connection - extract database name from URI path
+    const urlParts = uri.split('/');
+    const dbPart = urlParts[urlParts.length - 1];
+    return dbPart.split('?')[0] || 'x-ceed-db';
+  } else {
+    // Local/Direct MongoDB connection
+    return uri.split('/')[3]?.split('?')[0] || 'x-ceed-db';
+  }
+}
 
-// MongoDB options for Atlas connection - optimized for SSL issues
-const options = {
-  connectTimeoutMS: 60000,
-  socketTimeoutMS: 60000,
-  serverSelectionTimeoutMS: 60000,
-  retryWrites: true,
-  w: 'majority',
-  ssl: true,
-  sslValidate: false,
-  sslCA: undefined,
-  authSource: 'admin',
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-};
+const dbName = extractDbName(uri);
 
-let client;
+console.log("Database name:", dbName);
 
-// Try to connect to Atlas - with multiple fallback strategies
+// Try to connect to Atlas - with multiple fallback strategies including backup URI
 async function createClient() {
   const connectionStrategies = [
-    // Strategy 1: Standard connection with SSL bypass
+    // Strategy 1: Primary URI with DNS resolution
     {
-      name: 'Standard SSL bypass',
+      name: 'Primary URI (SRV)',
+      uri: uri,
       options: {
-        connectTimeoutMS: 60000,
-        socketTimeoutMS: 60000,
-        serverSelectionTimeoutMS: 60000,
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 30000,
+        serverSelectionTimeoutMS: 30000,
         retryWrites: true,
         w: 'majority',
         ssl: true,
@@ -54,9 +47,27 @@ async function createClient() {
         useUnifiedTopology: true
       }
     },
-    // Strategy 2: No SSL validation
+    // Strategy 2: Backup URI with direct IPs (DNS bypass)
+    ...(backupUri ? [{
+      name: 'Backup URI (Direct IPs)',
+      uri: backupUri,
+      options: {
+        connectTimeoutMS: 30000,
+        socketTimeoutMS: 30000,
+        serverSelectionTimeoutMS: 30000,
+        retryWrites: true,
+        w: 'majority',
+        ssl: true,
+        sslValidate: false,
+        authSource: 'admin',
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      }
+    }] : []),
+    // Strategy 3: Primary URI with relaxed SSL
     {
-      name: 'No SSL validation',
+      name: 'Primary URI (Relaxed SSL)',
+      uri: uri,
       options: {
         connectTimeoutMS: 30000,
         socketTimeoutMS: 30000,
@@ -68,21 +79,16 @@ async function createClient() {
         tlsAllowInvalidHostnames: true,
         authSource: 'admin'
       }
-    },
-    // Strategy 3: Basic connection
-    {
-      name: 'Basic connection',
-      options: {
-        retryWrites: true,
-        w: 'majority'
-      }
     }
   ];
+
+let client;
 
   for (const strategy of connectionStrategies) {
     try {
       console.log(`🔄 Trying MongoDB connection strategy: ${strategy.name}`);
-      client = new MongoClient(uri, strategy.options);
+      
+      const client = new MongoClient(strategy.uri, strategy.options);
       
       // Test the connection
       await client.connect();
@@ -91,21 +97,12 @@ async function createClient() {
       await client.db('admin').command({ ping: 1 });
       
       console.log(`✅ MongoDB Atlas connection successful with strategy: ${strategy.name}`);
-      console.log('📍 Connected to:', uri.replace(/\/\/[^:]+:[^@]+@/, '//[CREDENTIALS]@'));
+      console.log('📍 Connected to:', strategy.uri.replace(/\/\/[^:]+:[^@]+@/, '//[CREDENTIALS]@'));
       console.log('🗂️ Database:', dbName);
       
       return client;
     } catch (error) {
       console.error(`❌ Strategy "${strategy.name}" failed:`, error.message);
-      
-      // Close the client if it was created
-      if (client) {
-        try {
-          await client.close();
-        } catch (closeError) {
-          // Ignore close errors
-        }
-      }
       
       // If this is not the last strategy, continue to the next one
       if (strategy !== connectionStrategies[connectionStrategies.length - 1]) {

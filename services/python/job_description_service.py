@@ -11,8 +11,10 @@ import google.generativeai as genai
 import traceback
 
 # Load environment variables from .env.local and .env files
-load_dotenv('.env.local')
-load_dotenv('.env')
+load_dotenv('../../.env.local')  # Load from root directory
+load_dotenv('../../.env')        # Load from root directory
+load_dotenv('.env.local')        # Fallback to local directory
+load_dotenv('.env')              # Fallback to local directory
 
 app = FastAPI(title="Job Description & Mock Interview Service", description="Enhanced with better error handling")
 
@@ -24,9 +26,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MongoDB setup
+# MongoDB setup with DNS fallback
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
-client = MongoClient(MONGO_URI)
+MONGO_URI_BACKUP = os.getenv("MONGODB_URI_BACKUP")
+
+def create_mongo_client():
+    """Create MongoDB client with fallback for DNS issues"""
+    connection_strategies = [
+        {"name": "Primary URI", "uri": MONGO_URI},
+    ]
+    
+    if MONGO_URI_BACKUP:
+        connection_strategies.append({"name": "Backup URI (Direct IPs)", "uri": MONGO_URI_BACKUP})
+    
+    for strategy in connection_strategies:
+        try:
+            print(f"[INFO] Trying MongoDB connection: {strategy['name']}")
+            client = MongoClient(strategy['uri'], serverSelectionTimeoutMS=10000)
+            # Test the connection
+            client.admin.command('ping')
+            print(f"[SUCCESS] MongoDB connection successful: {strategy['name']}")
+            return client
+        except Exception as error:
+            print(f"[ERROR] MongoDB connection failed ({strategy['name']}): {error}")
+            if strategy == connection_strategies[-1]:  # Last strategy
+                raise Exception(f"All MongoDB connection strategies failed. Last error: {error}")
+            continue
+
+client = create_mongo_client()
 db = client["x-ceed-db"]
 collection = db["mock_interviews"]
 
@@ -76,7 +103,7 @@ class QuestionRequest(BaseModel):
 
 @app.post("/generate-question")
 async def generate_question(req: QuestionRequest):
-    print(f"🔄 Received request: job_description={req.job_description[:100]}...")
+    print(f"[INFO] Received request: job_description={req.job_description[:100]}...")
     
     prompt = f"""
 You are an expert interviewer. Based on the following job description, generate ONE relevant interview question.
@@ -98,7 +125,7 @@ Generate the question:
     
     # Try OpenRouter first
     if OPENROUTER_API_KEY:
-        print("🔄 Trying OpenRouter API...")
+        print("[INFO] Trying OpenRouter API...")
         try:
             response = requests.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -119,24 +146,24 @@ Generate the question:
                 }
             )
             
-            print(f"🔄 OpenRouter response status: {response.status_code}")
+            print(f"[INFO] OpenRouter response status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 if "choices" in data and len(data["choices"]) > 0:
                     question = data["choices"][0]["message"]["content"].strip()
-                    print(f"✅ OpenRouter generated question: {question}")
+                    print(f"[SUCCESS] OpenRouter generated question: {question}")
                     return {"question": question}
                 else:
-                    print(f"⚠️ OpenRouter unexpected response format: {data}")
+                    print(f"[WARN] OpenRouter unexpected response format: {data}")
             else:
-                print(f"❌ OpenRouter API Error: {response.status_code} - {response.text}")
+                print(f"[ERROR] OpenRouter API Error: {response.status_code} - {response.text}")
         except Exception as e:
-            print(f"❌ OpenRouter API Exception: {str(e)}")
-            print(f"❌ OpenRouter Exception traceback: {traceback.format_exc()}")
+            print(f"[ERROR] OpenRouter API Exception: {str(e)}")
+            print(f"[ERROR] OpenRouter Exception traceback: {traceback.format_exc()}")
     
     # Try Gemini as backup
     if GEMINI_API_KEY:
-        print("🔄 Trying Gemini API...")
+        print("[INFO] Trying Gemini API...")
         try:
             genai.configure(api_key=GEMINI_API_KEY)
             model = genai.GenerativeModel('gemini-1.5-flash')
@@ -144,16 +171,16 @@ Generate the question:
             response = model.generate_content(prompt)
             if response.text:
                 question = response.text.strip()
-                print(f"✅ Gemini generated question: {question}")
+                print(f"[SUCCESS] Gemini generated question: {question}")
                 return {"question": question}
             else:
-                print("⚠️ Gemini returned empty response")
+                print("[WARN] Gemini returned empty response")
         except Exception as e:
-            print(f"❌ Gemini API Exception: {str(e)}")
-            print(f"❌ Gemini Exception traceback: {traceback.format_exc()}")
+            print(f"[ERROR] Gemini API Exception: {str(e)}")
+            print(f"[ERROR] Gemini Exception traceback: {traceback.format_exc()}")
     
     # Fallback to predefined question
-    print("🔄 Using fallback question")
+    print("[INFO] Using fallback question")
     fallback_question = "Tell me about your experience relevant to this position and how you would approach the key responsibilities mentioned in the job description."
     return {"question": fallback_question}
 

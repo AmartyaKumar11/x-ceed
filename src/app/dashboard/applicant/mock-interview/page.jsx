@@ -20,7 +20,11 @@ import {
   RotateCcw,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  Menu,
+  X,
+  Pause,
+  PhoneOff
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +45,7 @@ export default function MockInterviewPage() {
   
   // State management
   const [isInterviewActive, setIsInterviewActive] = useState(false);
+  const [isInterviewPaused, setIsInterviewPaused] = useState(false);
   const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [isTextToSpeechEnabled, setIsTextToSpeechEnabled] = useState(true);
@@ -66,6 +71,9 @@ export default function MockInterviewPage() {
   
   // Backend service status
   const [backendStatus, setBackendStatus] = useState('checking'); // 'checking', 'online', 'offline'
+  
+  // Sidebar state
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleJobDescriptionSet = (description) => {
     setJobDescription(description);
@@ -198,6 +206,40 @@ export default function MockInterviewPage() {
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
         setIsAudioEnabled(audioTrack.enabled);
+        
+        // Also pause/resume speech recognition based on audio state
+        if (recognition && isInterviewActive && !isInterviewPaused) {
+          if (audioTrack.enabled) {
+            recognition.start();
+          } else {
+            recognition.stop();
+          }
+        }
+      }
+    }
+  };
+
+  const pauseResumeInterview = () => {
+    if (isInterviewPaused) {
+      // Resume interview
+      setIsInterviewPaused(false);
+      
+      // Resume speech recognition if audio is enabled
+      if (recognition && isAudioEnabled) {
+        recognition.start();
+      }
+    } else {
+      // Pause interview
+      setIsInterviewPaused(true);
+      
+      // Pause speech recognition
+      if (recognition) {
+        recognition.stop();
+      }
+      
+      // Stop any current speech synthesis
+      if (speechSynthesis) {
+        speechSynthesis.cancel();
       }
     }
   };
@@ -209,6 +251,11 @@ export default function MockInterviewPage() {
         description: "Please upload a job description first to generate relevant questions.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Don't generate questions if interview is paused
+    if (isInterviewPaused) {
       return;
     }
 
@@ -252,8 +299,8 @@ export default function MockInterviewPage() {
         timestamp: new Date() 
       }]);
       
-      // Speak the question if text-to-speech is enabled
-      if (isTextToSpeechEnabled && speechSynthesis) {
+      // Speak the question if text-to-speech is enabled and interview is not paused
+      if (isTextToSpeechEnabled && speechSynthesis && !isInterviewPaused) {
         speakQuestion(newQuestion);
       }
       
@@ -310,6 +357,7 @@ export default function MockInterviewPage() {
 
     await startVideo();
     setIsInterviewActive(true);
+    setIsInterviewPaused(false);
     setStartTime(Date.now());
     setCurrentQuestionIndex(0);
     setQuestionHistory([]);
@@ -318,22 +366,18 @@ export default function MockInterviewPage() {
     setInterviewScore(null);
     setAnalysis(null);
     
-    // Start speech recognition
-    if (recognition) {
+    // Start speech recognition if audio is enabled
+    if (recognition && isAudioEnabled) {
       recognition.start();
     }
     
     // Generate first question
     await generateQuestion();
-    
-    toast({
-      title: "Interview started!",
-      description: "Your mock interview is now active. Good luck!",
-    });
   };
 
   const stopInterview = async () => {
     setIsInterviewActive(false);
+    setIsInterviewPaused(false);
     stopVideo();
     
     if (recognition) {
@@ -360,6 +404,11 @@ export default function MockInterviewPage() {
   };
 
   const nextQuestion = async () => {
+    // Don't allow next question if interview is paused
+    if (isInterviewPaused) {
+      return;
+    }
+
     // Save current answer
     if (transcript.trim() && currentQuestion) {
       const newAnswer = {
@@ -449,6 +498,7 @@ export default function MockInterviewPage() {
 
   const resetInterview = () => {
     setIsInterviewActive(false);
+    setIsInterviewPaused(false);
     stopVideo();
     setCurrentQuestion('');
     setQuestionHistory([]);
@@ -469,387 +519,410 @@ export default function MockInterviewPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Backend Status Indicator */}
-        {backendStatus === 'offline' && (
-          <Card className="border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
-            <CardContent className="p-3">
+    <div className="min-h-screen bg-black flex">
+      {/* Main Camera Area - Takes up most of the screen like Google Meet */}
+      <div className="flex-1 relative">
+        {/* Video Window - Full Screen */}
+        <div className="h-screen relative bg-gradient-to-br from-gray-900 to-black">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="w-full h-full object-cover"
+          />
+          
+          {!stream && (
+            <div className="absolute inset-0 flex items-center justify-center text-white">
+              <div className="text-center">
+                <Video className="h-20 w-20 mx-auto mb-6 opacity-50" />
+                <p className="text-xl mb-2">Camera will activate when interview starts</p>
+                <p className="text-gray-400">Get ready for your mock interview</p>
+              </div>
+            </div>
+          )}
+
+          {/* Video Status Overlay */}
+          {isInterviewActive && (
+            <div className="absolute top-4 left-4 flex gap-2">
+              <Badge variant={isVideoEnabled ? "default" : "secondary"} className="bg-black/50 backdrop-blur">
+                {isVideoEnabled ? "Video ON" : "Video OFF"}
+              </Badge>
+              <Badge variant={isAudioEnabled ? "default" : "secondary"} className="bg-black/50 backdrop-blur">
+                {isAudioEnabled ? "Audio ON" : "Audio OFF"}
+              </Badge>
+              {isInterviewPaused && (
+                <Badge variant="destructive" className="bg-red-600/80 backdrop-blur text-white animate-pulse">
+                  PAUSED
+                </Badge>
+              )}
+              {isInterviewActive && startTime && !isInterviewPaused && (
+                <Badge variant="outline" className="bg-black/50 backdrop-blur text-white border-white/30">
+                  {Math.floor((Date.now() - startTime) / 1000 / 60)}:{String(Math.floor((Date.now() - startTime) / 1000 % 60)).padStart(2, '0')}
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Interview Progress Overlay */}
+          {isInterviewActive && (
+            <div className="absolute top-4 right-4">
+              <div className="bg-black/50 backdrop-blur rounded-lg p-3 text-white">
+                <div className="text-sm mb-2">Question {currentQuestionIndex + 1} of {totalQuestions}</div>
+                <Progress value={(currentQuestionIndex / totalQuestions) * 100} className="w-32" />
+              </div>
+            </div>
+          )}
+
+          {/* Current Question Overlay - Smaller and more compact */}
+          {currentQuestion && isInterviewActive && !isInterviewPaused && (
+            <div className="absolute bottom-24 left-1/2 transform -translate-x-1/2 w-3/5 max-w-2xl">
+              <Card className="bg-black/80 backdrop-blur-lg border-white/20">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Brain className="h-5 w-5 text-blue-400 mt-1 flex-shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-white text-base leading-relaxed">{currentQuestion}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        {isSpeaking && <Volume2 className="h-3 w-3 animate-pulse text-blue-400" />}
+                        {isTextToSpeechEnabled && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => speakQuestion(currentQuestion)}
+                            disabled={isSpeaking}
+                            className="text-white hover:bg-white/10 h-7 px-2 text-xs"
+                          >
+                            {isSpeaking ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Volume2 className="h-3 w-3" />
+                            )}
+                            Replay
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Paused Overlay */}
+          {isInterviewActive && isInterviewPaused && (
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+              <Card className="bg-black/80 backdrop-blur-lg border-white/20">
+                <CardContent className="p-6">
+                  <div className="text-center text-white">
+                    <Pause className="h-16 w-16 mx-auto mb-4 text-yellow-400" />
+                    <h3 className="text-xl font-semibold mb-2">Interview Paused</h3>
+                    <p className="text-gray-300 mb-4">Click the play button to resume your interview</p>
+                    <Button
+                      onClick={pauseResumeInterview}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Resume Interview
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Bottom Controls Bar */}
+          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+            <div className="flex items-center gap-3 bg-black/70 backdrop-blur-lg rounded-full px-6 py-3">
+              {!isInterviewActive ? (
+                <Button
+                  onClick={startInterview}
+                  className="flex items-center gap-2 bg-green-600 hover:bg-green-700 rounded-full px-6 py-3 text-white"
+                  size="lg"
+                >
+                  <Play className="h-5 w-5" />
+                  Start Interview
+                </Button>
+              ) : (
+                <>
+                  {/* Microphone Toggle - Like Google Meet */}
+                  <Button
+                    onClick={toggleAudio}
+                    variant={isAudioEnabled ? "default" : "destructive"}
+                    className={`rounded-full w-12 h-12 p-0 ${
+                      !isAudioEnabled ? 'bg-red-600 hover:bg-red-700' : ''
+                    }`}
+                  >
+                    {isAudioEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                  </Button>
+                  
+                  {/* Video Toggle - Like Google Meet */}
+                  <Button
+                    onClick={toggleVideo}
+                    variant={isVideoEnabled ? "default" : "destructive"}
+                    className={`rounded-full w-12 h-12 p-0 ${
+                      !isVideoEnabled ? 'bg-red-600 hover:bg-red-700' : ''
+                    }`}
+                  >
+                    {isVideoEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                  </Button>
+                  
+                  {/* Pause/Resume Button */}
+                  <Button
+                    onClick={pauseResumeInterview}
+                    variant={isInterviewPaused ? "default" : "secondary"}
+                    className={`rounded-full w-12 h-12 p-0 ${
+                      isInterviewPaused ? 'bg-green-600 hover:bg-green-700' : 'bg-yellow-600 hover:bg-yellow-700'
+                    }`}
+                  >
+                    {isInterviewPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                  </Button>
+                  
+                  {/* Next Question Button */}
+                  <Button
+                    onClick={nextQuestion}
+                    disabled={!currentQuestion || currentQuestionIndex >= totalQuestions - 1 || isInterviewPaused}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 rounded-full px-4 py-2 disabled:opacity-50"
+                  >
+                    Next Question
+                  </Button>
+                  
+                  {/* End Interview Button - Red like Google Meet */}
+                  <Button
+                    onClick={stopInterview}
+                    variant="destructive"
+                    className="rounded-full w-12 h-12 p-0 bg-red-600 hover:bg-red-700"
+                  >
+                    <PhoneOff className="h-5 w-5" />
+                  </Button>
+                </>
+              )}
+              
+              {/* Reset Button */}
+              <Button
+                onClick={resetInterview}
+                variant="outline"
+                className="rounded-full w-12 h-12 p-0 border-white/30 text-white hover:bg-white/10"
+              >
+                <RotateCcw className="h-5 w-5" />
+              </Button>
+              
+              {/* Sidebar Toggle Button */}
+              <Button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                variant="outline"
+                className="rounded-full w-12 h-12 p-0 border-white/30 text-white hover:bg-white/10"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Sidebar - Collapsible like Google Meet's sidebar */}
+      <div className={`fixed top-0 right-0 h-full bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-xl transition-transform duration-300 ease-in-out z-50 ${
+        isSidebarOpen ? 'translate-x-0' : 'translate-x-full'
+      } w-80 overflow-y-auto`}>
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Interview Panel</h2>
+          <Button
+            onClick={() => setIsSidebarOpen(false)}
+            variant="ghost"
+            size="sm"
+            className="rounded-full w-8 h-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="p-4 space-y-8">
+          {/* Backend Status Indicator */}
+          {backendStatus === 'offline' && (
+            <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3">
               <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 text-red-600" />
-                <div className="text-sm text-red-800 dark:text-red-200">
-                  <span className="font-medium">Backend service offline:</span> The Python backend service (port 8008) is not running. 
-                  Mock interview features will not work. Please start the service using the command: <code className="bg-red-100 px-1 rounded">npm run job-desc-service</code>
-                </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={checkBackendStatus}
-                  className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
-                >
-                  Recheck
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {backendStatus === 'online' && (
-          <Card className="border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-800">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <div className="text-sm text-green-800 dark:text-green-200">
-                  <span className="font-medium">Backend service online:</span> All systems ready for mock interview.
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {backendStatus === 'checking' && (
-          <Card className="border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
-                <div className="text-sm text-yellow-800 dark:text-yellow-200">
-                  Checking backend service status...
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Interview Area */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Job Description Upload */}
-            <JobDescriptionUpload onJobDescriptionSet={handleJobDescriptionSet} />
-            {/* Video Window */}
-            <Card className="bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Video className="h-5 w-5" />
-                  Interview Camera
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                  {!stream && (
-                    <div className="absolute inset-0 flex items-center justify-center text-white">
-                      <div className="text-center">
-                        <Video className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                        <p>Camera will activate when interview starts</p>
-                      </div>
-                    </div>
-                  )}
-                  {isInterviewActive && (
-                    <div className="absolute top-4 right-4 flex gap-2">
-                      <Badge variant={isVideoEnabled ? "default" : "secondary"}>
-                        {isVideoEnabled ? "Video ON" : "Video OFF"}
-                      </Badge>
-                      <Badge variant={isAudioEnabled ? "default" : "secondary"}>
-                        {isAudioEnabled ? "Audio ON" : "Audio OFF"}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Current Question */}
-            <Card className="bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="h-5 w-5" />
-                  Current Question
-                  {isSpeaking && <Volume2 className="h-4 w-4 animate-pulse text-primary" />}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {currentQuestion ? (
-                  <div className="space-y-4">
-                    <p className="text-lg text-foreground">{currentQuestion}</p>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">
-                        Question {currentQuestionIndex + 1} of {totalQuestions}
-                      </Badge>
-                      {isTextToSpeechEnabled && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => speakQuestion(currentQuestion)}
-                          disabled={isSpeaking}
-                        >
-                          {isSpeaking ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Volume2 className="h-4 w-4" />
-                          )}
-                          Replay
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    {isQuestionLoading ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Generating question...
-                      </div>
-                    ) : (
-                      "No question active"
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Live Transcript */}
-            <Card className="bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Mic className="h-5 w-5" />
-                  Live Transcript
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="min-h-[120px] p-4 bg-muted rounded-lg">
-                  {transcript ? (
-                    <p className="text-foreground">{transcript}</p>
-                  ) : (
-                    <p className="text-muted-foreground">
-                      {isInterviewActive ? "Start speaking to see your transcript..." : "Transcript will appear here during the interview"}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Interview Controls */}
-            <Card className="bg-card">
-              <CardContent className="pt-6">
-                <div className="flex flex-wrap gap-3 justify-center">
-                  {!isInterviewActive ? (
-                    <Button
-                      onClick={startInterview}
-                      className="flex items-center gap-2"
-                      size="lg"
-                    >
-                      <Play className="h-4 w-4" />
-                      Start Interview
-                    </Button>
-                  ) : (
-                    <>
-                      <Button
-                        onClick={toggleVideo}
-                        variant={isVideoEnabled ? "default" : "secondary"}
-                        className="flex items-center gap-2"
-                      >
-                        {isVideoEnabled ? <Video className="h-4 w-4" /> : <VideoOff className="h-4 w-4" />}
-                        {isVideoEnabled ? "Video" : "Video Off"}
-                      </Button>
-                      
-                      <Button
-                        onClick={toggleAudio}
-                        variant={isAudioEnabled ? "default" : "secondary"}
-                        className="flex items-center gap-2"
-                      >
-                        {isAudioEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-                        {isAudioEnabled ? "Audio" : "Audio Off"}
-                      </Button>
-                      
-                      <Button
-                        onClick={nextQuestion}
-                        disabled={!currentQuestion || currentQuestionIndex >= totalQuestions - 1}
-                        className="flex items-center gap-2"
-                      >
-                        Next Question
-                      </Button>
-                      
-                      <Button
-                        onClick={stopInterview}
-                        variant="destructive"
-                        className="flex items-center gap-2"
-                      >
-                        <Square className="h-4 w-4" />
-                        End Interview
-                      </Button>
-                    </>
-                  )}
-                  
-                  <Button
-                    onClick={resetInterview}
-                    variant="outline"
-                    className="flex items-center gap-2"
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-red-800 dark:text-red-200">Service Offline</span>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={checkBackendStatus}
+                    className="ml-2 h-6 text-xs border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300"
                   >
-                    <RotateCcw className="h-4 w-4" />
-                    Reset
+                    Retry
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          )}
+
+          {backendStatus === 'online' && (
+            <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="text-sm font-medium text-green-800 dark:text-green-200">Ready for Interview</span>
+              </div>
+            </div>
+          )}
+
+          {backendStatus === 'checking' && (
+            <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 text-yellow-600 animate-spin" />
+                <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Checking Status...</span>
+              </div>
+            </div>
+          )}
+
+          {/* Job Description Upload */}
+          <JobDescriptionUpload onJobDescriptionSet={handleJobDescriptionSet} />
+
+          {/* Live Transcript */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Mic className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <h3 className="font-medium text-gray-900 dark:text-white">Live Transcript</h3>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 min-h-[100px]">
+              {transcript ? (
+                <p className="text-sm text-gray-900 dark:text-gray-100 leading-relaxed">{transcript}</p>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">
+                  {isInterviewActive ? "Start speaking to see transcript..." : "Transcript will appear here during interview"}
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Interview Progress */}
-            <Card className="bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  Progress
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Questions Completed</span>
-                      <span>{currentQuestionIndex} / {totalQuestions}</span>
-                    </div>
-                    <Progress value={(currentQuestionIndex / totalQuestions) * 100} />
+          {/* Interview Score */}
+          {interviewScore && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                <h3 className="font-medium text-gray-900 dark:text-white">Interview Score</h3>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-3">
+                    {interviewScore.overall}%
                   </div>
-                  
-                  {isInterviewActive && startTime && (
-                    <div className="text-sm text-muted-foreground">
-                      Duration: {Math.floor((Date.now() - startTime) / 1000)}s
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700 dark:text-gray-300">Communication</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{interviewScore.communication}%</span>
                     </div>
-                  )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700 dark:text-gray-300">Technical</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{interviewScore.technical}%</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-700 dark:text-gray-300">Confidence</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{interviewScore.confidence}%</span>
+                    </div>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          )}
 
-            {/* Interview Score */}
-            {interviewScore && (
-              <Card className="bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Award className="h-5 w-5" />
-                    Interview Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-primary mb-2">
-                      {interviewScore.overall}%
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Communication</span>
-                        <span>{interviewScore.communication}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Technical Knowledge</span>
-                        <span>{interviewScore.technical}%</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Confidence</span>
-                        <span>{interviewScore.confidence}%</span>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Analysis */}
-            {analysis && (
-              <Card className="bg-card">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Detailed Analysis
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="font-semibold mb-2">Strengths</h4>
-                        <ul className="text-sm space-y-1">
-                          {analysis.strengths.map((strength, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                              <span>{strength}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      
-                      <Separator />
-                      
-                      <div>
-                        <h4 className="font-semibold mb-2">Areas for Improvement</h4>
-                        <ul className="text-sm space-y-1">
-                          {analysis.improvements.map((improvement, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                              <span>{improvement}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                      
-                      <Separator />
-                      
-                      <div>
-                        <h4 className="font-semibold mb-2">Recommendations</h4>
-                        <p className="text-sm">{analysis.recommendations}</p>
-                      </div>
-                    </div>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Settings */}
-            <Card className="bg-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Settings className="h-5 w-5" />
-                  Settings
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Text-to-Speech</span>
-                    <Button
-                      variant={isTextToSpeechEnabled ? "default" : "secondary"}
-                      size="sm"
-                      onClick={() => setIsTextToSpeechEnabled(!isTextToSpeechEnabled)}
-                    >
-                      {isTextToSpeechEnabled ? "ON" : "OFF"}
-                    </Button>
+          {/* Analysis */}
+          {analysis && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                <h3 className="font-medium text-gray-900 dark:text-white">Analysis</h3>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 max-h-[300px] overflow-y-auto">
+                <div className="space-y-4 text-sm">
+                  <div>
+                    <h4 className="font-semibold mb-2 text-green-600 dark:text-green-400">Strengths</h4>
+                    <ul className="space-y-1">
+                      {analysis.strengths?.map((strength, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300">{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                   
                   <div>
-                    <label className="text-sm">Number of Questions</label>
-                    <select
-                      value={totalQuestions}
-                      onChange={(e) => setTotalQuestions(Number(e.target.value))}
-                      className="w-full mt-1 p-2 border rounded-md bg-background"
-                      disabled={isInterviewActive}
-                    >
-                      <option value={3}>3 Questions</option>
-                      <option value={5}>5 Questions</option>
-                      <option value={10}>10 Questions</option>
-                    </select>
+                    <h4 className="font-semibold mb-2 text-yellow-600 dark:text-yellow-400">Improvements</h4>
+                    <ul className="space-y-1">
+                      {analysis.improvements?.map((improvement, index) => (
+                        <li key={index} className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-gray-700 dark:text-gray-300">{improvement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-semibold mb-2 text-blue-600 dark:text-blue-400">Recommendations</h4>
+                    <p className="text-gray-700 dark:text-gray-300">{analysis.recommendations}</p>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
+          )}
+
+          {/* Settings */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Settings className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+              <h3 className="font-medium text-gray-900 dark:text-white">Settings</h3>
+            </div>
+            <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Text-to-Speech</span>
+                <Button
+                  variant={isTextToSpeechEnabled ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setIsTextToSpeechEnabled(!isTextToSpeechEnabled)}
+                  className="h-7 text-xs px-3"
+                >
+                  {isTextToSpeechEnabled ? "ON" : "OFF"}
+                </Button>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Questions</label>
+                <select
+                  value={totalQuestions}
+                  onChange={(e) => setTotalQuestions(Number(e.target.value))}
+                  className="w-full mt-1 p-2 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700"
+                  disabled={isInterviewActive}
+                >
+                  <option value={3}>3 Questions</option>
+                  <option value={5}>5 Questions</option>
+                  <option value={10}>10 Questions</option>
+                </select>
+              </div>
+            </div>
           </div>
+
+          {/* Question History */}
+          {questionHistory.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                <h3 className="font-medium text-gray-900 dark:text-white">Question History</h3>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 max-h-[150px] overflow-y-auto">
+                <div className="space-y-2">
+                  {questionHistory.map((q, index) => (
+                    <div key={q.id} className="text-sm p-2 bg-white dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
+                      <div className="font-medium text-gray-900 dark:text-white">Q{index + 1}:</div>
+                      <div className="text-gray-600 dark:text-gray-300 mt-1">{q.text}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
