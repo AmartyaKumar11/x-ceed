@@ -5,7 +5,11 @@
 async function testGroqAPI() {
   console.log('🧪 Testing Groq API directly...');
   
-  const GROQ_API_KEY = '***REMOVED***';
+  // Load Groq API key from environment variable for security
+  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY environment variable not set. Please set it in your .env.local or environment.');
+  }
   
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -55,7 +59,11 @@ async function testWithFallback() {
   console.log('\n🔄 Testing fallback solutions...');
   
   // Test with different model
-  const GROQ_API_KEY = '***REMOVED***';
+  // Load Groq API key from environment variable for security
+  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  if (!GROQ_API_KEY) {
+    throw new Error('GROQ_API_KEY environment variable not set. Please set it in your .env.local or environment.');
+  }
   
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
