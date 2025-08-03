@@ -175,3 +175,9 @@ public/uploads/application-resumes/
 docs/*service-account*.json
 docs/*gcp*.json
 docs/*x-ceed-db*.json
+
+# Git cleanup files (contain sensitive data used for history cleaning)
+clean-script.ps1
+replacements.txt
+bfg*.jar
+*.bfg-report/
