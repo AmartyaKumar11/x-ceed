@@ -17,7 +17,23 @@ from datetime import datetime
 
 # Load environment variables
 from dotenv import load_dotenv
-load_dotenv(dotenv_path="../../.env.local")
+import os
+
+# Try multiple paths for the .env.local file
+env_paths = [
+    "../../.env.local",
+    ".env.local", 
+    "../.env.local",
+    os.path.join(os.path.dirname(__file__), "../../.env.local")
+]
+
+for env_path in env_paths:
+    if os.path.exists(env_path):
+        load_dotenv(dotenv_path=env_path)
+        print(f"✅ Environment loaded from: {env_path}")
+        break
+else:
+    print("⚠️ Warning: .env.local file not found in any expected location")
 
 app = FastAPI(title="Optimized Video Quiz Generation Service", version="2.0.0")
 

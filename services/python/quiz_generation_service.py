@@ -30,9 +30,9 @@ app.add_middleware(
 )
 
 # Configure Gemini AI with your student subscription key
-GEMINI_QUIZ_API_KEY = os.getenv("GEMINI_QUIZ_API_KEY")
+GEMINI_QUIZ_API_KEY = os.getenv("GEMINI_QUIZ_API_KEY") or os.getenv("GEMINI_API_KEY")
 if not GEMINI_QUIZ_API_KEY:
-    raise ValueError("GEMINI_QUIZ_API_KEY not found in environment variables")
+    raise ValueError("GEMINI_QUIZ_API_KEY or GEMINI_API_KEY not found in environment variables")
 
 # Initialize Gemini client
 genai.configure(api_key=GEMINI_QUIZ_API_KEY)
@@ -42,6 +42,7 @@ model = genai.GenerativeModel('gemini-1.5-flash')
 
 print(f"🚀 Quiz Service initialized with Gemini 1.5 Flash (Student Subscription)")
 print(f"🔑 API Key configured: {GEMINI_QUIZ_API_KEY[:10]}...")
+print(f"📝 Using API key from: {'GEMINI_QUIZ_API_KEY' if os.getenv('GEMINI_QUIZ_API_KEY') else 'GEMINI_API_KEY'}")
 
 # Data Models
 class QuizQuestion(BaseModel):
