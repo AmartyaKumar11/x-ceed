@@ -3,22 +3,46 @@ import { getDatabase } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
 // Generate a detailed AI-powered prep plan
-async function generateDetailedPrepPlan(jobData, userProfile, duration = 4) {
+async function generateDetailedPrepPlan(jobData, userProfile, duration = 4, resumeAnalysis = null) {
   const GROQ_API_KEY = process.env.GROQ_API_KEY;
   
   console.log('🔑 GROQ_API_KEY check:', GROQ_API_KEY ? 'Available' : 'Missing');
   console.log('📊 Generation parameters:', { 
     jobTitle: jobData.jobTitle, 
     duration, 
-    hasProfile: !!userProfile 
+    hasProfile: !!userProfile,
+    hasResumeAnalysis: !!resumeAnalysis,
+    resumeAnalysisSource: resumeAnalysis ? 'Resume-JD Match Analysis' : 'User Profile Only'
   });
+  
+  // Debug user profile data for personalization
+  console.log('👤 USER PROFILE DEBUG:', {
+    skillsCount: Array.isArray(userProfile.skills) ? userProfile.skills.length : 0,
+    skills: Array.isArray(userProfile.skills) ? userProfile.skills.slice(0, 3) : 'No skills',
+    hasExperience: !!userProfile.workExperience,
+    experienceCount: Array.isArray(userProfile.workExperience) ? userProfile.workExperience.length : 0,
+    hasEducation: !!userProfile.education,
+    educationCount: Array.isArray(userProfile.education) ? userProfile.education.length : 0
+  });
+  
+  // Debug resume analysis data if available
+  if (resumeAnalysis) {
+    console.log('📄 RESUME ANALYSIS DEBUG:', {
+      hasStructuredAnalysis: !!resumeAnalysis.structuredAnalysis,
+      hasGapAnalysis: !!(resumeAnalysis.gapAnalysis || resumeAnalysis.structuredAnalysis?.gap_analysis),
+      hasMissingSkills: !!(resumeAnalysis.missingSkills || resumeAnalysis.structuredAnalysis?.missing_skills),
+      hasMatchingSkills: !!(resumeAnalysis.matchingSkills || resumeAnalysis.structuredAnalysis?.matching_skills),
+      hasSkillsToImprove: !!(resumeAnalysis.skillsToImprove || resumeAnalysis.structuredAnalysis?.skills_to_improve)
+    });
+  }
   
   if (!GROQ_API_KEY) {
     console.error('❌ GROQ_API_KEY not configured');
     throw new Error('GROQ_API_KEY not configured');
   }
 
-  const prompt = `You are an AI career advisor. Analyze the skills gap between this candidate's profile and job requirements to create a personalized study plan.
+  // Build the AI prompt with resume analysis data if available
+  let prompt = `You are an AI career advisor. Analyze the skills gap between this candidate's profile and job requirements to create a personalized study plan.
 
 ==== JOB REQUIREMENTS ====
 Position: ${jobData.jobTitle} at ${jobData.companyName}
@@ -28,7 +52,28 @@ Job Description: ${(jobData.jobDescriptionText || jobData.description || '').sub
 ==== CANDIDATE CURRENT SKILLS ====
 Existing Skills: ${Array.isArray(userProfile.skills) ? userProfile.skills.join(', ') : 'No skills listed'}
 Experience: ${userProfile.workExperience ? JSON.stringify(userProfile.workExperience).substring(0, 300) : 'No experience data'}
-Education: ${userProfile.education ? JSON.stringify(userProfile.education).substring(0, 200) : 'No education data'}
+Education: ${userProfile.education ? JSON.stringify(userProfile.education).substring(0, 200) : 'No education data'}`;
+
+  // Add resume analysis data if available for more precise gap analysis
+  if (resumeAnalysis) {
+    const gapAnalysis = resumeAnalysis.gapAnalysis || resumeAnalysis.structuredAnalysis?.gap_analysis;
+    const missingSkills = resumeAnalysis.missingSkills || resumeAnalysis.structuredAnalysis?.missing_skills || [];
+    const matchingSkills = resumeAnalysis.matchingSkills || resumeAnalysis.structuredAnalysis?.matching_skills || [];
+    const skillsToImprove = resumeAnalysis.skillsToImprove || resumeAnalysis.structuredAnalysis?.skills_to_improve || [];
+    
+    prompt += `
+
+==== DETAILED RESUME-JD ANALYSIS ====
+Resume Analysis Results: This candidate's resume was analyzed against this specific job posting.
+Missing Skills (Critical): ${Array.isArray(missingSkills) ? missingSkills.join(', ') : 'None identified'}
+Matching Skills (Strengths): ${Array.isArray(matchingSkills) ? matchingSkills.join(', ') : 'None identified'}
+Skills to Improve: ${Array.isArray(skillsToImprove) ? skillsToImprove.join(', ') : 'None identified'}
+Gap Analysis: ${gapAnalysis || 'No detailed gap analysis available'}
+
+PRIORITY: Use this resume-specific analysis to create a highly targeted prep plan that addresses the exact gaps between this candidate's resume and this specific job posting.`;
+  }
+
+  prompt += `
 
 IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation text, no code blocks. Just raw JSON.
 
@@ -162,42 +207,56 @@ Return this exact JSON structure:
   } catch (error) {
     console.error('❌ Generation error:', error.message);
     
-    // Return a gap-focused fallback plan
+    // Return a gap-focused fallback plan using resume analysis if available
     const jobRequirements = Array.isArray(jobData.requirements) ? jobData.requirements : [];
     const candidateSkills = Array.isArray(userProfile.skills) ? userProfile.skills : [];
     const jobDescription = (jobData.jobDescriptionText || jobData.description || '').toLowerCase();
     
-    // Simple gap analysis for fallback
-    const missingSkills = [];
-    const skillsToAdvance = [];
+    // Use resume analysis data if available, otherwise do simple gap analysis
+    let missingSkills = [];
+    let skillsToAdvance = [];
     
-    // Extract skills mentioned in job description
-    const jobSkillKeywords = [
-      'python', 'javascript', 'react', 'node', 'sql', 'mongodb', 'aws', 'docker', 
-      'kubernetes', 'machine learning', 'data science', 'tensorflow', 'pytorch',
-      'pandas', 'numpy', 'scikit-learn', 'api', 'rest', 'graphql', 'microservices',
-      'redis', 'postgresql', 'mysql', 'git', 'ci/cd', 'jenkins', 'terraform'
-    ];
-    
-    const candidateSkillsLower = candidateSkills.map(skill => skill.toLowerCase());
-    
-    jobSkillKeywords.forEach(skill => {
-      if (jobDescription.includes(skill)) {
-        if (!candidateSkillsLower.some(candidateSkill => candidateSkill.includes(skill))) {
-          missingSkills.push(skill);
-        } else {
-          skillsToAdvance.push(skill);
+    if (resumeAnalysis) {
+      // Use resume-specific gap analysis (more accurate)
+      console.log('📄 Using resume analysis for fallback plan');
+      missingSkills = resumeAnalysis.missingSkills || resumeAnalysis.structuredAnalysis?.missing_skills || [];
+      skillsToAdvance = resumeAnalysis.skillsToImprove || resumeAnalysis.structuredAnalysis?.skills_to_improve || [];
+      
+      // Ensure arrays
+      if (!Array.isArray(missingSkills)) missingSkills = [];
+      if (!Array.isArray(skillsToAdvance)) skillsToAdvance = [];
+    } else {
+      // Fallback to keyword-based analysis
+      console.log('🔍 Using keyword-based gap analysis for fallback');
+      
+      // Extract skills mentioned in job description
+      const jobSkillKeywords = [
+        'python', 'javascript', 'react', 'node', 'sql', 'mongodb', 'aws', 'docker', 
+        'kubernetes', 'machine learning', 'data science', 'tensorflow', 'pytorch',
+        'pandas', 'numpy', 'scikit-learn', 'api', 'rest', 'graphql', 'microservices',
+        'redis', 'postgresql', 'mysql', 'git', 'ci/cd', 'jenkins', 'terraform'
+      ];
+      
+      const candidateSkillsLower = candidateSkills.map(skill => skill.toLowerCase());
+      
+      jobSkillKeywords.forEach(skill => {
+        if (jobDescription.includes(skill)) {
+          if (!candidateSkillsLower.some(candidateSkill => candidateSkill.includes(skill))) {
+            missingSkills.push(skill);
+          } else {
+            skillsToAdvance.push(skill);
+          }
         }
-      }
-    });
-    
-    // Add explicit job requirements
-    jobRequirements.forEach(req => {
-      const reqLower = req.toLowerCase();
-      if (!candidateSkillsLower.some(skill => skill.toLowerCase().includes(reqLower))) {
-        missingSkills.push(req);
-      }
-    });
+      });
+      
+      // Add explicit job requirements
+      jobRequirements.forEach(req => {
+        const reqLower = req.toLowerCase();
+        if (!candidateSkillsLower.some(skill => skill.toLowerCase().includes(reqLower))) {
+          missingSkills.push(req);
+        }
+      });
+    }
     
     return {
       gapAnalysis: {
@@ -315,11 +374,19 @@ export default async function handler(req, res) {
       jobTitle: prepPlan.jobTitle,
       company: prepPlan.companyName,
       userId: auth.user.userId,
-      duration: prepPlan.duration || 4
+      duration: prepPlan.duration || 4,
+      hasResumeAnalysis: !!prepPlan.resumeAnalysis,
+      source: prepPlan.source
     });
 
     // Generate the detailed study plan using AI with duration from prep plan
-    const detailedPlan = await generateDetailedPrepPlan(prepPlan, userProfile || {}, prepPlan.duration || 4);
+    // Pass resume analysis data if available for personalized gap analysis
+    const detailedPlan = await generateDetailedPrepPlan(
+      prepPlan, 
+      userProfile || {}, 
+      prepPlan.duration || 4,
+      prepPlan.resumeAnalysis || null // Pass resume analysis for personalization
+    );
 
     // Update the prep plan with the detailed study plan
     const updateResult = await db.collection('prepPlans').updateOne(

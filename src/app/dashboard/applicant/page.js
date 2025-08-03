@@ -21,7 +21,6 @@ import NewsPanel from '@/components/NewsPanel';
 import { useToast } from '@/components/ui/use-toast';
 import WebJobsComponent from '@/components/WebJobsComponent';
 import ApplicationContributionCalendar from '@/components/ApplicationContributionCalendar';
-import ApplicationStatusAreaChart from '@/components/ApplicationStatusAreaChart';
 
 export default function ApplicantDashboardPage() {
   const router = useRouter();
@@ -254,7 +253,7 @@ export default function ApplicantDashboardPage() {
         <div className="flex flex-col lg:flex-row gap-6 h-screen">
           {/* Left Sidebar - News Panel */}
           <div className="lg:w-80 lg:flex-shrink-0 h-64 lg:h-full">
-            <div className="card claymorphism h-full">
+            <div className="card h-full">
               <NewsPanel />
             </div>
           </div>
@@ -262,22 +261,16 @@ export default function ApplicantDashboardPage() {
           {/* Main Content Area */}
           <div className="flex-1 overflow-y-auto scrollbar-hide">
             <div className="space-y-6 p-6">
-            {/* --- Application Status Area Chart --- */}
-            <div className="mb-8">
-              <div className="card claymorphism">
-                <ApplicationStatusAreaChart />
-              </div>
-            </div>
             {/* --- Contribution Chart --- */}
             <div className="mb-8">
-              <div className="card claymorphism p-6 flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">
+              <div className="card p-6 flex flex-col items-start justify-center h-[220px] w-full min-w-0 chart-parent-container">
                 <div className="w-full min-w-0 flex flex-col h-full contribution-calendar">
                   <ApplicationContributionCalendar applications={applications} minCellSize={14} maxCellSize={20} weeks={52} />
                 </div>
               </div>
             </div>
             {/* Recent Applications - Full Width */}
-            <div className="card claymorphism p-6 overflow-hidden">
+            <div className="card p-6 overflow-hidden">
               <h3 className="text-lg font-semibold mb-4 flex items-center text-foreground">
                 <FileText className="h-5 w-5 mr-2 text-muted-foreground" />
                 Recent Applications
@@ -292,7 +285,7 @@ export default function ApplicantDashboardPage() {
                   {applications.map((application) => (
                     <div 
                       key={application._id} 
-                      className="p-4 border border-border rounded-lg hover:bg-accent/20 cursor-pointer transition-all duration-200 backdrop-blur-sm claymorphism" 
+                      className="p-4 border border-border rounded-lg hover:bg-accent/20 cursor-pointer transition-all duration-200 bg-card" 
                       onClick={() => {
                         // Navigate to application details or job details
                         if (application.jobId) {
@@ -359,7 +352,7 @@ export default function ApplicantDashboardPage() {
             {/* Profile Completion - Only show if not 100% complete */}
             {shouldShowProfileCompletion && (
               <div 
-                className={`bg-card p-6 rounded-lg border border-border shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer ${completionAnimation}`}
+                className={`card p-6 shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer ${completionAnimation}`}
                   onClick={() => setProfileDialogOpen(true)}
                 >
                   <div className="flex items-center justify-between mb-4">
@@ -374,13 +367,13 @@ export default function ApplicantDashboardPage() {
                   </div>
 
                   {/* Dynamic Progress Bar */}
-                  <div className="mb-4 bg-gray-200 dark:bg-gray-700 rounded-full h-3 relative overflow-hidden">
+                  <div className="mb-4 bg-muted rounded-full h-3 relative overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-600 to-blue-500 dark:from-white dark:to-gray-100 h-3 rounded-full transition-all duration-700 ease-out relative"
+                      className="bg-foreground h-3 rounded-full transition-all duration-700 ease-out relative"
                       style={{ width: `${profileCompletion.percentage}%` }}
                     >
                       {profileCompletion.percentage > 0 && (
-                        <div className="absolute inset-0 bg-white/30 dark:bg-gray-800/30 animate-pulse rounded-full"></div>
+                        <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full"></div>
                       )}
                     </div>
                   </div>

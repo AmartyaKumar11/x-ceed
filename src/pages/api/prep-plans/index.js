@@ -67,7 +67,8 @@ export default async function handler(req, res) {
           level,
           workMode,
           duration = 4, // Add duration with default value
-          source // 'resume-match' or 'saved-jobs'
+          source, // 'resume-match' or 'saved-jobs'
+          resumeAnalysis // Resume analysis data from resume-match flow
         } = req.body;
 
         if (!jobTitle) {
@@ -108,6 +109,8 @@ export default async function handler(req, res) {
           workMode: workMode || '',
           duration: duration, // Add duration to the prep plan
           source: source || 'unknown',
+          // Add resume analysis data for personalized prep plans
+          resumeAnalysis: resumeAnalysis || null,
           status: 'active',
           progress: 0,
           createdAt: new Date(),

@@ -7,9 +7,9 @@
 :root {
   --background: oklch(0.9232 0.0026 48.7171);
   --foreground: oklch(0.2795 0.0368 260.0310);
-  --card: oklch(0.9699 0.0013 106.4238);
+  --card: oklch(0.97 0.0010 0);
   --card-foreground: oklch(0.2795 0.0368 260.0310);
-  --popover: oklch(0.9699 0.0013 106.4238);
+  --popover: oklch(0.97 0.0010 0);
   --popover-foreground: oklch(0.2795 0.0368 260.0310);
   --primary: oklch(0.5854 0.2041 277.1173);
   --primary-foreground: oklch(1.0000 0 0);
@@ -57,9 +57,9 @@
 .dark {
   --background: oklch(0.2244 0.0074 67.4370);
   --foreground: oklch(0.9288 0.0126 255.5078);
-  --card: oklch(0.2801 0.0080 59.3379);
+  --card: oklch(0.28 0.0020 0);
   --card-foreground: oklch(0.9288 0.0126 255.5078);
-  --popover: oklch(0.2801 0.0080 59.3379);
+  --popover: oklch(0.28 0.0020 0);
   --popover-foreground: oklch(0.9288 0.0126 255.5078);
   --primary: oklch(0.6801 0.1583 276.9349);
   --primary-foreground: oklch(0.2244 0.0074 67.4370);
@@ -186,8 +186,8 @@ body {
 }
 
 .dark .card {
-  background-color: rgba(40, 48, 68, 0.85);
-  border-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--card);
+  border-color: var(--border);
 }
 
 /* Enhanced button styles */

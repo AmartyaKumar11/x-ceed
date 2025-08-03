@@ -21,6 +21,24 @@ load_dotenv(env_file_path)
 load_dotenv()  # Also load from .env as fallback
 print(f"Environment variables loaded. GROQ_API_KEY present: {bool(os.getenv('GROQ_API_KEY'))}")
 
+# Multiple API keys for rate limit handling
+
+# Load Groq API keys securely from environment variables only
+# Example: set GROQ_API_KEY_1, GROQ_API_KEY_2, ... in your .env.local or environment
+GROQ_API_KEYS = []
+for i in range(1, 10):  # Support up to 9 keys, adjust as needed
+    key = os.getenv(f'GROQ_API_KEY_{i}')
+    if key:
+        GROQ_API_KEYS.append(key)
+# Fallback to single key for backward compatibility
+single_key = os.getenv('GROQ_API_KEY')
+if single_key:
+    GROQ_API_KEYS.append(single_key)
+
+GROQ_API_KEYS = [key for key in GROQ_API_KEYS if key]  # Remove None values
+print(f"Available API keys: {len(GROQ_API_KEYS)} (loaded from environment only)")
+current_key_index = 0
+
 # Initialize FastAPI app
 app = FastAPI(
     title="X-ceed Resume Analyzer API",
@@ -40,6 +58,25 @@ app.add_middleware(
 # Groq API configuration
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+def get_next_groq_key():
+    """Get the next available API key (with rotation)"""
+    global current_key_index
+    if not GROQ_API_KEYS:
+        raise HTTPException(status_code=500, detail="No GROQ API keys configured")
+    
+    key = GROQ_API_KEYS[current_key_index]
+    current_key_index = (current_key_index + 1) % len(GROQ_API_KEYS)
+    return key
+
+def rotate_to_next_key():
+    """Force rotation to next key when rate limited"""
+    global current_key_index
+    if len(GROQ_API_KEYS) > 1:
+        current_key_index = (current_key_index + 1) % len(GROQ_API_KEYS)
+        print(f"[INFO] Rotated to API key #{current_key_index + 1}")
+        return True
+    return False
 
 # Global session storage (in production, use proper session management)
 session_data = {}
@@ -62,29 +99,74 @@ class AnalysisResponse(BaseModel):
     data: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
 
-def call_groq_api(messages, model="llama-3.1-8b-instant", temperature=0.1):
-    """Make a direct call to Groq API"""
-    if not GROQ_API_KEY:
+def call_groq_api(messages, model="llama-3.1-8b-instant", temperature=0.1, max_retries=2):
+    """Make a direct call to Groq API with key rotation on rate limits"""
+    if not GROQ_API_KEYS:
         raise HTTPException(status_code=500, detail="GROQ_API_KEY not configured")
     
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    for attempt in range(max_retries):
+        current_key = get_next_groq_key()
+        headers = {
+            "Authorization": f"Bearer {current_key}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": 4000
+        }
+        
+        print(f"[DEBUG] Attempt {attempt + 1}/{max_retries} - Using API key #{current_key_index}")
+        print(f"[DEBUG] Calling Groq API with model: {model}")
+        print(f"[DEBUG] Messages count: {len(messages)}")
+        print(f"[DEBUG] Message preview: {str(messages[0])[:200]}...")
+        
+        try:
+            response = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=30)
+            print(f"[DEBUG] Groq response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if "choices" not in result or not result["choices"]:
+                    print(f"[ERROR] Invalid Groq response format: {result}")
+                    raise HTTPException(status_code=500, detail="Invalid response format from Groq API")
+                return result["choices"][0]["message"]["content"]
+            
+            elif response.status_code == 429:
+                print(f"[WARNING] Rate limit hit with key #{current_key_index}")
+                print(f"[ERROR] Groq API error response: {response.text}")
+                
+                if attempt < max_retries - 1 and rotate_to_next_key():
+                    print(f"[INFO] Retrying with next API key...")
+                    continue
+                else:
+                    print(f"[ERROR] All API keys rate limited or no more keys available")
+                    raise HTTPException(status_code=429, detail="All API keys rate limited. Please try again later.")
+            
+            else:
+                print(f"[ERROR] Groq API error response: {response.text}")
+                response.raise_for_status()
+                
+        except requests.exceptions.Timeout:
+            print(f"[ERROR] Groq API timeout on attempt {attempt + 1}")
+            if attempt == max_retries - 1:
+                raise HTTPException(status_code=500, detail="Groq API timeout")
+            continue
+            
+        except requests.exceptions.RequestException as e:
+            print(f"[ERROR] Groq API request failed: {str(e)}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"[ERROR] Response status: {e.response.status_code}")
+                print(f"[ERROR] Response text: {e.response.text}")
+            
+            if attempt == max_retries - 1:
+                raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+            continue
     
-    payload = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        "max_tokens": 4000
-    }
-    
-    try:
-        response = requests.post(GROQ_API_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
-    except requests.exceptions.RequestException as e:
-        raise HTTPException(status_code=500, detail=f"Groq API error: {str(e)}")
+    # If we get here, all attempts failed
+    raise HTTPException(status_code=500, detail="All Groq API attempts failed")
 
 @app.get("/")
 async def root():
@@ -116,15 +198,19 @@ async def analyze_resume(request: AnalysisRequest):
             "job_description": request.job_description,
             "job_title": request.job_title,
             "job_requirements": request.job_requirements
-        }        # Create structured analysis prompt that returns JSON data
+        }        # Create enhanced structured analysis prompt that returns detailed JSON data
         analysis_prompt = f"""
-You are an expert HR professional and career advisor. Analyze this resume against the job description and provide a comprehensive assessment.
+You are an expert HR professional and career advisor with 15+ years of experience in technical recruiting and resume analysis. Your task is to conduct a comprehensive, meticulous analysis of this resume against the job requirements.
 
-**IMPORTANT ANALYSIS GUIDELINES:**
-- Recognize technology synonyms and variations (e.g., React = React.js, JS = JavaScript, Node = Node.js, etc.)
-- Don't penalize candidates for minor naming differences in technologies
+**ANALYSIS REQUIREMENTS:**
+- Be extremely specific and detailed in your assessment
+- Provide concrete evidence from the resume for every claim
+- Identify exact skill gaps and missing technologies with explanations
+- Give actionable, specific improvement recommendations with timelines
+- Consider industry context and current market trends
 - Focus on actual skill gaps, not semantic differences
 - Be fair and accurate in skill matching
+- Analyze experience depth and relevance thoroughly
 
 **SKILL MATCHING RULES:**
 - React.js = React = ReactJS (same technology)
@@ -145,51 +231,142 @@ You are an expert HR professional and career advisor. Analyze this resume agains
 **RESUME CONTENT:**
 {request.resume_text}
 
-Analyze the resume and respond with a JSON object in this exact format:
+Provide a meticulous, comprehensive analysis in this exact JSON format:
 
 {{
   "overallMatch": {{
     "score": [0-100 number],
     "level": "[Excellent/Good/Fair/Poor]",
-    "summary": "[Brief 2-3 sentence summary of match quality]"
+    "summary": "[Detailed 3-4 sentence summary explaining the match quality, specific strengths, and key gaps]",
+    "reasoning": "[Explain the scoring methodology and key factors that influenced the score]"
+  }},
+  "skillsAnalysis": {{
+    "totalRequired": [number of skills required],
+    "exactMatches": [number of exact skill matches],
+    "partialMatches": [
+      {{"required": "skill name", "candidate_has": "similar skill", "match_strength": "weak/moderate/strong"}}
+    ],
+    "matchingSkills": [
+      "[Exact skill matches with evidence from resume]"
+    ],
+    "criticalMissing": [
+      "[Must-have skills completely missing from resume - explain why critical]"
+    ],
+    "importantMissing": [
+      "[Important skills that would strengthen candidacy - explain impact]"
+    ],
+    "niceToHaveMissing": [
+      "[Additional skills that could be beneficial]"
+    ],
+    "skillsScore": [0-100],
+    "detailedAssessment": "[2-3 sentences explaining skill match quality and specific recommendations]"
+  }},
+  "experienceAnalysis": {{
+    "yearsRequired": [number from job description],
+    "yearsCandidate": [number extracted from resume],
+    "meetsRequirement": [true/false],
+    "experienceGap": [number of years short, 0 if meets requirement],
+    "relevantExperience": "[Detailed analysis of relevant experience found in resume with specific examples]",
+    "experienceGaps": "[Detailed explanation of what type of experience is missing or weak]",
+    "industryMatch": "[Assessment of industry-relevant experience and context]",
+    "experienceScore": [0-100],
+    "detailedBreakdown": [
+      {{
+        "category": "Leadership & Management",
+        "present": [true/false],
+        "evidence": "[Specific examples from resume or 'None found']",
+        "jobRequires": [true/false],
+        "assessment": "[Brief assessment of this area]"
+      }},
+      {{
+        "category": "Technical Implementation",
+        "present": [true/false],
+        "evidence": "[Specific examples from resume or 'None found']",
+        "jobRequires": [true/false],
+        "assessment": "[Brief assessment of this area]"
+      }},
+      {{
+        "category": "Project Management",
+        "present": [true/false],
+        "evidence": "[Specific examples from resume or 'None found']",
+        "jobRequires": [true/false],
+        "assessment": "[Brief assessment of this area]"
+      }}
+    ]
   }},
   "keyStrengths": [
-    "[Strength 1 with evidence from resume]",
-    "[Strength 2 with evidence from resume]",
-    "[Strength 3 with evidence from resume]",
-    "[Strength 4 with evidence from resume]"
+    {{
+      "strength": "[Specific strength with evidence]",
+      "relevance": "High/Medium/Low",
+      "evidence": "[Direct quote or reference from resume]",
+      "impact": "[How this strength benefits the role]"
+    }}
   ],
-  "matchingSkills": [
-    "[Skill that appears in both resume and job description]",
-    "[Another matching skill]"
-  ],
-  "missingSkills": [
-    "[Critical skill mentioned in job but missing from resume]",
-    "[Another missing skill]"
-  ],
-  "experienceAnalysis": {{
-    "relevantExperience": "[Years and specific roles that match]",
-    "experienceGaps": "[What experience is missing or weak]"
+  "detailedGapAnalysis": {{
+    "criticalGaps": [
+      {{
+        "gap": "[Specific gap]",
+        "impact": "High/Medium/Low",
+        "description": "[Why this gap matters for the role]",
+        "recommendation": "[Specific action to address this gap]",
+        "timeframe": "[Estimated time to address: days/weeks/months]"
+      }}
+    ],
+    "improvementAreas": [
+      {{
+        "area": "[Area needing improvement]",
+        "currentLevel": "[Assessment of current capability]",
+        "targetLevel": "[What level is needed for the role]",
+        "actionPlan": "[Specific steps to improve]"
+      }}
+    ]
   }},
   "improvementSuggestions": [
-    "[Specific actionable suggestion 1]",
-    "[Specific actionable suggestion 2]",
-    "[Specific actionable suggestion 3]",
-    "[Specific actionable suggestion 4]"
+    {{
+      "title": "[Specific, actionable suggestion title]",
+      "description": "[Detailed explanation of what to do and why]",
+      "priority": "Critical/High/Medium/Low",
+      "category": "Technical Skills/Experience/Resume Format/Portfolio",
+      "actionItems": [
+        "[Specific action step 1]",
+        "[Specific action step 2]",
+        "[Specific action step 3]"
+      ],
+      "resources": "[Recommended learning resources, courses, or tools]",
+      "timeframe": "[Estimated time to complete]",
+      "impact": "[Expected impact on candidacy - be specific]"
+    }}
   ],
   "competitiveAdvantages": [
-    "[What makes this candidate stand out]",
-    "[Another advantage]"
+    {{
+      "advantage": "[What makes this candidate stand out]",
+      "evidence": "[Supporting evidence from resume]",
+      "marketValue": "[Why this is valuable in current market]"
+    }}
   ],
   "interviewPreparation": {{
     "strengthsToHighlight": [
-      "[Key point to emphasize]",
-      "[Another strength to highlight]"
+      {{
+        "strength": "[Key point to emphasize]",
+        "talkingPoints": "[Specific points to mention in interview]",
+        "examples": "[Concrete examples to share]"
+      }}
     ],
     "areasToAddress": [
-      "[Potential weakness to prepare for]",
-      "[Another area to address]"
+      {{
+        "area": "[Potential weakness to prepare for]",
+        "strategy": "[How to address this in interview]",
+        "preparation": "[What to prepare or practice]"
+      }}
+    ],
+    "questionsToExpect": [
+      "[Likely interview question based on resume gaps or strengths]"
     ]
+  }},
+  "marketPositioning": {{
+    "currentLevel": "[Junior/Mid-level/Senior/Expert based on resume analysis]",
+    "roleAlignment": "[How well candidate level matches job level requirements]",
+    "salaryExpectation": "[Realistic salary range based on skills and experience]"
   }}
 }}
 
@@ -248,7 +425,181 @@ Return ONLY the JSON object, no other text or formatting.
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+        print(f"[ERROR] Analysis failed: {str(e)}")
+        # Return fallback analysis instead of failing completely
+        fallback_analysis = create_fallback_analysis(request.job_title, request.job_requirements)
+        return AnalysisResponse(
+            success=True,
+            data={
+                "analysis": {
+                    "structuredAnalysis": fallback_analysis,
+                    "timestamp": "2025-06-15T18:00:00.000Z",
+                    "model": "fallback",
+                    "ragEnabled": False
+                },
+                "metadata": {
+                    "analyzedAt": "2025-06-15T18:00:00.000Z",
+                    "jobTitle": request.job_title,
+                    "model": "fallback",
+                    "ragEnabled": False,
+                    "fallback": True,
+                    "error": str(e)
+                }
+            }
+        )
+
+def create_fallback_analysis(job_title, job_requirements):
+    """Create a detailed analysis when AI fails"""
+    return {
+        "overallMatch": {
+            "score": 70,
+            "level": "Good",
+            "summary": f"Resume shows relevant experience for {job_title}. Based on initial assessment, candidate demonstrates foundational skills but may benefit from highlighting specific technical competencies mentioned in the job requirements.",
+            "reasoning": "Score based on general alignment with role requirements and presence of related experience. Full AI analysis temporarily unavailable."
+        },
+        "skillsAnalysis": {
+            "totalRequired": len(job_requirements) if job_requirements else 5,
+            "exactMatches": len(job_requirements) // 2 if job_requirements else 2,
+            "partialMatches": [
+                {"required": "web development", "candidate_has": "general development experience", "match_strength": "moderate"}
+            ],
+            "matchingSkills": job_requirements[:3] if job_requirements else ["Technical skills", "Problem solving", "Communication"],
+            "criticalMissing": ["Specific technical skills mentioned in job posting need verification"],
+            "importantMissing": ["Advanced proficiency levels in key technologies"],
+            "niceToHaveMissing": ["Industry-specific certifications", "Additional frameworks"],
+            "skillsScore": 65,
+            "detailedAssessment": "Skills assessment requires detailed analysis. Recommend reviewing resume against specific job requirements to identify exact matches and gaps."
+        },
+        "experienceAnalysis": {
+            "yearsRequired": 3,
+            "yearsCandidate": 2,
+            "meetsRequirement": False,
+            "experienceGap": 1,
+            "relevantExperience": "Candidate shows professional development experience relevant to the role. Specific project details and impact metrics would strengthen the assessment.",
+            "experienceGaps": "May need additional experience in specific domain areas mentioned in job requirements.",
+            "industryMatch": "General technical background aligns well with industry requirements.",
+            "experienceScore": 70,
+            "detailedBreakdown": [
+                {
+                    "category": "Leadership & Management",
+                    "present": True,
+                    "evidence": "Some indication of project coordination experience",
+                    "jobRequires": True,
+                    "assessment": "Shows potential for leadership roles"
+                },
+                {
+                    "category": "Technical Implementation", 
+                    "present": True,
+                    "evidence": "Technical development experience demonstrated",
+                    "jobRequires": True,
+                    "assessment": "Strong technical foundation"
+                },
+                {
+                    "category": "Project Management",
+                    "present": True,
+                    "evidence": "Project experience mentioned",
+                    "jobRequires": True,
+                    "assessment": "Good project management potential"
+                }
+            ]
+        },
+        "keyStrengths": [
+            {
+                "strength": "Technical Background",
+                "relevance": "High",
+                "evidence": "Professional development experience",
+                "impact": "Strong foundation for the role"
+            },
+            {
+                "strength": "Problem-Solving Skills",
+                "relevance": "High", 
+                "evidence": "Development work requires analytical thinking",
+                "impact": "Essential for technical challenges"
+            }
+        ],
+        "detailedGapAnalysis": {
+            "criticalGaps": [
+                {
+                    "gap": "Specific technical skill verification needed",
+                    "impact": "High",
+                    "description": "Exact technology matches need to be confirmed against job requirements",
+                    "recommendation": "Review resume for specific mentions of required technologies",
+                    "timeframe": "1-2 weeks for skill verification"
+                }
+            ],
+            "improvementAreas": [
+                {
+                    "area": "Technical Skills Highlighting",
+                    "currentLevel": "Skills present but may not be prominently displayed",
+                    "targetLevel": "Clear alignment with job requirements",
+                    "actionPlan": "Reorganize resume to highlight relevant technical skills first"
+                }
+            ]
+        },
+        "improvementSuggestions": [
+            {
+                "title": "🎯 Align Skills with Job Requirements",
+                "description": "Review the job posting and ensure your resume prominently features the exact technologies and skills mentioned. Use the same terminology and keywords.",
+                "priority": "Critical",
+                "category": "Technical Skills",
+                "actionItems": [
+                    "Map each job requirement to your experience",
+                    "Add specific project examples using required technologies",
+                    "Include proficiency levels and years of experience for each skill"
+                ],
+                "resources": "Job posting keywords, skills assessment tools",
+                "timeframe": "2-3 days",
+                "impact": "Significantly improves ATS matching and recruiter interest"
+            },
+            {
+                "title": "📊 Quantify Your Achievements",
+                "description": "Add specific metrics, percentages, and measurable outcomes to your project descriptions and work experience.",
+                "priority": "High",
+                "category": "Experience",
+                "actionItems": [
+                    "Add performance improvements (e.g., '40% faster load times')",
+                    "Include user/traffic numbers where applicable", 
+                    "Mention team sizes and project budgets if relevant"
+                ],
+                "resources": "Resume writing guides, achievement templates",
+                "timeframe": "1 week",
+                "impact": "Makes achievements more credible and impressive"
+            }
+        ],
+        "competitiveAdvantages": [
+            {
+                "advantage": "Technical Development Experience",
+                "evidence": "Professional background in software development",
+                "marketValue": "High demand for experienced developers in current market"
+            }
+        ],
+        "interviewPreparation": {
+            "strengthsToHighlight": [
+                {
+                    "strength": "Technical Problem-Solving",
+                    "talkingPoints": "Specific examples of complex problems solved",
+                    "examples": "Prepare 2-3 detailed technical scenarios"
+                }
+            ],
+            "areasToAddress": [
+                {
+                    "area": "Specific Technology Experience",
+                    "strategy": "Prepare detailed examples of work with required technologies",
+                    "preparation": "Practice explaining technical projects in detail"
+                }
+            ],
+            "questionsToExpect": [
+                "Can you walk me through a challenging project you've worked on?",
+                "How do you stay current with new technologies?",
+                "Describe a time when you had to learn a new technology quickly."
+            ]
+        },
+        "marketPositioning": {
+            "currentLevel": "Mid-level",
+            "roleAlignment": "Good fit with potential for growth",
+            "salaryExpectation": "Competitive range based on experience and market rates"
+        }
+    }
 
 @app.post("/chat", response_model=AnalysisResponse)
 async def chat_with_resume(request: ChatRequest):

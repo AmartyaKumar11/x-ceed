@@ -266,7 +266,7 @@ export default function ResumeMatchPage() {
         jobId: jobData._id,
         jobTitle: jobData.title,
         jobDescription: jobData.description,
-        requirements: jobData.requirements || [],
+        jobRequirements: jobData.requirements || [],
         resumePath: resumeData.resumePath
       };
       
@@ -279,23 +279,58 @@ export default function ResumeMatchPage() {
       });
 
       console.log('📊 API Response status:', response.status);
-      console.log('📊 API Response ok:', response.ok);      if (response.ok) {
-        const result = await response.json();
+      console.log('📊 API Response ok:', response.ok);
+      
+      if (!response.ok) {
+        // Log the response details for debugging
+        const responseText = await response.text();
+        console.error('❌ RAG analysis failed:', response.status, response.statusText);
+        console.error('❌ Response body:', responseText);
+        
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (parseError) {
+          errorData = { message: responseText || 'Unknown error' };
+        }
+        console.error('❌ Error details:', errorData);
+        
+        // Set a fallback message for the user
+        setRagAnalysis({
+          overallMatch: {
+            score: 0,
+            level: "Analysis Failed",
+            summary: `API Error: ${response.status} - ${errorData.message || response.statusText}`
+          },
+          error: true,
+          errorDetails: errorData
+        });
+        return;
+      }
+
+      // If we get here, response is OK
+      const result = await response.json();
         console.log('🔍 Full response from API:', result);
         console.log('📄 Resume text in response:', result.data?.resumeText ? `${result.data.resumeText.length} characters` : 'Missing');
         
         // Handle both structured and text-based analysis
         const analysisData = result.data?.analysis || result.data || result;
         console.log('📈 Extracted analysis data:', analysisData);
-          if (analysisData?.structuredAnalysis) {
+        console.log('📈 Analysis data type:', typeof analysisData);
+        console.log('📈 Analysis data keys:', Object.keys(analysisData || {}));
+        
+        // Check if we have structured analysis
+        if (analysisData?.structuredAnalysis) {
           // Use structured analysis from Python service (preferred)
           console.log('✅ Using Python structured analysis');
+          console.log('📋 Structured analysis keys:', Object.keys(analysisData.structuredAnalysis));
           setRagAnalysis({
             structuredAnalysis: analysisData.structuredAnalysis,
             resumeText: result.data?.resumeText, // Store the extracted resume text
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
-          });} else if (analysisData?.comprehensiveAnalysis) {
+          });
+        } else if (analysisData?.comprehensiveAnalysis) {
           // Fallback to text-based comprehensive analysis from Python service
           console.log('✅ Using Python comprehensive analysis (fallback)');
           
@@ -316,13 +351,46 @@ export default function ResumeMatchPage() {
             pythonPowered: true,
             timestamp: analysisData.timestamp || new Date().toISOString()
           });
-        } else {          // Fallback to any other structured analysis
+        } else {
+          // Fallback to any other structured analysis
           console.log('⚠️ Using fallback analysis format');
-          // Ensure we include resumeText even in fallback case
+          console.log('⚠️ Fallback data type:', typeof analysisData);
+          console.log('⚠️ Fallback data:', analysisData);
+          
+          // Try to extract structured data from various formats
+          let structuredAnalysis = null;
+          let comprehensiveAnalysis = null;
+          
+          // Check if analysisData is already structured JSON
+          if (analysisData && typeof analysisData === 'object') {
+            // Look for various property names that might contain structured data
+            structuredAnalysis = analysisData.structuredAnalysis || 
+                               analysisData.structured_analysis ||
+                               analysisData.analysis ||
+                               (analysisData.overallMatch ? analysisData : null);
+            
+            comprehensiveAnalysis = analysisData.comprehensiveAnalysis ||
+                                  analysisData.comprehensive_analysis ||
+                                  analysisData.analysis_text ||
+                                  analysisData.summary;
+          }
+          
+          // Create a well-structured fallback
           const fallbackAnalysis = {
-            ...analysisData,
-            resumeText: result.data?.resumeText // Store the extracted resume text
+            structuredAnalysis: structuredAnalysis,
+            comprehensiveAnalysis: comprehensiveAnalysis || JSON.stringify(analysisData, null, 2),
+            resumeText: result.data?.resumeText,
+            pythonPowered: true,
+            fallback: true,
+            timestamp: new Date().toISOString()
           };
+          
+          console.log('📋 Final fallback structure:', {
+            hasStructuredAnalysis: !!fallbackAnalysis.structuredAnalysis,
+            hasComprehensiveAnalysis: !!fallbackAnalysis.comprehensiveAnalysis,
+            fallback: fallbackAnalysis.fallback
+          });
+          
           setRagAnalysis(fallbackAnalysis);
         }
         
@@ -338,21 +406,6 @@ export default function ResumeMatchPage() {
         setChatMessages([welcomeMessage]);
         setTypingMessageIndex(0);
           console.log('✅ RAG analysis completed successfully');
-      } else {
-        console.error('❌ RAG analysis failed:', response.status, response.statusText);
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        console.error('❌ Error details:', errorData);
-        
-        // Set a fallback message for the user
-        setRagAnalysis({
-          overallMatch: {
-            score: 0,            level: "Analysis Failed",
-            summary: `API Error: ${response.status} - ${errorData.message || response.statusText}`
-          },
-          error: true,
-          errorDetails: errorData
-        });
-      }
     } catch (error) {
       console.error('❌ RAG analysis error:', error);
       
@@ -626,7 +679,9 @@ The prep plan is ready and waiting for you! 🚀`,
       }
 
       console.log('🔐 Token found, making API request...');
-        const requestBody = {
+      
+      // Include resume analysis data for personalized prep plans
+      const requestBody = {
         jobId: jobData._id,
         jobTitle: jobData.title,
         companyName: jobData.companyName || jobData.company || 'Company Not Specified',
@@ -639,7 +694,17 @@ The prep plan is ready and waiting for you! 🚀`,
         level: jobData.level,
         workMode: jobData.workMode,
         duration: prepPlanDuration, // Add duration from state
-        source: 'resume-match'
+        source: 'resume-match',
+        // Add resume analysis data for personalized prep plans
+        resumeAnalysis: ragAnalysis ? {
+          structuredAnalysis: ragAnalysis.structuredAnalysis,
+          comprehensiveAnalysis: ragAnalysis.comprehensiveAnalysis,
+          resumeText: ragAnalysis.resumeText,
+          gapAnalysis: ragAnalysis.structuredAnalysis?.gap_analysis || ragAnalysis.structuredAnalysis?.gapAnalysis,
+          missingSkills: ragAnalysis.structuredAnalysis?.missing_skills || ragAnalysis.structuredAnalysis?.missingSkills,
+          matchingSkills: ragAnalysis.structuredAnalysis?.matching_skills || ragAnalysis.structuredAnalysis?.matchingSkills,
+          skillsToImprove: ragAnalysis.structuredAnalysis?.skills_to_improve || ragAnalysis.structuredAnalysis?.skillsToImprove
+        } : null
       };
       
       console.log('📡 API request body:', requestBody);
@@ -822,7 +887,27 @@ The prep plan is ready and waiting for you! 🚀`,
                           {ragAnalysis.structuredAnalysis.keyStrengths?.map((strength, index) => (
                             <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 border-border">
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                              <span className="text-sm text-foreground">{strength}</span>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-foreground">
+                                  {typeof strength === 'object' ? strength.strength : strength}
+                                </div>
+                                {typeof strength === 'object' && strength.evidence && (
+                                  <div className="text-xs text-muted-foreground mt-1">
+                                    Evidence: {strength.evidence}
+                                  </div>
+                                )}
+                                {typeof strength === 'object' && strength.relevance && (
+                                  <div className="text-xs mt-1">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      strength.relevance === 'High' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                                      strength.relevance === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                                      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
+                                    }`}>
+                                      {strength.relevance} Relevance
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )) || <p className="text-muted-foreground">No strengths identified</p>}
                         </div>
@@ -917,77 +1002,61 @@ The prep plan is ready and waiting for you! 🚀`,
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="pt-0">                        <div className="space-y-3">                          {ragAnalysis.structuredAnalysis.improvementSuggestions?.map((suggestion, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 border-border">
-                              <div className="bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <div key={index} className="flex items-start gap-3 p-4 rounded-lg border bg-muted/30 border-border">
+                              <div className={`${
+                                typeof suggestion === 'object' && suggestion.priority === 'Critical' ? 'bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200' :
+                                typeof suggestion === 'object' && suggestion.priority === 'High' ? 'bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200' :
+                                'bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200'
+                              } text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center flex-shrink-0 mt-0.5`}>
                                 {index + 1}
                               </div>
-                              <span className="text-sm text-foreground">{suggestion}</span>
+                              <div className="flex-1">
+                                <div className="text-sm font-medium text-foreground mb-1">
+                                  {typeof suggestion === 'object' ? suggestion.title : suggestion}
+                                </div>
+                                {typeof suggestion === 'object' && suggestion.description && (
+                                  <div className="text-xs text-muted-foreground mb-2">
+                                    {suggestion.description}
+                                  </div>
+                                )}
+                                {typeof suggestion === 'object' && suggestion.priority && (
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                      suggestion.priority === 'Critical' ? 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' :
+                                      suggestion.priority === 'High' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                                      suggestion.priority === 'Medium' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                                      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
+                                    }`}>
+                                      {suggestion.priority} Priority
+                                    </span>
+                                    {suggestion.timeframe && (
+                                      <span className="text-xs text-muted-foreground">
+                                        ⏱️ {suggestion.timeframe}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+                                {typeof suggestion === 'object' && suggestion.actionItems && suggestion.actionItems.length > 0 && (
+                                  <div className="space-y-1">
+                                    <div className="text-xs font-medium text-foreground">Action Items:</div>
+                                    <ul className="text-xs text-muted-foreground space-y-1 ml-2">
+                                      {suggestion.actionItems.slice(0, 3).map((item, itemIndex) => (
+                                        <li key={itemIndex} className="flex items-start gap-1">
+                                          <span className="text-green-600 dark:text-green-400 mt-1">•</span>
+                                          <span>{item}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )) || <p className="text-muted-foreground">No suggestions available</p>}
                         </div>
                       </CardContent>
                     </Card>
 
-                    {/* Competitive Advantages & Interview Prep Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      {/* Competitive Advantages */}
-                      <Card className="border border-border rounded-lg shadow-md bg-card">
-                        <CardHeader className="pb-4">
-                          <CardTitle className="text-lg flex items-center gap-3">
-                            <div className="p-2 bg-indigo-100 dark:bg-indigo-900 rounded-lg">
-                              <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                            </div>
-                            Competitive Advantages
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">                          <div className="space-y-2">                            {ragAnalysis.structuredAnalysis.competitiveAdvantages?.map((advantage, index) => (
-                              <div key={index} className="flex items-start gap-2 p-2 rounded border bg-muted/20 border-border">
-                                <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 flex-shrink-0" />
-                                <span className="text-sm text-foreground">{advantage}</span>
-                              </div>
-                            )) || <p className="text-muted-foreground text-sm">No advantages identified</p>}
-                          </div>
-                        </CardContent>
-                      </Card>
 
-                      {/* Interview Preparation */}
-                      <Card className="border border-border rounded-lg shadow-md bg-card">
-                        <CardHeader className="pb-4">
-                          <CardTitle className="text-lg flex items-center gap-3">
-                            <div className="p-2 bg-teal-100 dark:bg-teal-900 rounded-lg">
-                              <MessageSquare className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                            </div>
-                            Interview Prep
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-0">
-                          <div className="space-y-4">
-                            <div>
-                              <h4 className="font-semibold text-teal-700 dark:text-teal-300 mb-2 text-sm">Strengths to Highlight</h4>
-                              <div className="space-y-1">
-                                {ragAnalysis.structuredAnalysis.interviewPreparation?.strengthsToHighlight?.map((strength, index) => (
-                                  <div key={index} className="text-sm text-muted-foreground flex items-start gap-1">
-                                    <span className="text-teal-500 mt-1">•</span>
-                                    <span>{strength}</span>
-                                  </div>
-                                )) || <p className="text-muted-foreground text-sm">None specified</p>}
-                              </div>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-orange-700 dark:text-orange-300 mb-2 text-sm">Areas to Address</h4>
-                              <div className="space-y-1">
-                                {ragAnalysis.structuredAnalysis.interviewPreparation?.areasToAddress?.map((area, index) => (
-                                  <div key={index} className="text-sm text-muted-foreground flex items-start gap-1">
-                                    <span className="text-orange-500 mt-1">•</span>
-                                    <span>{area}</span>
-                                  </div>
-                                )) || <p className="text-muted-foreground text-sm">None specified</p>}
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </div>
                   </>
                 ) : ragAnalysis.comprehensiveAnalysis ? (
                   /* Fallback to Original Text Analysis */
@@ -1023,13 +1092,50 @@ The prep plan is ready and waiting for you! 🚀`,
                   // Fallback - try to find analysis in different formats
                   <Card className="border border-border rounded-lg shadow-md">
                     <CardContent className="p-6">
+                      {/* Add debug info for development */}
+                      {process.env.NODE_ENV === 'development' && (
+                        <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded border">
+                          <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-2">Debug Info</h4>
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                            Data type: {typeof ragAnalysis} | Has structuredAnalysis: {!!ragAnalysis?.structuredAnalysis?.toString()} | 
+                            Has comprehensiveAnalysis: {!!ragAnalysis?.comprehensiveAnalysis?.toString()} | 
+                            Keys: {Object.keys(ragAnalysis || {}).join(', ')}
+                          </p>
+                        </div>
+                      )}
+                      
                       {ragAnalysis.analysis ? (
-                        // If there's an 'analysis' property
+                        // If there's an 'analysis' property - try to display it better
                         <div>
                           <h3 className="font-semibold mb-4">Analysis Results</h3>
-                          <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded">
-                            {JSON.stringify(ragAnalysis.analysis, null, 2)}
-                          </pre>
+                          {typeof ragAnalysis.analysis === 'object' && ragAnalysis.analysis.overallMatch ? (
+                            // If the analysis object has structured data, display it properly
+                            <div className="space-y-4">
+                              <div className="p-4 bg-muted/30 rounded-lg">
+                                <h4 className="font-semibold mb-2">Overall Match</h4>
+                                <p>Score: {ragAnalysis.analysis.overallMatch.score}%</p>
+                                <p>Level: {ragAnalysis.analysis.overallMatch.level}</p>
+                                <p>Summary: {ragAnalysis.analysis.overallMatch.summary}</p>
+                              </div>
+                              {ragAnalysis.analysis.keyStrengths && (
+                                <div className="p-4 bg-muted/30 rounded-lg">
+                                  <h4 className="font-semibold mb-2">Key Strengths</h4>
+                                  <ul className="list-disc list-inside space-y-1">
+                                    {ragAnalysis.analysis.keyStrengths.map((strength, index) => (
+                                      <li key={index} className="text-sm">
+                                        {typeof strength === 'object' ? strength.strength || JSON.stringify(strength) : strength}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // Fallback to JSON display
+                            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded max-h-96 overflow-auto">
+                              {JSON.stringify(ragAnalysis.analysis, null, 2)}
+                            </pre>
+                          )}
                         </div>
                       ) : ragAnalysis.overallMatch ? (
                         // If there's structured data

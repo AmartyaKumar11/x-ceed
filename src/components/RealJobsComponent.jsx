@@ -412,80 +412,94 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
   console.log('📋 RealJobsComponent: Filtered jobs array:', filteredJobs.map(job => ({ id: job._id, title: job.title })));
 
   return (
-    <div className="max-h-[600px] overflow-y-auto scrollbar-thin">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 job-cards-container pr-2">
+    <div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredJobs.map((job) => (
-          <Card 
-            key={job._id} 
-            className="job-card p-4 bg-blue-950/30 backdrop-blur-md border border-blue-500/20 rounded-xl shadow-lg hover:shadow-blue-500/20 hover:shadow-xl hover:bg-blue-900/40 transition-all duration-300 cursor-pointer"
-            onClick={() => onJobClick(job)}
-          >
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-lg font-semibold">{job.title}</CardTitle>
-                <CardDescription className="flex items-center mt-1">
-                  <Building className="h-3 w-3 mr-1" />
-                  {job.companyName || 'Company Name'}
-                </CardDescription>
-              </div>              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8"
-                disabled={savingJobId === job._id}
-                onClick={(e) => handleSaveJob(job._id, e)}
-              >
-                {savingJobId === job._id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Bookmark 
-                    className={`h-4 w-4 transition-colors ${
-                      savedJobs.has(job._id) 
-                        ? resolvedTheme === 'dark' 
-                          ? 'fill-white text-white' 
-                          : 'fill-black text-black'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`} 
-                  />
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>            <div className="flex flex-wrap gap-y-2 mb-3">
-              <div className="flex items-center text-sm text-muted-foreground mr-4">
-                <MapPin className="h-3 w-3 mr-1" />
-                {job.workMode} {job.location ? `(${job.location})` : ''}
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground mr-4">
-                <DollarSign className="h-3 w-3 mr-1" />
-                {formatSalary(job.salaryMin, job.salaryMax, job.currency)}
-              </div>
-              <div className="flex items-center text-sm text-muted-foreground">
-                <Calendar className="h-3 w-3 mr-1" />
-                Posted {formatPostedDate(job.createdAt || new Date())}
+        <div 
+          key={job._id} 
+          className="card p-6 hover:shadow-lg transition-all duration-200 cursor-pointer group"
+          onClick={() => onJobClick(job)}
+        >
+          {/* Job Header */}
+          <div className="flex justify-between items-start mb-4">
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                {job.title}
+              </h3>
+              <div className="flex items-center gap-2 mt-1">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                <span className="text-muted-foreground">{job.companyName || 'Company Name'}</span>
               </div>
             </div>
-            
-            <div className="flex flex-wrap gap-2 mt-2">
-              <Badge variant="secondary" className="font-normal">
-                {job.jobType || 'Full-time'}
-              </Badge>
-              <Badge variant="secondary" className="font-normal">
-                {job.department || 'General'}
-              </Badge>
-              <Badge variant="secondary" className="font-normal">
-                {job.level || 'Entry Level'}
-              </Badge>
-            </div>          </CardContent>          <CardFooter className="flex flex-wrap gap-2 justify-end">            <Button 
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8"
+              disabled={savingJobId === job._id}
+              onClick={(e) => handleSaveJob(job._id, e)}
+            >
+              {savingJobId === job._id ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Bookmark 
+                  className={`h-4 w-4 transition-colors ${
+                    savedJobs.has(job._id) 
+                      ? resolvedTheme === 'dark' 
+                        ? 'fill-white text-white' 
+                        : 'fill-black text-black'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`} 
+                />
+              )}
+            </Button>
+          </div>
+
+          {/* Job Details */}
+          <div className="space-y-2 mb-4">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="h-4 w-4" />
+              <span>{job.workMode} {job.location ? `(${job.location})` : ''}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <DollarSign className="h-4 w-4" />
+              <span>{formatSalary(job.salaryMin, job.salaryMax, job.currency)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Calendar className="h-4 w-4" />
+              <span>Posted {formatPostedDate(job.createdAt || new Date())}</span>
+            </div>
+          </div>
+
+          {/* Job Description - if available */}
+          {job.description && (
+            <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
+              {job.description}
+            </p>
+          )}
+
+          {/* Job Tags */}
+          <div className="flex flex-wrap gap-1 mb-4">
+            <Badge variant="outline" className="text-xs">
+              {job.jobType || 'Full-time'}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {job.department || 'General'}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {job.level || 'Entry Level'}
+            </Badge>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button 
               size="sm"
+              variant="outline"
               onClick={async (e) => {
                 e.stopPropagation();
                 if (job.jobDescriptionFile) {
                   try {
-                    // Extract filename from the URL (e.g., "/uploads/job-descriptions/file.pdf")
                     const filename = job.jobDescriptionFile.split('/').pop();
-                    
-                    // Use the new download API
                     const token = localStorage.getItem('token');
                     const response = await fetch(`/api/download/job-description/${filename}`, {
                       method: 'GET',
@@ -495,7 +509,6 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
                     });
 
                     if (response.ok) {
-                      // Get the blob and create download link
                       const blob = await response.blob();
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
@@ -507,16 +520,13 @@ export default function RealJobsComponent({ onJobClick, searchQuery = '', filter
                       URL.revokeObjectURL(url);
                     } else {
                       console.error('Failed to download job description');
-                      // Fallback to opening in new tab
                       window.open(job.jobDescriptionFile, '_blank');
                     }
                   } catch (error) {
                     console.error('Error downloading job description:', error);
-                    // Fallback to opening in new tab
                     window.open(job.jobDescriptionFile, '_blank');
                   }
                 } else {
-                  // Generate a text file with job details if no file is available
                   const jobDetails = `
 Job Title: ${job.title}
 Company: ${job.companyName || 'Not specified'}
@@ -540,35 +550,41 @@ Description: ${job.description || 'No description provided.'}
                   URL.revokeObjectURL(url);
                 }
               }}
-              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none rounded-lg hover:from-purple-700 hover:to-blue-700 hover:shadow-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all flex items-center gap-1"
+              className="flex items-center gap-1"
             >
               <Download className="h-3 w-3" />
               Download JD
-            </Button>            <Button 
+            </Button>
+            <Button 
               size="sm"
+              variant="outline"
               onClick={(e) => {
                 e.stopPropagation();
                 handleResumeMatch(job._id);
               }}
-              className="bg-gradient-to-r from-green-600 to-teal-600 text-white border-none rounded-lg hover:from-green-700 hover:to-teal-700 hover:shadow-lg focus:ring-2 focus:ring-green-500 focus:outline-none transition-all flex items-center gap-1"
+              className="flex items-center gap-1"
             >
               <FileText className="h-3 w-3" />
               Match Resume
             </Button>
             <Button 
               size="sm"
-              className="bg-gradient-to-r from-orange-600 to-red-600 text-white border-none rounded-lg hover:from-orange-700 hover:to-red-700 hover:shadow-lg focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all flex items-center gap-1"
-            >View Details</Button>
-          </CardFooter>
-        </Card>      ))}      </div>
-      
-      {/* Resume Upload Dialog */}
-      <ResumeUploadDialog
-        isOpen={resumeUploadDialog.isOpen}
-        onClose={handleCloseResumeUploadDialog}
-        onUploadSuccess={handleResumeUploadSuccess}
-        jobId={resumeUploadDialog.jobId}
-      />
+              className="flex items-center gap-1"
+            >
+              View Details
+            </Button>
+          </div>
+        </div>
+      ))}
     </div>
+      
+    {/* Resume Upload Dialog */}
+    <ResumeUploadDialog
+      isOpen={resumeUploadDialog.isOpen}
+      onClose={handleCloseResumeUploadDialog}
+      onUploadSuccess={handleResumeUploadSuccess}
+      jobId={resumeUploadDialog.jobId}
+    />
+  </div>
   );
 }
