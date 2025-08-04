@@ -30,10 +30,10 @@ env_paths = [
 for env_path in env_paths:
     if os.path.exists(env_path):
         load_dotenv(dotenv_path=env_path)
-        print(f"✅ Environment loaded from: {env_path}")
+        print(f"[OK] Environment loaded from: {env_path}")
         break
 else:
-    print("⚠️ Warning: .env.local file not found in any expected location")
+    print("[WARNING] Warning: .env.local file not found in any expected location")
 
 app = FastAPI(title="Optimized Video Quiz Generation Service", version="2.0.0")
 
@@ -57,8 +57,8 @@ genai.configure(api_key=GEMINI_QUIZ_API_KEY)
 # Use Gemini 1.5 Flash model (optimized for your student subscription)
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-print(f"🚀 Quiz Service initialized with Gemini 1.5 Flash (Student Subscription)")
-print(f"🔑 API Key configured: {GEMINI_QUIZ_API_KEY[:10]}...")
+print(f"[INIT] Quiz Service initialized with Gemini 1.5 Flash (Student Subscription)")
+print(f"[KEY] API Key configured: {GEMINI_QUIZ_API_KEY[:10]}...")
 
 # Data Models
 class QuizQuestion(BaseModel):
@@ -193,15 +193,15 @@ class OptimizedQuizGenerator:
     def generate_quiz_efficiently(self, request: QuizGenerationRequest) -> GeneratedQuiz:
         """Generate quiz with optimized token usage"""
         
-        print(f"🎯 Starting optimized quiz generation for: {request.video_title}")
+        print(f"[TARGET] Starting optimized quiz generation for: {request.video_title}")
         
         # Step 1: Compress transcript for analysis
         compressed_transcript = self.token_optimizer.compress_transcript(request.transcript, 1500)
-        print(f"📝 Compressed transcript: {len(request.transcript)} → {len(compressed_transcript)} chars")
+        print(f"[NOTE] Compressed transcript: {len(request.transcript)} → {len(compressed_transcript)} chars")
         
         # Step 2: Extract key concepts efficiently
         key_concepts = self.token_optimizer.extract_key_concepts(compressed_transcript)
-        print(f"🔍 Key concepts: {key_concepts}")
+        print(f"[SEARCH] Key concepts: {key_concepts}")
         
         # Step 3: Generate questions with single optimized prompt
         all_questions = self.generate_questions_batch(
@@ -224,7 +224,7 @@ class OptimizedQuizGenerator:
             created_at=datetime.now().isoformat()
         )
         
-        print(f"✅ Generated {len(all_questions)} questions efficiently")
+        print(f"[OK] Generated {len(all_questions)} questions efficiently")
         return quiz
     
     def generate_questions_batch(self, transcript: str, video_title: str, num_questions: int, 
@@ -313,19 +313,19 @@ Create questions in JSON format:
                         questions.append(question)
                     
                     if len(questions) > 0:
-                        print(f"✅ Successfully generated {len(questions)} questions from Gemini 1.5 Flash")
+                        print(f"[OK] Successfully generated {len(questions)} questions from Gemini 1.5 Flash")
                         return questions
                     else:
-                        print(f"⚠️ No valid questions in response, trying fallback")
+                        print(f"[WARNING] No valid questions in response, trying fallback")
                         break
                 
                 else:
-                    print(f"⚠️ No valid JSON found in response: {content[:100]}...")
+                    print(f"[WARNING] No valid JSON found in response: {content[:100]}...")
                     break
                     
             except Exception as e:
                 error_msg = str(e)
-                print(f"❌ Gemini API attempt {attempt + 1} failed: {error_msg}")
+                print(f"[ERROR] Gemini API attempt {attempt + 1} failed: {error_msg}")
                 
                 # Check for rate limit errors
                 if "429" in error_msg or "quota" in error_msg.lower():
@@ -509,18 +509,18 @@ async def root():
 async def generate_quiz(request: QuizGenerationRequest):
     """Generate a quiz from video transcript using optimized Gemini 1.5 Flash"""
     try:
-        print(f"🎯 Optimized quiz generation requested for: {request.video_title}")
-        print(f"📊 Parameters: {request.num_questions} questions, {request.difficulty_level} difficulty")
+        print(f"[TARGET] Optimized quiz generation requested for: {request.video_title}")
+        print(f"[STATS] Parameters: {request.num_questions} questions, {request.difficulty_level} difficulty")
         
         quiz = quiz_generator.generate_quiz_efficiently(request)
         
         print(f"🎉 Quiz generated successfully with {len(quiz.questions)} questions")
-        print(f"💎 Using Gemini 1.5 Flash Student Subscription for optimal performance")
+        print(f"[PREMIUM] Using Gemini 1.5 Flash Student Subscription for optimal performance")
         
         return quiz
         
     except Exception as e:
-        print(f"❌ Error in optimized quiz generation: {e}")
+        print(f"[ERROR] Error in optimized quiz generation: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate quiz: {str(e)}")
 
 @app.post("/submit-quiz", response_model=QuizResult)
@@ -574,6 +574,6 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    print("🚀 Starting Optimized Quiz Generation Service with Gemini 1.5 Flash")
-    print("💎 Student Pro Subscription Active - Higher Rate Limits Available")
+    print("[START] Starting Optimized Quiz Generation Service with Gemini 1.5 Flash")
+    print("[PREMIUM] Student Pro Subscription Active - Higher Rate Limits Available")
     uvicorn.run(app, host="0.0.0.0", port=8006)

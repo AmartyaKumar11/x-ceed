@@ -32,9 +32,9 @@ app = FastAPI(title="AI Resume Analysis Service", version="1.0.0")
 # Initialize AI analyzer
 try:
     ai_analyzer = AIResumeAnalyzer()
-    logger.info("✅ AI Resume Analyzer initialized successfully")
+    logger.info("[OK] AI Resume Analyzer initialized successfully")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize AI analyzer: {e}")
+    logger.error(f"[ERROR] Failed to initialize AI analyzer: {e}")
     ai_analyzer = None
 
 # Pydantic models for request/response
@@ -101,8 +101,8 @@ async def analyze_candidates(request: AnalysisRequest):
         if not ai_analyzer:
             raise HTTPException(status_code=503, detail="AI analyzer not available")
         
-        logger.info(f"🔍 Starting AI analysis for job: {request.job.title}")
-        logger.info(f"📊 Analyzing {len(request.candidates)} candidates")
+        logger.info(f"[SEARCH] Starting AI analysis for job: {request.job.title}")
+        logger.info(f"[STATS] Analyzing {len(request.candidates)} candidates")
         
         # Convert request data to dict format for analyzer
         job_data = request.job.dict()
@@ -147,7 +147,7 @@ async def analyze_candidates(request: AnalysisRequest):
             "analysis_version": "1.0"
         }
         
-        logger.info(f"✅ AI analysis completed successfully")
+        logger.info(f"[OK] AI analysis completed successfully")
         logger.info(f"📈 Top candidate: {shortlist[0]['candidate_name'] if shortlist else 'None'} ({shortlist[0]['overall_score']:.1f}%)")
         
         return AnalysisResponse(
@@ -158,7 +158,7 @@ async def analyze_candidates(request: AnalysisRequest):
         )
         
     except Exception as e:
-        logger.error(f"❌ Error during AI analysis: {e}")
+        logger.error(f"[ERROR] Error during AI analysis: {e}")
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
 
 @app.get("/analysis-criteria")
@@ -213,7 +213,7 @@ if __name__ == "__main__":
     import uvicorn
     
     port = int(os.getenv("AI_SERVICE_PORT", 8004))
-    logger.info(f"🚀 Starting AI Resume Analysis Service on port {port}")
+    logger.info(f"[START] Starting AI Resume Analysis Service on port {port}")
     
     uvicorn.run(
         "ai_service:app",
