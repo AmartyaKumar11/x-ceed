@@ -26,7 +26,7 @@ export default function LoadingPage() {
         setFadeOut(true);
         // Redirect after slide-up animation completes
         const redirectTimeout = setTimeout(() => {
-          router.replace('/landing');
+          router.replace('/landing-simple');
         }, 600); 
         return () => clearTimeout(redirectTimeout);
       }, 1000); 
