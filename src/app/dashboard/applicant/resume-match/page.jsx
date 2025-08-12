@@ -889,11 +889,11 @@ The prep plan is ready and waiting for you! 🚀`,
                               <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                               <div className="flex-1">
                                 <div className="text-sm font-medium text-foreground">
-                                  {typeof strength === 'object' ? strength.strength : strength}
+                                  {typeof strength === 'object' ? (strength.title || strength.strength) : strength}
                                 </div>
-                                {typeof strength === 'object' && strength.evidence && (
+                                {typeof strength === 'object' && (strength.description || strength.evidence) && (
                                   <div className="text-xs text-muted-foreground mt-1">
-                                    Evidence: {strength.evidence}
+                                    {strength.description || strength.evidence}
                                   </div>
                                 )}
                                 {typeof strength === 'object' && strength.relevance && (
@@ -928,11 +928,15 @@ The prep plan is ready and waiting for you! 🚀`,
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="space-y-2">
-                            {ragAnalysis.structuredAnalysis.matchingSkills?.map((skill, index) => (
-                              <Badge key={index} variant="secondary" className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 mr-2 mb-2">
-                                {skill}
-                              </Badge>
-                            )) || <p className="text-muted-foreground text-sm">No matching skills found</p>}
+                            {ragAnalysis.structuredAnalysis.matchingSkills?.length > 0 ? (
+                              ragAnalysis.structuredAnalysis.matchingSkills.map((skill, index) => (
+                                <Badge key={index} variant="secondary" className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 mr-2 mb-2">
+                                  {skill}
+                                </Badge>
+                              ))
+                            ) : (
+                              <p className="text-muted-foreground text-sm">No matching skills found</p>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -1123,7 +1127,14 @@ The prep plan is ready and waiting for you! 🚀`,
                                   <ul className="list-disc list-inside space-y-1">
                                     {ragAnalysis.analysis.keyStrengths.map((strength, index) => (
                                       <li key={index} className="text-sm">
-                                        {typeof strength === 'object' ? strength.strength || JSON.stringify(strength) : strength}
+                                        <div className="font-medium">
+                                          {typeof strength === 'object' ? (strength.title || strength.strength) : strength}
+                                        </div>
+                                        {typeof strength === 'object' && (strength.description || strength.evidence) && (
+                                          <div className="text-xs text-muted-foreground mt-1">
+                                            {strength.description || strength.evidence}
+                                          </div>
+                                        )}
                                       </li>
                                     ))}
                                   </ul>

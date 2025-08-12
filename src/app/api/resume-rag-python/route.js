@@ -216,58 +216,57 @@ async function performOpenRouterAnalysis({ jobDescription, jobTitle, jobRequirem
     throw new Error('OpenRouter API Key not configured');
   }
   
-  // Extract skills from resume content for intelligent analysis
+  // Extract skills and experience from resume content for intelligent analysis
   const resumeExtractedSkills = extractSkillsFromResumeContent(resumeText);
+  const experienceData = extractExperienceLevel(resumeText);
   const userSkills = []; // No explicit skills in this context
   const allUserSkills = [...userSkills, ...resumeExtractedSkills];
   
   console.log('🔍 OpenRouter analysis - Skills from resume:', resumeExtractedSkills);
   console.log('📋 OpenRouter analysis - Combined skills:', allUserSkills);
+  console.log('💼 OpenRouter analysis - Experience detected:', experienceData);
   
-  // Build comprehensive prompt for gap analysis
-  const prompt = `You are an expert career advisor. Analyze the gap between this candidate's profile and job requirements to provide detailed insights.
+  // Build focused prompt for technical skills analysis only
+  const prompt = `You are a technical recruiter analyzing a candidate's technical skills for a ${jobTitle} position.
 
-==== JOB POSTING ====
-Title: ${jobTitle}
-Requirements: ${Array.isArray(jobRequirements) ? jobRequirements.join(', ') : 'Not specified'}
-Description: ${jobDescription.substring(0, 1000)}
+==== JOB REQUIREMENTS ====
+Position: ${jobTitle}
+Technical Requirements: ${Array.isArray(jobRequirements) ? jobRequirements.join(', ') : 'Not specified'}
+Job Description: ${jobDescription.substring(0, 800)}
 
-==== CANDIDATE PROFILE ====
-Skills Extracted from Resume/Projects: ${resumeExtractedSkills.join(', ') || 'None found'}
-Resume Content: ${resumeText.substring(0, 1500)}
+==== CANDIDATE TECHNICAL PROFILE ====
+Technical Skills Found in Projects: ${resumeExtractedSkills.join(', ') || 'None'}
+Resume Content: ${resumeText.substring(0, 1200)}
 
-IMPORTANT: Consider skills demonstrated in projects/experience when analyzing gaps.
+CRITICAL INSTRUCTIONS:
+- Focus ONLY on technical skills (programming languages, frameworks, databases, tools, cloud platforms)
+- IGNORE soft skills, personality traits, work environment preferences
+- IGNORE generic requirements like "communication skills", "self-motivated", "reliable internet", "home office setup"
+- Only include concrete technical skills that can be learned and demonstrated
+- Keep missing skills list to maximum 3-4 most important technical skills
 
-IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation text, no code blocks. Just raw JSON.
-
-Return this exact JSON structure:
+Return ONLY valid JSON:
 {
   "overallScore": 75,
   "skillsScore": 80,
   "experienceScore": 70,
   "keywordScore": 75,
-  "overallSummary": "Brief summary of match quality",
-  "matchedSkills": ["skills candidate has that match job"],
-  "missingSkills": ["critical skills candidate lacks"],
-  "skillsToImprove": ["skills candidate has but needs to advance"],
-  "foundKeywords": ["job keywords found in resume"],
-  "missingKeywords": ["important job keywords missing from resume"],
-  "gapAnalysis": "Detailed analysis of what candidate needs to learn",
+  "overallSummary": "Technical skills assessment summary",
+  "matchedSkills": ["React", "JavaScript", "Node.js"],
+  "missingSkills": ["TypeScript", "Docker"],
+  "skillsToImprove": ["Python"],
+  "foundKeywords": ["React", "JavaScript", "API"],
+  "missingKeywords": ["TypeScript", "Docker"],
+  "gapAnalysis": "Technical skills gap analysis focusing on programming languages, frameworks, and tools only",
   "experienceAnalysis": {
     "resumeYears": 3,
     "requiredYears": 5,
-    "details": [
-      {
-        "requirement": "leadership experience",
-        "matched": true,
-        "analysis": "Evidence found in resume"
-      }
-    ]
+    "details": []
   },
   "suggestions": [
     {
-      "title": "Add Missing Technical Skills",
-      "description": "Specific actionable advice",
+      "title": "Learn Missing Technical Skills",
+      "description": "Focus on the most important missing technical skills",
       "priority": "high"
     }
   ]
@@ -334,6 +333,47 @@ Return this exact JSON structure:
           if (analysisResult && analysisResult.overallScore) {
             console.log(`✅ Successfully analyzed with ${model}`);
             
+            // Process and clean the AI response - prioritize our intelligent extraction
+            console.log('🔍 Processing skills - Extracted:', resumeExtractedSkills);
+            console.log('🔍 Processing skills - Job Requirements:', jobRequirements);
+            console.log('🔍 Processing skills - AI Matched:', analysisResult.matchedSkills);
+            
+            // Smart skill matching using our extracted skills
+            const processedMatchedSkills = [];
+            const processedMissingSkills = [];
+            
+            (jobRequirements || []).forEach(jobReq => {
+              const jobReqLower = jobReq.toLowerCase();
+              
+              // Check if this job requirement is found in extracted skills
+              const foundInExtracted = resumeExtractedSkills.some(extracted => {
+                const extractedLower = extracted.toLowerCase();
+                return (
+                  extractedLower.includes(jobReqLower) ||
+                  jobReqLower.includes(extractedLower) ||
+                  (jobReqLower.includes('node') && extractedLower.includes('node')) ||
+                  (jobReqLower.includes('express') && extractedLower.includes('express')) ||
+                  (jobReqLower.includes('mongo') && extractedLower.includes('mongo')) ||
+                  (jobReqLower.includes('docker') && extractedLower.includes('docker')) ||
+                  (jobReqLower.includes('aws') && extractedLower.includes('aws'))
+                );
+              });
+              
+              if (foundInExtracted) {
+                processedMatchedSkills.push(jobReq);
+              } else {
+                processedMissingSkills.push(jobReq);
+              }
+            });
+            
+            // Categorize missing skills by priority
+            const categorizedGaps = categorizeGapsByPriority(processedMissingSkills, jobRequirements, jobDescription);
+            const finalMissingSkills = [...categorizedGaps.critical, ...categorizedGaps.important].slice(0, 5);
+            
+            console.log('✅ Final Matched Skills:', processedMatchedSkills);
+            console.log('❌ Final Missing Skills:', finalMissingSkills);
+            console.log('🎯 Gap Categories:', categorizedGaps);
+            
             // Format for frontend compatibility (exact structure frontend expects)
             return {
               data: {
@@ -341,27 +381,38 @@ Return this exact JSON structure:
                   structuredAnalysis: {
                     // Overall match information (frontend expects this exact structure)
                     overallMatch: {
-                      score: analysisResult.overallScore || 0,
-                      level: getMatchLevel(analysisResult.overallScore || 0),
-                      summary: analysisResult.overallSummary || 'Analysis completed'
+                      score: Math.round((processedMatchedSkills.length / Math.max((jobRequirements || []).length, 1)) * 100),
+                      level: getMatchLevel(Math.round((processedMatchedSkills.length / Math.max((jobRequirements || []).length, 1)) * 100)),
+                      summary: analysisResult.overallSummary || 'Technical skills analysis completed'
                     },
                     
                     // Skills - frontend expects these exact field names
-                    matchingSkills: analysisResult.matchedSkills || [],
-                    missingSkills: analysisResult.missingSkills || [],
+                    matchingSkills: processedMatchedSkills,
+                    missingSkills: finalMissingSkills,
                     skillsToImprove: analysisResult.skillsToImprove || [],
                     extractedSkills: resumeExtractedSkills || [],
                     
                     // Key strengths (frontend expects this)
-                    keyStrengths: generateKeyStrengths(analysisResult.matchedSkills || [], resumeExtractedSkills || []),
+                    keyStrengths: generateKeyStrengths(processedMatchedSkills, resumeExtractedSkills || []),
                     
                     // Experience analysis (frontend expects these exact field names)
                     experienceAnalysis: {
-                      relevantExperience: generateRelevantExperience(analysisResult.experienceAnalysis),
-                      experienceGaps: generateExperienceGaps(analysisResult.experienceAnalysis),
-                      score: analysisResult.experienceScore || 0,
-                      years: analysisResult.experienceAnalysis?.resumeYears || 0,
-                      required: analysisResult.experienceAnalysis?.requiredYears || 0
+                      relevantExperience: generateRelevantExperience({
+                        resumeYears: experienceData.years,
+                        level: experienceData.level,
+                        details: experienceData.details
+                      }),
+                      experienceGaps: generateExperienceGaps({
+                        resumeYears: experienceData.years,
+                        requiredYears: analysisResult.experienceAnalysis?.requiredYears || 3,
+                        level: experienceData.level,
+                        criticalSkills: categorizedGaps.critical
+                      }),
+                      score: calculateExperienceScore(experienceData, categorizedGaps),
+                      years: experienceData.years,
+                      required: analysisResult.experienceAnalysis?.requiredYears || 3,
+                      level: experienceData.level,
+                      complexityScore: experienceData.complexityScore
                     },
                     
                     // Improvement suggestions (frontend expects this exact field name)
@@ -378,9 +429,10 @@ Return this exact JSON structure:
                     
                     // Gap analysis
                     gapAnalysis: {
-                      summary: analysisResult.gapAnalysis || 'No gap analysis available',
-                      critical: analysisResult.criticalMissing || [],
-                      important: analysisResult.importantMissing || [],
+                      summary: generateEnhancedGapAnalysis(categorizedGaps, experienceData, jobTitle),
+                      critical: categorizedGaps.critical,
+                      important: categorizedGaps.important,
+                      niceToHave: categorizedGaps.niceToHave,
                       suggestions: analysisResult.suggestions || []
                     },
                     
@@ -423,60 +475,80 @@ Return this exact JSON structure:
 async function performEnhancedFallback({ jobDescription, jobTitle, jobRequirements, resumeText, userId }) {
   console.log('🤖 Performing enhanced fallback analysis...');
   
-  // Extract skills from resume content
+  // Extract skills and experience from resume content
   const resumeExtractedSkills = extractSkillsFromResumeContent(resumeText);
-  const allUserSkills = resumeExtractedSkills;
+  const experienceData = extractExperienceLevel(resumeText);
+  console.log('🔍 Fallback - Extracted skills:', resumeExtractedSkills);
+  console.log('🔍 Fallback - Job requirements:', jobRequirements);
+  console.log('💼 Fallback - Experience detected:', experienceData);
   
-  // Analyze against job requirements
-  const jobReqsLower = (jobRequirements || []).map(req => req.toLowerCase());
+  // Smart matching logic
+  const matched = [];
+  const missing = [];
   
-  const matched = jobReqsLower.filter(req => 
-    allUserSkills.some(skill => 
-      skill.includes(req) || req.includes(skill)
-    )
-  );
+  (jobRequirements || []).forEach(jobReq => {
+    const jobReqLower = jobReq.toLowerCase();
+    
+    const foundInExtracted = resumeExtractedSkills.some(extracted => {
+      const extractedLower = extracted.toLowerCase();
+      return (
+        extractedLower.includes(jobReqLower) ||
+        jobReqLower.includes(extractedLower) ||
+        (jobReqLower.includes('node') && extractedLower.includes('node')) ||
+        (jobReqLower.includes('express') && extractedLower.includes('express')) ||
+        (jobReqLower.includes('mongo') && extractedLower.includes('mongo')) ||
+        (jobReqLower.includes('docker') && extractedLower.includes('docker')) ||
+        (jobReqLower.includes('aws') && extractedLower.includes('aws'))
+      );
+    });
+    
+    if (foundInExtracted) {
+      matched.push(jobReq);
+    } else {
+      missing.push(jobReq);
+    }
+  });
   
-  const missing = jobReqsLower.filter(req => !matched.includes(req));
+  // Categorize missing skills by priority
+  const categorizedGaps = categorizeGapsByPriority(missing, jobRequirements, jobDescription);
+  const finalMissing = [...categorizedGaps.critical, ...categorizedGaps.important].slice(0, 5);
   
-  // Categorize missing skills
-  const criticalSkills = ['react', 'angular', 'vue', 'node.js', 'python', 'java', 'typescript'];
-  const importantSkills = ['mongodb', 'postgresql', 'aws', 'azure', 'docker', 'kubernetes'];
+  console.log('✅ Fallback - Final matched:', matched);
+  console.log('❌ Fallback - Final missing:', finalMissing);
+  console.log('🎯 Fallback - Gap categories:', categorizedGaps);
   
-  const criticalMissing = missing.filter(skill => 
-    criticalSkills.some(critical => skill.includes(critical) || critical.includes(skill))
-  );
-  
-  const importantMissing = missing.filter(skill => 
-    importantSkills.some(important => skill.includes(important) || important.includes(skill)) &&
-    !criticalMissing.includes(skill)
-  );
-  
-  const skillsScore = jobReqsLower.length > 0 
-    ? Math.round((matched.length / jobReqsLower.length) * 100)
+  const skillsScore = (jobRequirements || []).length > 0 
+    ? Math.round((matched.length / (jobRequirements || []).length) * 100)
     : 0;
   
-  const overallScore = Math.round((skillsScore * 0.4) + (60 * 0.35) + (50 * 0.25));
+  const overallScore = Math.round((skillsScore * 0.6) + (70 * 0.4)); // Higher weight on skills
   
-  // Generate gap analysis
-  let gapAnalysis = `Gap Analysis for ${jobTitle} position:\n\n`;
-  
-  if (criticalMissing.length > 0) {
-    gapAnalysis += `CRITICAL GAPS: ${criticalMissing.join(', ')}\n`;
-  }
-  
-  if (importantMissing.length > 0) {
-    gapAnalysis += `IMPORTANT GAPS: ${importantMissing.join(', ')}\n`;
-  }
+  // Generate focused gap analysis
+  let gapAnalysis = `Technical Skills Analysis for ${jobTitle}:\n\n`;
   
   if (matched.length > 0) {
-    gapAnalysis += `STRENGTHS: ${matched.join(', ')}\n`;
+    gapAnalysis += `✅ TECHNICAL STRENGTHS: ${matched.join(', ')}\n`;
+    gapAnalysis += `You have demonstrated experience with these technologies.\n\n`;
   }
   
-  const fallbackSuggestions = [
+  if (finalMissing.length > 0) {
+    gapAnalysis += `📚 SKILLS TO LEARN: ${finalMissing.join(', ')}\n`;
+    gapAnalysis += `Focus on these ${finalMissing.length} technical skills to become a strong candidate.\n`;
+  } else {
+    gapAnalysis += `🎉 EXCELLENT: You have all the required technical skills!\n`;
+  }
+  
+  const fallbackSuggestions = finalMissing.length > 0 ? [
     {
-      title: 'Focus on Critical Skills',
-      description: `Priority learning: ${criticalMissing.slice(0, 3).join(', ')}`,
+      title: 'Learn Missing Technical Skills',
+      description: `Focus on: ${finalMissing.join(', ')}`,
       priority: 'high'
+    }
+  ] : [
+    {
+      title: 'Enhance Existing Skills',
+      description: 'Continue building expertise in your current technology stack',
+      priority: 'medium'
     }
   ];
 
@@ -488,12 +560,12 @@ async function performEnhancedFallback({ jobDescription, jobTitle, jobRequiremen
           overallMatch: {
             score: overallScore,
             level: getMatchLevel(overallScore),
-            summary: overallScore >= 70 ? 'Good match with room for improvement' : 'Fair match, needs improvement'
+            summary: overallScore >= 80 ? 'Excellent technical match' : overallScore >= 60 ? 'Good technical match' : 'Technical skills need development'
           },
           
           // Skills - frontend expects these exact field names
           matchingSkills: matched,
-          missingSkills: missing,
+          missingSkills: finalMissing,
           skillsToImprove: [],
           extractedSkills: resumeExtractedSkills,
           
@@ -502,11 +574,22 @@ async function performEnhancedFallback({ jobDescription, jobTitle, jobRequiremen
           
           // Experience analysis (frontend expects these exact field names)
           experienceAnalysis: {
-            relevantExperience: 'Experience determined from resume analysis',
-            experienceGaps: criticalMissing.length > 0 ? `Missing critical skills: ${criticalMissing.join(', ')}` : 'No significant gaps identified',
-            score: 60,
-            years: 0,
-            required: 0
+            relevantExperience: generateRelevantExperience({
+              resumeYears: experienceData.years,
+              level: experienceData.level,
+              details: experienceData.details
+            }),
+            experienceGaps: generateExperienceGaps({
+              resumeYears: experienceData.years,
+              requiredYears: 3,
+              level: experienceData.level,
+              criticalSkills: categorizedGaps.critical
+            }),
+            score: calculateExperienceScore(experienceData, categorizedGaps),
+            years: experienceData.years,
+            required: 3,
+            level: experienceData.level,
+            complexityScore: experienceData.complexityScore
           },
           
           // Improvement suggestions (frontend expects this exact field name)
@@ -516,24 +599,25 @@ async function performEnhancedFallback({ jobDescription, jobTitle, jobRequiremen
           skillsAnalysis: {
             score: skillsScore,
             matched: matched,
-            missing: missing,
+            missing: finalMissing,
             toImprove: [],
             extracted: resumeExtractedSkills
           },
           
           // Gap analysis
           gapAnalysis: {
-            summary: gapAnalysis,
-            critical: criticalMissing,
-            important: importantMissing,
+            summary: generateEnhancedGapAnalysis(categorizedGaps, experienceData, jobTitle),
+            critical: categorizedGaps.critical,
+            important: categorizedGaps.important,
+            niceToHave: categorizedGaps.niceToHave,
             suggestions: fallbackSuggestions
           },
           
           // Keywords
           keywordAnalysis: {
-            score: 50,
+            score: skillsScore,
             found: matched,
-            missing: missing
+            missing: finalMissing
           },
           
           // Metadata
@@ -576,20 +660,38 @@ function generateKeyStrengths(matchedSkills, extractedSkills) {
 }
 
 function generateRelevantExperience(experienceAnalysis) {
-  if (experienceAnalysis?.resumeYears) {
-    return `${experienceAnalysis.resumeYears} years of relevant experience in software development`;
+  if (experienceAnalysis?.resumeYears && experienceAnalysis?.level) {
+    const levelDesc = {
+      'entry': 'Entry-level',
+      'junior': 'Junior',
+      'mid': 'Mid-level',
+      'senior': 'Senior'
+    }[experienceAnalysis.level] || 'Professional';
+    
+    return `${levelDesc} developer with ${experienceAnalysis.resumeYears} years of experience. ${experienceAnalysis.details?.slice(0, 2).join('. ') || ''}`;
   }
   return 'Experience level determined from resume content and project descriptions';
 }
 
 function generateExperienceGaps(experienceAnalysis) {
+  const gaps = [];
+  
   if (experienceAnalysis?.requiredYears && experienceAnalysis?.resumeYears) {
-    const gap = experienceAnalysis.requiredYears - experienceAnalysis.resumeYears;
-    if (gap > 0) {
-      return `Need ${gap} more years of experience to meet requirements`;
+    const yearGap = experienceAnalysis.requiredYears - experienceAnalysis.resumeYears;
+    if (yearGap > 0) {
+      gaps.push(`Need ${yearGap} more years of experience`);
     }
   }
-  return 'No significant experience gaps identified';
+  
+  if (experienceAnalysis?.criticalSkills && experienceAnalysis.criticalSkills.length > 0) {
+    gaps.push(`Missing critical skills: ${experienceAnalysis.criticalSkills.slice(0, 2).join(', ')}`);
+  }
+  
+  if (experienceAnalysis?.level === 'entry' && experienceAnalysis?.requiredYears >= 3) {
+    gaps.push('Consider gaining more hands-on project experience');
+  }
+  
+  return gaps.length > 0 ? gaps.join('. ') : 'No significant experience gaps identified';
 }
 
 function formatImprovementSuggestions(suggestions) {
@@ -656,76 +758,208 @@ function formatComprehensiveAnalysis(analysisResult, extractedSkills) {
   return analysis;
 }
 
+// Enhanced experience level detection
+function extractExperienceLevel(resumeText) {
+  if (!resumeText) return { years: 0, level: 'entry', details: [] };
+  
+  const resumeTextLower = resumeText.toLowerCase();
+  const details = [];
+  
+  // Extract years of experience patterns
+  const yearPatterns = [
+    /(\d+)\+?\s*years?\s*of\s*experience/gi,
+    /(\d+)\+?\s*years?\s*in\s*(software|development|programming)/gi,
+    /experience.*(\d+)\+?\s*years?/gi,
+    /(\d+)\+?\s*years?\s*(software|web|full.?stack|backend|frontend)/gi
+  ];
+  
+  let maxYears = 0;
+  yearPatterns.forEach(pattern => {
+    const matches = resumeText.match(pattern);
+    if (matches) {
+      matches.forEach(match => {
+        const yearMatch = match.match(/(\d+)/);
+        if (yearMatch) {
+          const years = parseInt(yearMatch[1]);
+          if (years > maxYears) maxYears = years;
+          details.push(`Found: "${match.trim()}"`);
+        }
+      });
+    }
+  });
+  
+  // Infer experience from job titles and descriptions
+  const seniorityIndicators = [
+    { pattern: /senior|lead|principal|architect/gi, years: 5, level: 'senior' },
+    { pattern: /mid.?level|intermediate/gi, years: 3, level: 'mid' },
+    { pattern: /junior|entry.?level|associate/gi, years: 1, level: 'junior' },
+    { pattern: /intern|trainee|graduate/gi, years: 0, level: 'entry' }
+  ];
+  
+  let inferredLevel = 'entry';
+  let inferredYears = 0;
+  
+  seniorityIndicators.forEach(({ pattern, years, level }) => {
+    if (pattern.test(resumeTextLower)) {
+      if (years > inferredYears) {
+        inferredYears = years;
+        inferredLevel = level;
+        details.push(`Inferred from title: ${level} level (${years}+ years)`);
+      }
+    }
+  });
+  
+  // Count project complexity indicators
+  const complexityIndicators = [
+    'microservices', 'distributed systems', 'scalable', 'architecture',
+    'team lead', 'mentoring', 'code review', 'deployment', 'ci/cd'
+  ];
+  
+  let complexityScore = 0;
+  complexityIndicators.forEach(indicator => {
+    if (resumeTextLower.includes(indicator)) {
+      complexityScore++;
+    }
+  });
+  
+  // Adjust experience based on complexity
+  if (complexityScore >= 5) {
+    inferredYears = Math.max(inferredYears, 4);
+    inferredLevel = 'senior';
+    details.push(`High complexity indicators suggest senior level`);
+  } else if (complexityScore >= 3) {
+    inferredYears = Math.max(inferredYears, 2);
+    inferredLevel = inferredLevel === 'entry' ? 'mid' : inferredLevel;
+    details.push(`Moderate complexity suggests mid-level experience`);
+  }
+  
+  const finalYears = Math.max(maxYears, inferredYears);
+  const finalLevel = finalYears >= 5 ? 'senior' : finalYears >= 2 ? 'mid' : finalYears >= 1 ? 'junior' : 'entry';
+  
+  return {
+    years: finalYears,
+    level: finalLevel,
+    details: details,
+    complexityScore: complexityScore
+  };
+}
+
+// Enhanced gap categorization by priority
+function categorizeGapsByPriority(missingSkills, jobRequirements, jobDescription) {
+  const critical = [];
+  const important = [];
+  const niceToHave = [];
+  
+  // Define critical skill patterns (must-have for most jobs)
+  const criticalPatterns = [
+    /react|angular|vue/i,
+    /javascript|typescript/i,
+    /node\.?js|python|java|c#/i,
+    /sql|mongodb|database/i,
+    /git|version control/i
+  ];
+  
+  // Define important skill patterns (valuable but not always required)
+  const importantPatterns = [
+    /docker|kubernetes/i,
+    /aws|azure|cloud/i,
+    /rest|api|graphql/i,
+    /testing|jest|cypress/i
+  ];
+  
+  const jobDescLower = (jobDescription || '').toLowerCase();
+  const jobReqsLower = (jobRequirements || []).map(req => req.toLowerCase());
+  
+  missingSkills.forEach(skill => {
+    const skillLower = skill.toLowerCase();
+    
+    // Check if skill is mentioned as "required" or "must have" in job description
+    const isExplicitlyRequired = 
+      jobDescLower.includes(`required: ${skillLower}`) ||
+      jobDescLower.includes(`must have ${skillLower}`) ||
+      jobDescLower.includes(`essential: ${skillLower}`) ||
+      jobReqsLower.includes(skillLower);
+    
+    // Check if it's a critical technical skill
+    const isCriticalSkill = criticalPatterns.some(pattern => pattern.test(skillLower));
+    
+    // Check if it's mentioned multiple times (indicates importance)
+    const mentionCount = (jobDescLower.match(new RegExp(skillLower, 'g')) || []).length;
+    
+    if (isExplicitlyRequired || (isCriticalSkill && mentionCount >= 2)) {
+      critical.push(skill);
+    } else if (isCriticalSkill || importantPatterns.some(pattern => pattern.test(skillLower)) || mentionCount >= 1) {
+      important.push(skill);
+    } else {
+      niceToHave.push(skill);
+    }
+  });
+  
+  return {
+    critical: critical.slice(0, 3), // Limit to top 3 critical
+    important: important.slice(0, 4), // Limit to top 4 important
+    niceToHave: niceToHave.slice(0, 3) // Limit to top 3 nice-to-have
+  };
+}
+
 function extractSkillsFromResumeContent(resumeText) {
   if (!resumeText) return [];
   
   const resumeTextLower = resumeText.toLowerCase();
   
-  // Comprehensive skill database with variations
+  // FOCUSED: Only technical skills that matter for jobs
   const skillDatabase = [
     // Frontend Technologies
-    { skill: 'react', variations: ['react', 'reactjs', 'react.js', 'react js'] },
-    { skill: 'angular', variations: ['angular', 'angularjs', 'angular.js'] },
-    { skill: 'vue', variations: ['vue', 'vuejs', 'vue.js'] },
-    { skill: 'javascript', variations: ['javascript', 'js', 'ecmascript', 'es6', 'es2015'] },
-    { skill: 'typescript', variations: ['typescript', 'ts'] },
-    { skill: 'html', variations: ['html', 'html5'] },
-    { skill: 'css', variations: ['css', 'css3', 'cascading style sheets'] },
-    { skill: 'sass', variations: ['sass', 'scss'] },
-    { skill: 'bootstrap', variations: ['bootstrap'] },
-    { skill: 'tailwind', variations: ['tailwind', 'tailwindcss'] },
+    { skill: 'React', variations: ['react', 'reactjs', 'react.js'] },
+    { skill: 'Angular', variations: ['angular', 'angularjs'] },
+    { skill: 'Vue.js', variations: ['vue', 'vuejs', 'vue.js'] },
+    { skill: 'JavaScript', variations: ['javascript', 'js', 'es6', 'es2015'] },
+    { skill: 'TypeScript', variations: ['typescript', 'ts'] },
+    { skill: 'HTML5', variations: ['html', 'html5'] },
+    { skill: 'CSS3', variations: ['css', 'css3'] },
+    { skill: 'Sass', variations: ['sass', 'scss'] },
+    { skill: 'Bootstrap', variations: ['bootstrap'] },
+    { skill: 'Tailwind CSS', variations: ['tailwind', 'tailwindcss'] },
     
     // Backend Technologies
-    { skill: 'node.js', variations: ['node', 'nodejs', 'node.js'] },
-    { skill: 'express', variations: ['express', 'expressjs', 'express.js'] },
-    { skill: 'python', variations: ['python', 'py'] },
-    { skill: 'django', variations: ['django'] },
-    { skill: 'flask', variations: ['flask'] },
-    { skill: 'java', variations: ['java'] },
-    { skill: 'spring', variations: ['spring', 'spring boot', 'springboot'] },
-    { skill: 'php', variations: ['php'] },
-    { skill: 'laravel', variations: ['laravel'] },
-    { skill: 'ruby', variations: ['ruby'] },
-    { skill: 'rails', variations: ['rails', 'ruby on rails'] },
-    { skill: 'go', variations: ['go', 'golang'] },
-    { skill: 'c#', variations: ['c#', 'csharp', 'c sharp'] },
-    { skill: '.net', variations: ['.net', 'dotnet', 'asp.net'] },
+    { skill: 'Node.js', variations: ['node', 'nodejs', 'node.js'] },
+    { skill: 'Express.js', variations: ['express', 'expressjs', 'express.js'] },
+    { skill: 'Python', variations: ['python', 'py'] },
+    { skill: 'Django', variations: ['django'] },
+    { skill: 'Flask', variations: ['flask'] },
+    { skill: 'Java', variations: ['java'] },
+    { skill: 'Spring Boot', variations: ['spring', 'spring boot', 'springboot'] },
+    { skill: 'PHP', variations: ['php'] },
+    { skill: 'Laravel', variations: ['laravel'] },
+    { skill: 'Ruby', variations: ['ruby'] },
+    { skill: 'Ruby on Rails', variations: ['rails', 'ruby on rails'] },
+    { skill: 'Go', variations: ['go', 'golang'] },
+    { skill: 'C#', variations: ['c#', 'csharp', 'c sharp'] },
+    { skill: '.NET', variations: ['.net', 'dotnet', 'asp.net'] },
     
     // Databases
-    { skill: 'mongodb', variations: ['mongodb', 'mongo'] },
-    { skill: 'mysql', variations: ['mysql'] },
-    { skill: 'postgresql', variations: ['postgresql', 'postgres'] },
-    { skill: 'redis', variations: ['redis'] },
-    { skill: 'elasticsearch', variations: ['elasticsearch', 'elastic search'] },
-    { skill: 'sql', variations: ['sql', 'structured query language'] },
-    { skill: 'nosql', variations: ['nosql', 'no sql'] },
+    { skill: 'MongoDB', variations: ['mongodb', 'mongo'] },
+    { skill: 'MySQL', variations: ['mysql'] },
+    { skill: 'PostgreSQL', variations: ['postgresql', 'postgres'] },
+    { skill: 'Redis', variations: ['redis'] },
+    { skill: 'SQL', variations: ['sql'] },
     
     // Cloud & DevOps
-    { skill: 'aws', variations: ['aws', 'amazon web services'] },
-    { skill: 'azure', variations: ['azure', 'microsoft azure'] },
-    { skill: 'gcp', variations: ['gcp', 'google cloud', 'google cloud platform'] },
-    { skill: 'docker', variations: ['docker', 'containerization'] },
-    { skill: 'kubernetes', variations: ['kubernetes', 'k8s'] },
-    { skill: 'jenkins', variations: ['jenkins'] },
-    { skill: 'ci/cd', variations: ['ci/cd', 'continuous integration', 'continuous deployment'] },
-    { skill: 'terraform', variations: ['terraform'] },
+    { skill: 'AWS', variations: ['aws', 'amazon web services'] },
+    { skill: 'Azure', variations: ['azure', 'microsoft azure'] },
+    { skill: 'Google Cloud', variations: ['gcp', 'google cloud'] },
+    { skill: 'Docker', variations: ['docker', 'containerization'] },
+    { skill: 'Kubernetes', variations: ['kubernetes', 'k8s'] },
+    { skill: 'Jenkins', variations: ['jenkins'] },
+    { skill: 'CI/CD', variations: ['ci/cd', 'continuous integration'] },
     
-    // Tools & Others
-    { skill: 'git', variations: ['git', 'version control'] },
-    { skill: 'github', variations: ['github'] },
-    { skill: 'gitlab', variations: ['gitlab'] },
-    { skill: 'jira', variations: ['jira'] },
-    { skill: 'agile', variations: ['agile', 'agile methodology'] },
-    { skill: 'scrum', variations: ['scrum'] },
-    { skill: 'rest api', variations: ['rest', 'rest api', 'restful', 'api'] },
-    { skill: 'graphql', variations: ['graphql', 'graph ql'] },
-    { skill: 'microservices', variations: ['microservices', 'micro services'] },
-    { skill: 'webpack', variations: ['webpack'] },
-    { skill: 'babel', variations: ['babel'] },
-    { skill: 'npm', variations: ['npm'] },
-    { skill: 'yarn', variations: ['yarn'] },
-    { skill: 'jest', variations: ['jest'] },
-    { skill: 'testing', variations: ['testing', 'unit testing', 'integration testing'] }
+    // Essential Tools
+    { skill: 'Git', variations: ['git', 'version control'] },
+    { skill: 'REST API', variations: ['rest', 'rest api', 'restful', 'api'] },
+    { skill: 'GraphQL', variations: ['graphql'] },
+    { skill: 'Microservices', variations: ['microservices'] },
+    { skill: 'Webpack', variations: ['webpack'] },
+    { skill: 'Jest', variations: ['jest'] }
   ];
   
   const extractedSkills = [];
@@ -756,6 +990,88 @@ function extractSkillsFromResumeContent(resumeText) {
   });
   
   return extractedSkills;
+}
+
+// Calculate experience score based on multiple factors
+function calculateExperienceScore(experienceData, categorizedGaps) {
+  let score = 0;
+  
+  // Base score from years of experience
+  const yearScore = Math.min(experienceData.years * 15, 60); // Max 60 points for years
+  score += yearScore;
+  
+  // Bonus for seniority level
+  const levelBonus = {
+    'entry': 0,
+    'junior': 10,
+    'mid': 20,
+    'senior': 30
+  }[experienceData.level] || 0;
+  score += levelBonus;
+  
+  // Bonus for complexity indicators
+  score += Math.min(experienceData.complexityScore * 3, 15); // Max 15 points for complexity
+  
+  // Penalty for critical missing skills
+  score -= categorizedGaps.critical.length * 5; // -5 points per critical missing skill
+  
+  // Penalty for important missing skills
+  score -= categorizedGaps.important.length * 2; // -2 points per important missing skill
+  
+  return Math.max(0, Math.min(100, score)); // Ensure score is between 0-100
+}
+
+// Generate enhanced gap analysis summary
+function generateEnhancedGapAnalysis(categorizedGaps, experienceData, jobTitle) {
+  let analysis = `## Gap Analysis for ${jobTitle}\n\n`;
+  
+  // Experience Level Assessment
+  analysis += `**Experience Level:** ${experienceData.level.charAt(0).toUpperCase() + experienceData.level.slice(1)} (${experienceData.years} years)\n`;
+  if (experienceData.complexityScore >= 3) {
+    analysis += `**Technical Complexity:** High - demonstrates advanced project experience\n`;
+  }
+  analysis += `\n`;
+  
+  // Critical Gaps
+  if (categorizedGaps.critical.length > 0) {
+    analysis += `🚨 **CRITICAL GAPS** (Must Address):\n`;
+    categorizedGaps.critical.forEach(skill => {
+      analysis += `• ${skill} - Essential for this role\n`;
+    });
+    analysis += `\n`;
+  }
+  
+  // Important Gaps
+  if (categorizedGaps.important.length > 0) {
+    analysis += `⚠️ **IMPORTANT GAPS** (Should Address):\n`;
+    categorizedGaps.important.forEach(skill => {
+      analysis += `• ${skill} - Valuable for career growth\n`;
+    });
+    analysis += `\n`;
+  }
+  
+  // Nice to Have
+  if (categorizedGaps.niceToHave.length > 0) {
+    analysis += `💡 **NICE TO HAVE**:\n`;
+    categorizedGaps.niceToHave.forEach(skill => {
+      analysis += `• ${skill} - Additional advantage\n`;
+    });
+    analysis += `\n`;
+  }
+  
+  // Recommendations
+  analysis += `**Recommendation:** `;
+  if (categorizedGaps.critical.length > 0) {
+    analysis += `Focus immediately on critical skills: ${categorizedGaps.critical.slice(0, 2).join(', ')}. `;
+  }
+  if (experienceData.years < 2 && categorizedGaps.critical.length === 0) {
+    analysis += `Build more project experience to demonstrate your skills. `;
+  }
+  if (categorizedGaps.critical.length === 0 && categorizedGaps.important.length === 0) {
+    analysis += `Excellent match! Consider highlighting your experience more prominently.`;
+  }
+  
+  return analysis;
 }
 
 async function handlePythonChat({ question, conversationHistory, analysisContext }) {
