@@ -26,27 +26,83 @@ export default function VideoPlanPage() {
   const [watchedVideos, setWatchedVideos] = useState(new Set());
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [planId, setPlanId] = useState(null);
 
   useEffect(() => {
-    // Load video plan from localStorage
-    const savedPlan = localStorage.getItem('selectedVideoPlan');
-    if (savedPlan) {
-      const plan = JSON.parse(savedPlan);
-      setVideoPlan(plan);
-      
-      // Load watched videos from localStorage
-      const savedWatched = localStorage.getItem('watchedVideos');
-      if (savedWatched) {
-        setWatchedVideos(new Set(JSON.parse(savedWatched)));
+    const loadVideoPlan = async () => {
+      try {
+        // First, try to get from localStorage
+        const savedPlan = localStorage.getItem('selectedVideoPlan');
+        let plan = null;
+        
+        if (savedPlan) {
+          plan = JSON.parse(savedPlan);
+          setVideoPlan(plan);
+          setPlanId(plan.planId);
+        }
+
+        // Then try to load from backend
+        const userId = localStorage.getItem('userId') || 'temp-user-id'; // Replace with actual user ID
+        const jobId = plan?.jobId || 'temp-job-id'; // Get from plan or URL params
+        
+        try {
+          const response = await fetch(`/api/video-plans/custom?userId=${userId}&jobId=${jobId}`);
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.videoPlan) {
+              const backendPlan = result.videoPlan;
+              
+              // Use backend data
+              setVideoPlan({
+                videos: backendPlan.videos,
+                totalDuration: backendPlan.totalDuration,
+                jobTitle: backendPlan.jobTitle,
+                companyName: backendPlan.companyName,
+                planId: backendPlan._id
+              });
+              
+              setPlanId(backendPlan._id);
+              
+              // Load watched videos from backend
+              if (backendPlan.watchedVideos) {
+                setWatchedVideos(new Set(backendPlan.watchedVideos));
+              }
+              
+              console.log('✅ Loaded video plan from backend');
+            }
+          }
+        } catch (backendError) {
+          console.log('⚠️ Backend not available, using localStorage:', backendError);
+          // Continue with localStorage data
+        }
+
+        // Fallback: Load watched videos from localStorage if no backend data
+        if (!planId) {
+          const savedWatched = localStorage.getItem('watchedVideos');
+          if (savedWatched) {
+            setWatchedVideos(new Set(JSON.parse(savedWatched)));
+          }
+        }
+
+        if (!plan && !planId) {
+          // No plan found anywhere, redirect back
+          router.push('/dashboard/applicant/prep-plan');
+          return;
+        }
+        
+      } catch (error) {
+        console.error('❌ Error loading video plan:', error);
+        router.push('/dashboard/applicant/prep-plan');
+      } finally {
+        setLoading(false);
       }
-    } else {
-      // No plan found, redirect back
-      router.push('/dashboard/applicant/prep-plan');
-    }
-    setLoading(false);
+    };
+
+    loadVideoPlan();
   }, [router]);
 
-  const toggleVideoWatched = (videoUrl) => {
+  const toggleVideoWatched = async (videoUrl) => {
     const newWatchedVideos = new Set(watchedVideos);
     if (newWatchedVideos.has(videoUrl)) {
       newWatchedVideos.delete(videoUrl);
@@ -55,11 +111,30 @@ export default function VideoPlanPage() {
     }
     setWatchedVideos(newWatchedVideos);
     
-    // Save to localStorage
+    // Save to localStorage as backup
     localStorage.setItem('watchedVideos', JSON.stringify([...newWatchedVideos]));
+    
+    // Save to backend if planId exists
+    if (planId) {
+      try {
+        await fetch('/api/video-plans/custom', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            planId,
+            watchedVideos: [...newWatchedVideos]
+          })
+        });
+        console.log('✅ Watch progress synced to backend');
+      } catch (error) {
+        console.error('⚠️ Failed to sync watch progress to backend:', error);
+      }
+    }
   };
 
-  const removeVideoFromPlan = (videoUrl) => {
+  const removeVideoFromPlan = async (videoUrl) => {
     if (!videoPlan) return;
     
     const updatedVideos = videoPlan.videos.filter(v => v.url !== videoUrl);
@@ -71,6 +146,29 @@ export default function VideoPlanPage() {
     
     setVideoPlan(updatedPlan);
     localStorage.setItem('selectedVideoPlan', JSON.stringify(updatedPlan));
+    
+    // Update backend if planId exists
+    if (planId) {
+      try {
+        await fetch('/api/video-plans/custom', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: localStorage.getItem('userId') || 'temp-user-id',
+            jobId: videoPlan.jobId || 'temp-job-id',
+            videos: updatedVideos,
+            totalDuration: calculateTotalDuration(updatedVideos),
+            jobTitle: videoPlan.jobTitle,
+            companyName: videoPlan.companyName
+          })
+        });
+        console.log('✅ Video plan updated in backend');
+      } catch (error) {
+        console.error('⚠️ Failed to update backend:', error);
+      }
+    }
     
     // Remove from watched videos too
     const newWatchedVideos = new Set(watchedVideos);

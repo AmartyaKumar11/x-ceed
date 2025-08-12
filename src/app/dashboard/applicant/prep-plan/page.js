@@ -73,6 +73,50 @@ export default function PrepPlanPage() {
   const [selectedVideosForPlan, setSelectedVideosForPlan] = useState([]);
   const [totalVideoPlanDuration, setTotalVideoPlanDuration] = useState(0);
 
+  // Load existing video plan on component mount
+  useEffect(() => {
+    const loadExistingVideoPlan = async () => {
+      try {
+        const userId = localStorage.getItem('userId') || 'temp-user-id';
+        const jobId = jobData?.id || 'temp-job-id';
+        
+        // Try to load from backend first
+        const response = await fetch(`/api/video-plans/custom?userId=${userId}&jobId=${jobId}`);
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.videoPlan) {
+            setSelectedVideosForPlan(result.videoPlan.videos || []);
+            setTotalVideoPlanDuration(result.videoPlan.totalDuration || 0);
+            console.log('✅ Loaded existing video plan from backend');
+            return;
+          }
+        }
+      } catch (error) {
+        console.log('⚠️ Backend not available, checking localStorage');
+      }
+      
+      // Fallback to localStorage
+      const savedPlan = localStorage.getItem('selectedVideoPlan');
+      if (savedPlan) {
+        try {
+          const plan = JSON.parse(savedPlan);
+          if (plan.videos && Array.isArray(plan.videos)) {
+            setSelectedVideosForPlan(plan.videos);
+            setTotalVideoPlanDuration(plan.totalDuration || 0);
+            console.log('✅ Loaded existing video plan from localStorage');
+          }
+        } catch (error) {
+          console.error('❌ Error parsing localStorage video plan:', error);
+        }
+      }
+    };
+
+    if (jobData) {
+      loadExistingVideoPlan();
+    }
+  }, [jobData]);
+
   useEffect(() => {
     const initializePage = async () => {
       // Get job data from URL params
@@ -1013,18 +1057,72 @@ export default function PrepPlanPage() {
     }
   };
 
-  const goToVideoPlan = () => {
-    // Store selected videos in localStorage for the video plan page
-    localStorage.setItem('selectedVideoPlan', JSON.stringify({
-      videos: selectedVideosForPlan,
-      totalDuration: totalVideoPlanDuration,
-      jobTitle: jobData?.title,
-      companyName: jobData?.companyName,
-      createdAt: new Date().toISOString()
-    }));
-    
-    // Navigate to video plan page
-    router.push('/dashboard/applicant/video-plan');
+  const goToVideoPlan = async () => {
+    try {
+      // Get user ID (you'll need to implement getUserId based on your auth system)
+      const userId = localStorage.getItem('userId') || 'temp-user-id'; // Replace with actual user ID
+      
+      console.log('🚀 Saving video plan to backend...', {
+        userId,
+        jobId: jobData?.id || 'temp-job-id',
+        videosCount: selectedVideosForPlan.length,
+        totalDuration: totalVideoPlanDuration
+      });
+      
+      // Save to backend
+      const response = await fetch('/api/video-plans/custom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          jobId: jobData?.id || 'temp-job-id',
+          videos: selectedVideosForPlan,
+          totalDuration: totalVideoPlanDuration,
+          jobTitle: jobData?.title,
+          companyName: jobData?.companyName
+        })
+      });
+
+      console.log('📡 API Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ API Error Response:', errorData);
+        throw new Error(`API responded with status ${response.status}: ${errorData}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Video plan saved to backend:', result);
+      
+      // Also store in localStorage as backup
+      localStorage.setItem('selectedVideoPlan', JSON.stringify({
+        videos: selectedVideosForPlan,
+        totalDuration: totalVideoPlanDuration,
+        jobTitle: jobData?.title,
+        companyName: jobData?.companyName,
+        planId: result.planId,
+        createdAt: new Date().toISOString()
+      }));
+      
+      // Navigate to video plan page
+      router.push('/dashboard/applicant/video-plan');
+    } catch (error) {
+      console.error('❌ Error saving video plan:', error);
+      
+      // Fallback to localStorage only
+      console.log('⚠️ Falling back to localStorage only');
+      localStorage.setItem('selectedVideoPlan', JSON.stringify({
+        videos: selectedVideosForPlan,
+        totalDuration: totalVideoPlanDuration,
+        jobTitle: jobData?.title,
+        companyName: jobData?.companyName,
+        createdAt: new Date().toISOString()
+      }));
+      
+      router.push('/dashboard/applicant/video-plan');
+    }
   };
 
   if (loading) {
