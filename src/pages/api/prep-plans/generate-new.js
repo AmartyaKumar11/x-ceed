@@ -2,20 +2,20 @@ import { authMiddleware } from '../../../lib/middleware';
 import { getDatabase } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 
-// Generate a detailed AI-powered prep plan
+// Generate a detailed AI-powered prep plan using OpenRouter
 async function generateDetailedPrepPlan(jobData, userProfile, duration = 4) {
-  const GROQ_API_KEY = process.env.GROQ_API_KEY;
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_PREP_PLAN_API_KEY;
   
-  console.log('🔑 GROQ_API_KEY check:', GROQ_API_KEY ? 'Available' : 'Missing');
+  console.log('🔑 OpenRouter API Key check:', OPENROUTER_API_KEY ? 'Available' : 'Missing');
   console.log('📊 Generation parameters:', { 
     jobTitle: jobData.jobTitle, 
     duration, 
     hasProfile: !!userProfile 
   });
   
-  if (!GROQ_API_KEY) {
-    console.error('❌ GROQ_API_KEY not configured');
-    throw new Error('GROQ_API_KEY not configured');
+  if (!OPENROUTER_API_KEY) {
+    console.error('❌ OpenRouter API Key not configured');
+    throw new Error('OpenRouter API Key not configured');
   }
 
   const prompt = `Create a ${duration}-week study plan for ${jobData.jobTitle} at ${jobData.companyName}.
@@ -50,14 +50,16 @@ Return JSON format:
   console.log('📝 Prompt length:', prompt.length);
 
   try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002',
+        'X-Title': 'X-CEED Prep Plan Generator'
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'meta-llama/llama-3.2-3b-instruct:free',
         messages: [
           {
             role: 'user',
@@ -69,12 +71,12 @@ Return JSON format:
       }),
     });
 
-    console.log('🌐 API Response status:', response.status);
+    console.log('🌐 OpenRouter API Response status:', response.status);
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Groq API error details:', errorText);
-      throw new Error(`Groq API error: ${response.status} - ${errorText}`);
+      console.error('❌ OpenRouter API error details:', errorText);
+      throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();

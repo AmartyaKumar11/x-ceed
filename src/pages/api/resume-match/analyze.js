@@ -30,7 +30,7 @@ export async function POST(request) {
       userSkillsCount: userSkills?.length || 0
     });
 
-    // Try to use Python AI service first, fallback to JavaScript analysis
+    // Try multiple analysis methods: Python AI -> OpenRouter AI -> JavaScript fallback
     let analysisResult;
     try {
       analysisResult = await callPythonAnalyzer({
@@ -43,15 +43,29 @@ export async function POST(request) {
       });
       console.log('✅ Python AI analysis completed');
     } catch (pythonError) {
-      console.warn('⚠️ Python AI service failed, using fallback analysis:', pythonError.message);
-      analysisResult = await performFallbackAnalysis({
-        jobDescription,
-        jobTitle,
-        jobRequirements,
-        resumePath,
-        userSkills,
-        userId: decoded.userId
-      });
+      console.warn('⚠️ Python AI service failed, trying OpenRouter AI:', pythonError.message);
+      
+      try {
+        analysisResult = await performOpenRouterAnalysis({
+          jobDescription,
+          jobTitle,
+          jobRequirements,
+          resumePath,
+          userSkills,
+          userId: decoded.userId
+        });
+        console.log('✅ OpenRouter AI analysis completed');
+      } catch (openRouterError) {
+        console.warn('⚠️ OpenRouter AI failed, using basic fallback analysis:', openRouterError.message);
+        analysisResult = await performFallbackAnalysis({
+          jobDescription,
+          jobTitle,
+          jobRequirements,
+          resumePath,
+          userSkills,
+          userId: decoded.userId
+        });
+      }
     }
 
     // Store analysis in database
@@ -154,6 +168,166 @@ async function callPythonAnalyzer(requestData) {
   });
 }
 
+async function performOpenRouterAnalysis({ jobDescription, jobTitle, jobRequirements, resumePath, userSkills, userId }) {
+  console.log('🤖 Performing OpenRouter AI analysis...');
+  
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_PREP_PLAN_API_KEY;
+  
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OpenRouter API Key not configured');
+  }
+  
+  // Extract resume text if available
+  let resumeText = '';
+  if (resumePath) {
+    try {
+      resumeText = await extractTextFromResume(resumePath);
+    } catch (error) {
+      console.warn('Could not extract text from resume:', error.message);
+    }
+  }
+  
+  // Extract skills from resume content for more accurate analysis
+  const resumeExtractedSkills = extractSkillsFromResumeContent(resumeText);
+  const allUserSkills = [...new Set([...(userSkills || []), ...resumeExtractedSkills])];
+  
+  console.log('🔍 OpenRouter analysis - Skills from resume:', resumeExtractedSkills);
+  console.log('📋 OpenRouter analysis - Combined skills:', allUserSkills);
+  
+  // Build comprehensive prompt for gap analysis
+  const prompt = `You are an expert career advisor. Analyze the gap between this candidate's profile and job requirements to provide detailed insights.
+
+==== JOB POSTING ====
+Title: ${jobTitle}
+Requirements: ${Array.isArray(jobRequirements) ? jobRequirements.join(', ') : 'Not specified'}
+Description: ${jobDescription.substring(0, 1000)}
+
+==== CANDIDATE PROFILE ====
+Explicit Skills Listed: ${Array.isArray(userSkills) ? userSkills.join(', ') : 'No skills listed'}
+Skills Extracted from Resume/Projects: ${resumeExtractedSkills.join(', ') || 'None found'}
+All Identified Skills: ${allUserSkills.join(', ') || 'No skills identified'}
+Resume Content: ${resumeText.substring(0, 1500)}
+
+IMPORTANT: Consider BOTH explicitly listed skills AND skills demonstrated in projects/experience when analyzing gaps.
+
+IMPORTANT: Respond ONLY with valid JSON. No markdown, no explanation text, no code blocks. Just raw JSON.
+
+Return this exact JSON structure:
+{
+  "overallScore": 75,
+  "skillsScore": 80,
+  "experienceScore": 70,
+  "keywordScore": 75,
+  "overallSummary": "Brief summary of match quality",
+  "matchedSkills": ["skills candidate has that match job"],
+  "missingSkills": ["critical skills candidate lacks"],
+  "skillsToImprove": ["skills candidate has but needs to advance"],
+  "foundKeywords": ["job keywords found in resume"],
+  "missingKeywords": ["important job keywords missing from resume"],
+  "gapAnalysis": "Detailed analysis of what candidate needs to learn",
+  "experienceAnalysis": {
+    "resumeYears": 3,
+    "requiredYears": 5,
+    "details": [
+      {
+        "requirement": "leadership experience",
+        "matched": true,
+        "analysis": "Evidence found in resume"
+      }
+    ]
+  },
+  "suggestions": [
+    {
+      "title": "Add Missing Technical Skills",
+      "description": "Specific actionable advice",
+      "priority": "high"
+    }
+  ]
+}`;
+
+  // Try multiple free models with fallback
+  const freeModels = [
+    'meta-llama/llama-3.2-3b-instruct:free',
+    'microsoft/phi-3-mini-128k-instruct:free',
+    'google/gemma-2-9b-it:free'
+  ];
+  
+  for (const model of freeModels) {
+    try {
+      console.log(`🤖 Trying OpenRouter model: ${model}`);
+      
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3002',
+          'X-Title': 'X-CEED Resume Gap Analysis'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 3000,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.choices?.[0]?.message?.content;
+        
+        if (content) {
+          // Try to parse JSON from the response
+          let analysisResult = null;
+          
+          // Method 1: Direct parse
+          try {
+            analysisResult = JSON.parse(content.trim());
+          } catch (e) {
+            // Method 2: Extract JSON block
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              try {
+                analysisResult = JSON.parse(jsonMatch[0]);
+              } catch (e2) {
+                console.warn(`JSON parsing failed for ${model}`);
+                continue;
+              }
+            } else {
+              continue;
+            }
+          }
+          
+          if (analysisResult && analysisResult.overallScore) {
+            console.log(`✅ Successfully analyzed with ${model}`);
+            
+            // Add analysis metadata
+            analysisResult.analysisType = 'openrouter-ai';
+            analysisResult.model = model;
+            analysisResult.highlights = generatePdfHighlights(
+              resumeText, 
+              analysisResult.missingSkills || [], 
+              analysisResult.missingKeywords || []
+            );
+            
+            return analysisResult;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`⚠️ ${model} failed:`, error.message);
+      continue;
+    }
+  }
+  
+  throw new Error('All OpenRouter models failed for resume analysis');
+}
+
 async function performFallbackAnalysis({ jobDescription, jobTitle, jobRequirements, resumePath, userSkills, userId }) {
   console.log('🤖 Performing fallback JavaScript analysis...');
 
@@ -161,8 +335,8 @@ async function performFallbackAnalysis({ jobDescription, jobTitle, jobRequiremen
   const jobKeywords = extractJobKeywords(jobDescription, jobTitle);
   const requiredSkills = extractRequiredSkills(jobDescription, jobRequirements);
   
-  // Analyze user skills against job requirements
-  const skillsAnalysis = analyzeSkills(userSkills, requiredSkills);
+  // Analyze user skills against job requirements (including resume content analysis)
+  const skillsAnalysis = analyzeSkills(userSkills, requiredSkills, resumeText);
   
   // If resume file exists, extract text for analysis
   let resumeText = '';
@@ -189,8 +363,11 @@ async function performFallbackAnalysis({ jobDescription, jobTitle, jobRequiremen
   // Generate PDF highlights (areas that need improvement)
   const highlights = generatePdfHighlights(resumeText, skillsAnalysis.missingSkills, keywordAnalysis.missingKeywords);
 
+  // Enhanced gap analysis with categorization
+  const gapAnalysis = generateGapAnalysis(skillsAnalysis, jobTitle, jobDescription);
+
   return {
-    analysisType: 'fallback',
+    analysisType: 'enhanced-fallback',
     overallScore,
     skillsScore: skillsAnalysis.score,
     experienceScore: experienceAnalysis.score,
@@ -198,9 +375,18 @@ async function performFallbackAnalysis({ jobDescription, jobTitle, jobRequiremen
     overallSummary: generateOverallSummary(overallScore),
     matchedSkills: skillsAnalysis.matched,
     missingSkills: skillsAnalysis.missing,
+    skillsToImprove: skillsAnalysis.skillsToImprove,
+    criticalMissing: skillsAnalysis.criticalMissing,
+    importantMissing: skillsAnalysis.importantMissing,
+    niceToHaveMissing: skillsAnalysis.niceToHaveMissing,
     foundKeywords: keywordAnalysis.found,
     missingKeywords: keywordAnalysis.missing,
-    experienceAnalysis: experienceAnalysis.details,
+    gapAnalysis: gapAnalysis,
+    experienceAnalysis: {
+      resumeYears: experienceAnalysis.resumeYears,
+      requiredYears: experienceAnalysis.requiredYears,
+      details: experienceAnalysis.details
+    },
     suggestions,
     highlights
   };
@@ -239,6 +425,109 @@ function extractJobKeywords(jobDescription, jobTitle) {
   return [...new Set([...foundKeywords, ...customKeywords])];
 }
 
+function extractSkillsFromResumeContent(resumeText) {
+  if (!resumeText) return [];
+  
+  const resumeTextLower = resumeText.toLowerCase();
+  
+  // Comprehensive skill database with variations
+  const skillDatabase = [
+    // Frontend Technologies
+    { skill: 'react', variations: ['react', 'reactjs', 'react.js', 'react js'] },
+    { skill: 'angular', variations: ['angular', 'angularjs', 'angular.js'] },
+    { skill: 'vue', variations: ['vue', 'vuejs', 'vue.js'] },
+    { skill: 'javascript', variations: ['javascript', 'js', 'ecmascript', 'es6', 'es2015'] },
+    { skill: 'typescript', variations: ['typescript', 'ts'] },
+    { skill: 'html', variations: ['html', 'html5'] },
+    { skill: 'css', variations: ['css', 'css3', 'cascading style sheets'] },
+    { skill: 'sass', variations: ['sass', 'scss'] },
+    { skill: 'less', variations: ['less'] },
+    { skill: 'bootstrap', variations: ['bootstrap'] },
+    { skill: 'tailwind', variations: ['tailwind', 'tailwindcss'] },
+    
+    // Backend Technologies
+    { skill: 'node.js', variations: ['node', 'nodejs', 'node.js'] },
+    { skill: 'express', variations: ['express', 'expressjs', 'express.js'] },
+    { skill: 'python', variations: ['python', 'py'] },
+    { skill: 'django', variations: ['django'] },
+    { skill: 'flask', variations: ['flask'] },
+    { skill: 'java', variations: ['java'] },
+    { skill: 'spring', variations: ['spring', 'spring boot', 'springboot'] },
+    { skill: 'php', variations: ['php'] },
+    { skill: 'laravel', variations: ['laravel'] },
+    { skill: 'ruby', variations: ['ruby'] },
+    { skill: 'rails', variations: ['rails', 'ruby on rails'] },
+    { skill: 'go', variations: ['go', 'golang'] },
+    { skill: 'c#', variations: ['c#', 'csharp', 'c sharp'] },
+    { skill: '.net', variations: ['.net', 'dotnet', 'asp.net'] },
+    
+    // Databases
+    { skill: 'mongodb', variations: ['mongodb', 'mongo'] },
+    { skill: 'mysql', variations: ['mysql'] },
+    { skill: 'postgresql', variations: ['postgresql', 'postgres'] },
+    { skill: 'redis', variations: ['redis'] },
+    { skill: 'elasticsearch', variations: ['elasticsearch', 'elastic search'] },
+    { skill: 'sql', variations: ['sql', 'structured query language'] },
+    { skill: 'nosql', variations: ['nosql', 'no sql'] },
+    
+    // Cloud & DevOps
+    { skill: 'aws', variations: ['aws', 'amazon web services'] },
+    { skill: 'azure', variations: ['azure', 'microsoft azure'] },
+    { skill: 'gcp', variations: ['gcp', 'google cloud', 'google cloud platform'] },
+    { skill: 'docker', variations: ['docker', 'containerization'] },
+    { skill: 'kubernetes', variations: ['kubernetes', 'k8s'] },
+    { skill: 'jenkins', variations: ['jenkins'] },
+    { skill: 'ci/cd', variations: ['ci/cd', 'continuous integration', 'continuous deployment'] },
+    { skill: 'terraform', variations: ['terraform'] },
+    
+    // Tools & Others
+    { skill: 'git', variations: ['git', 'version control'] },
+    { skill: 'github', variations: ['github'] },
+    { skill: 'gitlab', variations: ['gitlab'] },
+    { skill: 'jira', variations: ['jira'] },
+    { skill: 'agile', variations: ['agile', 'agile methodology'] },
+    { skill: 'scrum', variations: ['scrum'] },
+    { skill: 'rest api', variations: ['rest', 'rest api', 'restful', 'api'] },
+    { skill: 'graphql', variations: ['graphql', 'graph ql'] },
+    { skill: 'microservices', variations: ['microservices', 'micro services'] },
+    { skill: 'webpack', variations: ['webpack'] },
+    { skill: 'babel', variations: ['babel'] },
+    { skill: 'npm', variations: ['npm'] },
+    { skill: 'yarn', variations: ['yarn'] },
+    { skill: 'jest', variations: ['jest'] },
+    { skill: 'testing', variations: ['testing', 'unit testing', 'integration testing'] }
+  ];
+  
+  const extractedSkills = [];
+  
+  // Look for skills in project descriptions and experience
+  skillDatabase.forEach(({ skill, variations }) => {
+    const found = variations.some(variation => {
+      // Check for exact matches and context-aware matches
+      const patterns = [
+        new RegExp(`\\b${variation}\\b`, 'i'), // Exact word boundary match
+        new RegExp(`built.*${variation}`, 'i'), // "built with React"
+        new RegExp(`using.*${variation}`, 'i'), // "using MongoDB"
+        new RegExp(`developed.*${variation}`, 'i'), // "developed in Python"
+        new RegExp(`implemented.*${variation}`, 'i'), // "implemented with Node.js"
+        new RegExp(`worked.*${variation}`, 'i'), // "worked with AWS"
+        new RegExp(`experience.*${variation}`, 'i'), // "experience with Docker"
+        new RegExp(`${variation}.*project`, 'i'), // "React project"
+        new RegExp(`${variation}.*application`, 'i'), // "Node.js application"
+        new RegExp(`${variation}.*development`, 'i') // "Python development"
+      ];
+      
+      return patterns.some(pattern => pattern.test(resumeTextLower));
+    });
+    
+    if (found && !extractedSkills.includes(skill)) {
+      extractedSkills.push(skill);
+    }
+  });
+  
+  return extractedSkills;
+}
+
 function extractRequiredSkills(jobDescription, jobRequirements) {
   const allText = `${jobDescription} ${jobRequirements?.join(' ') || ''}`.toLowerCase();
   
@@ -255,26 +544,66 @@ function extractRequiredSkills(jobDescription, jobRequirements) {
   );
 }
 
-function analyzeSkills(userSkills, requiredSkills) {
+function analyzeSkills(userSkills, requiredSkills, resumeText = '') {
   const userSkillsLower = userSkills?.map(skill => 
     typeof skill === 'string' ? skill.toLowerCase() : skill.name?.toLowerCase()
   ) || [];
   
   const requiredSkillsLower = requiredSkills.map(skill => skill.toLowerCase());
   
+  // ENHANCED: Extract skills from resume content (projects, experience, etc.)
+  const resumeExtractedSkills = extractSkillsFromResumeContent(resumeText);
+  console.log('🔍 Skills extracted from resume content:', resumeExtractedSkills);
+  
+  // Combine explicit skills with extracted skills
+  const allUserSkills = [...new Set([...userSkillsLower, ...resumeExtractedSkills])];
+  console.log('📋 Combined user skills:', allUserSkills);
+  
   const matched = requiredSkillsLower.filter(skill => 
-    userSkillsLower.some(userSkill => 
+    allUserSkills.some(userSkill => 
       userSkill?.includes(skill) || skill.includes(userSkill || '')
     )
   );
   
   const missing = requiredSkillsLower.filter(skill => !matched.includes(skill));
   
+  // Categorize missing skills by priority
+  const criticalSkills = ['react', 'angular', 'vue', 'node.js', 'python', 'java', 'typescript'];
+  const importantSkills = ['docker', 'kubernetes', 'aws', 'azure', 'mongodb', 'postgresql', 'redis'];
+  
+  const criticalMissing = missing.filter(skill => 
+    criticalSkills.some(critical => skill.includes(critical) || critical.includes(skill))
+  );
+  
+  const importantMissing = missing.filter(skill => 
+    importantSkills.some(important => skill.includes(important) || important.includes(skill)) &&
+    !criticalMissing.includes(skill)
+  );
+  
+  const niceToHaveMissing = missing.filter(skill => 
+    !criticalMissing.includes(skill) && !importantMissing.includes(skill)
+  );
+  
+  // Identify skills to improve (partial matches)
+  const skillsToImprove = userSkillsLower.filter(userSkill => 
+    requiredSkillsLower.some(reqSkill => 
+      userSkill?.includes(reqSkill.split(' ')[0]) || reqSkill.includes(userSkill?.split(' ')[0] || '')
+    ) && !matched.some(matchedSkill => matchedSkill.includes(userSkill || ''))
+  );
+  
   const score = requiredSkillsLower.length > 0 
     ? Math.round((matched.length / requiredSkillsLower.length) * 100)
     : 0;
 
-  return { matched, missing, score };
+  return { 
+    matched, 
+    missing, 
+    criticalMissing,
+    importantMissing,
+    niceToHaveMissing,
+    skillsToImprove,
+    score 
+  };
 }
 
 function analyzeKeywords(resumeText, jobKeywords) {
@@ -390,6 +719,48 @@ function generatePdfHighlights(resumeText, missingSkills, missingKeywords) {
   ];
 }
 
+function generateGapAnalysis(skillsAnalysis, jobTitle, jobDescription) {
+  const { criticalMissing, importantMissing, skillsToImprove, matched } = skillsAnalysis;
+  
+  let analysis = `Gap Analysis for ${jobTitle} position:\n\n`;
+  
+  if (criticalMissing.length > 0) {
+    analysis += `CRITICAL GAPS (High Priority):\n`;
+    analysis += `• Missing essential skills: ${criticalMissing.slice(0, 3).join(', ')}\n`;
+    analysis += `• These skills are fundamental for the role and should be prioritized in learning.\n\n`;
+  }
+  
+  if (importantMissing.length > 0) {
+    analysis += `IMPORTANT GAPS (Medium Priority):\n`;
+    analysis += `• Missing valuable skills: ${importantMissing.slice(0, 3).join(', ')}\n`;
+    analysis += `• These skills would significantly strengthen your candidacy.\n\n`;
+  }
+  
+  if (skillsToImprove.length > 0) {
+    analysis += `SKILLS TO ADVANCE:\n`;
+    analysis += `• Existing skills to improve: ${skillsToImprove.slice(0, 3).join(', ')}\n`;
+    analysis += `• You have foundation knowledge but need to reach professional level.\n\n`;
+  }
+  
+  if (matched.length > 0) {
+    analysis += `STRENGTHS:\n`;
+    analysis += `• Matching skills: ${matched.slice(0, 5).join(', ')}\n`;
+    analysis += `• These are your competitive advantages for this role.\n\n`;
+  }
+  
+  // Learning path recommendation
+  const totalGaps = criticalMissing.length + importantMissing.length;
+  if (totalGaps > 5) {
+    analysis += `RECOMMENDATION: Focus on the top 3 critical skills first, then gradually expand to other areas.`;
+  } else if (totalGaps > 2) {
+    analysis += `RECOMMENDATION: Address critical gaps first, then work on important skills to become a strong candidate.`;
+  } else {
+    analysis += `RECOMMENDATION: You have a good foundation. Focus on advancing existing skills and filling remaining gaps.`;
+  }
+  
+  return analysis;
+}
+
 function generateOverallSummary(score) {
   if (score >= 80) {
     return 'Excellent match! Your resume aligns very well with this job opportunity.';
@@ -404,18 +775,32 @@ function generateOverallSummary(score) {
 
 async function extractTextFromResume(resumePath) {
   // This would use a PDF text extraction library
-  // For now, return mock text
+  // For now, return mock text that demonstrates skill extraction from projects
   return `
     John Doe
     Software Developer
     
     Experience:
     - 3 years of experience in web development
-    - Proficient in JavaScript, React, Node.js
-    - Worked on team projects and client solutions
+    - Built full-stack applications using React and Node.js
+    - Developed RESTful APIs with Express.js and MongoDB database
+    - Deployed applications on AWS using Docker containers
+    - Used Git for version control and Agile methodology
+    - Implemented user authentication with JWT tokens
+    - Created responsive UI with Bootstrap and CSS3
     
-    Skills:
-    JavaScript, React, HTML, CSS, Git, MongoDB
+    Projects:
+    1. E-commerce Platform
+       - Technologies: React, Node.js, MongoDB, Express.js
+       - Built shopping cart and payment integration
+       - Deployed on AWS with Docker
+    
+    2. Task Management App
+       - Technologies: Python, Django, PostgreSQL
+       - Implemented real-time updates with WebSocket
+       - Used Redis for caching
+    
+    Skills Listed: JavaScript, HTML, CSS (basic list)
     
     Education:
     Bachelor's in Computer Science
