@@ -67,7 +67,13 @@ export default function PrepPlanPage() {
 
   // Gamification states
   const [showPayoutCalculator, setShowPayoutCalculator] = useState(false);
-  const [currentPayout, setCurrentPayout] = useState(null);useEffect(() => {
+  const [currentPayout, setCurrentPayout] = useState(null);
+
+  // Video selection states
+  const [selectedVideosForPlan, setSelectedVideosForPlan] = useState([]);
+  const [totalVideoPlanDuration, setTotalVideoPlanDuration] = useState(0);
+
+  useEffect(() => {
     const initializePage = async () => {
       // Get job data from URL params
       const jobParam = searchParams.get('job');
@@ -146,7 +152,8 @@ export default function PrepPlanPage() {
         parsingCompleted: !parsingJD
       });
       generatePrepPlan(jobData, parseInt(learningDuration));
-    }  }, [parsedSkills, learningDuration, jobData, parsingJD]);
+    }
+  }, [parsedSkills, learningDuration, jobData, parsingJD]);
 
   const getCachedParsedSkills = (jobId) => {
     try {
@@ -938,6 +945,88 @@ export default function PrepPlanPage() {
       }
     }, 100);
   };
+
+  // Video selection functions
+  const addVideoToPlan = (video) => {
+    const isAlreadySelected = selectedVideosForPlan.some(v => v.url === video.url);
+    
+    if (!isAlreadySelected) {
+      const updatedVideos = [...selectedVideosForPlan, video];
+      setSelectedVideosForPlan(updatedVideos);
+      
+      // Calculate total duration
+      const totalDuration = calculateTotalDuration(updatedVideos);
+      setTotalVideoPlanDuration(totalDuration);
+      
+      console.log('✅ Video added to plan:', video.title);
+      console.log('📊 Total videos in plan:', updatedVideos.length);
+      console.log('⏱️ Total duration:', totalDuration, 'minutes');
+    } else {
+      console.log('⚠️ Video already in plan:', video.title);
+    }
+  };
+
+  const removeVideoFromPlan = (videoUrl) => {
+    const updatedVideos = selectedVideosForPlan.filter(v => v.url !== videoUrl);
+    setSelectedVideosForPlan(updatedVideos);
+    
+    const totalDuration = calculateTotalDuration(updatedVideos);
+    setTotalVideoPlanDuration(totalDuration);
+    
+    console.log('❌ Video removed from plan');
+    console.log('📊 Total videos in plan:', updatedVideos.length);
+  };
+
+  const calculateTotalDuration = (videos) => {
+    return videos.reduce((total, video) => {
+      const duration = parseDuration(video.duration);
+      return total + duration;
+    }, 0);
+  };
+
+  const parseDuration = (durationStr) => {
+    if (!durationStr) return 0;
+    
+    // Handle format like "10:30" or "1:30:45"
+    const parts = durationStr.split(':').map(p => parseInt(p) || 0);
+    
+    if (parts.length === 3) {
+      // Hours:Minutes:Seconds
+      return parts[0] * 60 + parts[1] + parts[2] / 60;
+    } else if (parts.length === 2) {
+      // Minutes:Seconds
+      return parts[0] + parts[1] / 60;
+    } else {
+      // Just minutes
+      return parts[0] || 0;
+    }
+  };
+
+  const formatDuration = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
+    } else {
+      return `${mins}m`;
+    }
+  };
+
+  const goToVideoPlan = () => {
+    // Store selected videos in localStorage for the video plan page
+    localStorage.setItem('selectedVideoPlan', JSON.stringify({
+      videos: selectedVideosForPlan,
+      totalDuration: totalVideoPlanDuration,
+      jobTitle: jobData?.title,
+      companyName: jobData?.companyName,
+      createdAt: new Date().toISOString()
+    }));
+    
+    // Navigate to video plan page
+    router.push('/dashboard/applicant/video-plan');
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
@@ -959,7 +1048,9 @@ export default function PrepPlanPage() {
         </div>
       </div>
     );
-  }  if (error) {
+  }
+
+  if (error) {
     return (
       <div className="fixed inset-0 top-16 overflow-y-auto bg-background">
         <div className="max-w-7xl mx-auto p-6">
@@ -1018,6 +1109,19 @@ export default function PrepPlanPage() {
                 <TrendingUp className="h-4 w-4 mr-2" />
                 {showPayoutCalculator ? "Hide Calculator" : "Demo Betting"}
               </Button>
+              
+              {/* Video Plan Button */}
+              {selectedVideosForPlan.length > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={goToVideoPlan}
+                  className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700"
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Complete & Go to Video Plan ({selectedVideosForPlan.length} videos - {formatDuration(totalVideoPlanDuration)})
+                </Button>
+              )}
             </div>
             
             {/* Duration Selector */}
@@ -1716,7 +1820,7 @@ export default function PrepPlanPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {skillVideos.map((video, index) => (                      <div 
                         key={index} 
-                        className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow bg-white dark:bg-gray-800"
+                        className="border rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow bg-white dark:bg-zinc-800 border-gray-200 dark:border-zinc-700"
                         onClick={() => setSelectedVideo(video)}
                       >                        <div className="relative w-full h-48 bg-gray-100 overflow-hidden">
                           <img 
@@ -1767,13 +1871,15 @@ export default function PrepPlanPage() {
                                 console.log('Using final custom SVG fallback');
                                 e.target.src = finalFallback;
                               }
-                            }}                            onLoad={(e) => {
+                            }}
+                            onLoad={(e) => {
                               console.log('Thumbnail loaded successfully:', video.title);
                               e.target.style.opacity = '1';
                             }}
                             onLoadStart={(e) => {
                               e.target.style.opacity = '0.5';
-                            }}                          />
+                            }}
+                          />
                           <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 hover:bg-opacity-30 transition-all pointer-events-none hover:pointer-events-auto" style={{ zIndex: 2 }}>
                             <Play className="h-8 w-8 text-white opacity-0 hover:opacity-100 transition-opacity" />
                           </div>
@@ -1783,12 +1889,44 @@ export default function PrepPlanPage() {
                         </div>
                         
                         <div className="p-3">
-                          <h4 className="font-medium text-sm line-clamp-2 mb-1">{video.title}</h4>
+                          <h4 className="font-medium text-sm line-clamp-2 mb-1 text-gray-900 dark:text-gray-100">{video.title}</h4>
                           <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{video.description}</p>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                             <span>{video.channel}</span>
                             <span>{video.views} views</span>
                           </div>
+                          
+                          {/* Add to Video Plan Button */}
+                          <Button
+                            size="sm"
+                            variant={selectedVideosForPlan.some(v => v.url === video.url) ? "default" : "outline"}
+                            className={`w-full text-xs ${
+                              selectedVideosForPlan.some(v => v.url === video.url) 
+                                ? "bg-green-600 hover:bg-green-700 text-white dark:bg-green-600 dark:hover:bg-green-700" 
+                                : "hover:bg-blue-50 dark:hover:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                            }`}
+                            onClick={(e) => {
+                              e.stopPropagation(); // Prevent card click
+                              const isSelected = selectedVideosForPlan.some(v => v.url === video.url);
+                              if (isSelected) {
+                                removeVideoFromPlan(video.url);
+                              } else {
+                                addVideoToPlan(video);
+                              }
+                            }}
+                          >
+                            {selectedVideosForPlan.some(v => v.url === video.url) ? (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Added to Plan
+                              </>
+                            ) : (
+                              <>
+                                <Target className="h-3 w-3 mr-1" />
+                                Add to Video Plan
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </div>
                     ))}

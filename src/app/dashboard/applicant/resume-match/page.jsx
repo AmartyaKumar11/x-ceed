@@ -19,7 +19,8 @@ import {
   Loader2,
   ArrowLeft,
   Square,
-  GraduationCap
+  GraduationCap,
+  Video
 } from 'lucide-react';
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import EnhancedVideoSelector from "@/components/prep-plan/EnhancedVideoSelector";
 
 export default function ResumeMatchPage() {
   const searchParams = useSearchParams();
@@ -55,6 +57,12 @@ export default function ResumeMatchPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [prepPlanCreated, setPrepPlanCreated] = useState(false);
   const [prepPlanDuration, setPrepPlanDuration] = useState(4); // Add duration state
+  
+  // Enhanced video selection states
+  const [showVideoSelector, setShowVideoSelector] = useState(false);
+  const [extractedSkills, setExtractedSkills] = useState([]);
+  const [customPlanGenerated, setCustomPlanGenerated] = useState(null);
+  
     // Chat state
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState('');  const [chatLoading, setChatLoading] = useState(false);
@@ -420,7 +428,9 @@ export default function ResumeMatchPage() {
     } finally {
       setAnalyzing(false);
     }
-  };  const sendChatMessage = async () => {
+  };
+  
+  const sendChatMessage = async () => {
     console.log('🔍 sendChatMessage called:', {
       chatInput: chatInput.trim(),
       chatInitialized,
@@ -746,7 +756,99 @@ The prep plan is ready and waiting for you! 🚀`,
       throw error; // Re-throw to be handled by the calling function
     }
   };
-  const viewPrepPlan = () => {
+  // Extract skills from analysis for video selection
+  const extractSkillsFromAnalysis = () => {
+    const skills = new Set();
+    
+    if (ragAnalysis?.structuredAnalysis) {
+      // Add missing skills
+      ragAnalysis.structuredAnalysis.missingSkills?.forEach(skill => skills.add(skill));
+      
+      // Add skills to advance
+      ragAnalysis.structuredAnalysis.skillsToAdvance?.forEach(skill => skills.add(skill));
+      
+      // Add skills from gap analysis
+      ragAnalysis.structuredAnalysis.gap_analysis?.technical_gaps?.forEach(gap => {
+        if (gap.skill) skills.add(gap.skill);
+      });
+      
+      // Add key strengths that can be improved
+      ragAnalysis.structuredAnalysis.keyStrengths?.forEach(strength => {
+        if (typeof strength === 'object' && strength.title) {
+          skills.add(strength.title);
+        } else if (typeof strength === 'string') {
+          skills.add(strength);
+        }
+      });
+    }
+    
+    // Add job requirements as potential skills
+    if (job?.requirements) {
+      job.requirements.forEach(req => {
+        // Extract technical terms from requirements
+        const techTerms = req.match(/\b(React|Vue|Angular|JavaScript|Python|Java|Node\.js|MongoDB|SQL|AWS|Docker|Kubernetes|Git|API|REST|GraphQL|TypeScript|CSS|HTML|Express|Django|Spring|Laravel)\b/gi);
+        if (techTerms) {
+          techTerms.forEach(term => skills.add(term));
+        }
+      });
+    }
+    
+    return Array.from(skills).slice(0, 8); // Limit to 8 skills to keep manageable
+  };
+
+  // Handle custom plan generation
+  const handleCustomPlanGenerated = async (customPlan) => {
+    try {
+      console.log('🎯 Generating custom prep plan:', customPlan);
+      
+      // Add job information to the custom plan
+      const enhancedPlan = {
+        ...customPlan,
+        jobData: job,
+        jobTitle: job.title,
+        companyName: job.companyName || job.company,
+        resumeAnalysis: ragAnalysis
+      };
+      
+      const response = await fetch('/api/prep-plans/create-custom', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          jobId: job._id || 'custom-job',
+          customPlan: enhancedPlan,
+          overwriteExisting: true
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Custom prep plan created:', result);
+        
+        setCustomPlanGenerated(result.data);
+        setPrepPlanCreated(true);
+        setShowVideoSelector(false);
+        
+        alert('🎉 Custom learning plan created successfully! You can now view it in your prep plans section.');
+      } else {
+        const error = await response.json();
+        console.error('❌ Error creating custom plan:', error);
+        alert(`Failed to create custom plan: ${error.message}`);
+      }
+    } catch (error) {
+      console.error('❌ Error in custom plan generation:', error);
+      alert(`Error creating custom plan: ${error.message}`);
+    }
+  };
+
+  // Show video selector when analysis is complete
+  const handleShowVideoSelector = () => {
+    const skills = extractSkillsFromAnalysis();
+    setExtractedSkills(skills);
+    setShowVideoSelector(true);
+  };
     if (!job) return;
     
     const jobParam = encodeURIComponent(JSON.stringify(job));
@@ -797,7 +899,9 @@ The prep plan is ready and waiting for you! 🚀`,
         </div>
       </div>
     );
-  }  return (
+  }
+  
+  return (
     <div className="bg-background" style={{ minHeight: '100vh', overflow: 'auto' }}>
       <div className="container mx-auto px-4 py-6 max-w-7xl" style={{ minHeight: 'auto', height: 'auto' }}>
         {/* Header */}
@@ -1252,24 +1356,43 @@ The prep plan is ready and waiting for you! 🚀`,
                         </p>
                       </div>
                       
-                      <Button
-                        onClick={async () => {
-                          console.log('🎯 Create Learning Plan button clicked');
-                          console.log('Button state:', { job: !!job, ragAnalysis: !!ragAnalysis, prepPlanCreated, duration: prepPlanDuration });
-                          try {
-                            await createPrepPlan();
-                          } catch (error) {
-                            console.error('❌ Error in button click handler:', error);
-                          }
-                        }}
-                        variant="outline"
-                        size="sm"
-                        className="w-full border-border hover:bg-accent hover:text-accent-foreground"
-                        disabled={!job}
-                      >
-                        <GraduationCap className="h-4 w-4 mr-2" />
-                        Create Learning Plan for This Job
-                      </Button>
+                      <div className="grid grid-cols-1 gap-2">
+                        <Button
+                          onClick={async () => {
+                            console.log('🎯 Create Learning Plan button clicked');
+                            console.log('Button state:', { job: !!job, ragAnalysis: !!ragAnalysis, prepPlanCreated, duration: prepPlanDuration });
+                            try {
+                              await createPrepPlan();
+                            } catch (error) {
+                              console.error('❌ Error in button click handler:', error);
+                            }
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="w-full border-border hover:bg-accent hover:text-accent-foreground"
+                          disabled={!job}
+                        >
+                          <GraduationCap className="h-4 w-4 mr-2" />
+                          Create Learning Plan for This Job
+                        </Button>
+                        
+                        <Button
+                          onClick={() => {
+                            console.log('🎥 Custom Video Plan button clicked');
+                            const extractedSkills = extractSkillsFromAnalysis(ragAnalysis);
+                            console.log('Extracted skills for video selection:', extractedSkills);
+                            setVideoSelectorSkills(extractedSkills);
+                            setShowVideoSelector(true);
+                          }}
+                          variant="default"
+                          size="sm"
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                          disabled={!job || !ragAnalysis}
+                        >
+                          <Video className="h-4 w-4 mr-2" />
+                          Create Custom Video Plan
+                        </Button>
+                      </div>
                     </>
                   ) : (
                     <div className="space-y-2">                      <Button
@@ -1421,6 +1544,31 @@ The prep plan is ready and waiting for you! 🚀`,
           </div>
         </div>
       </div>
+      
+      {/* Custom Video Plan Selector Modal */}
+      {showVideoSelector && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+            <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold">Create Custom Video Learning Plan</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowVideoSelector(false)}
+                className="h-8 w-8 p-0"
+              >
+                ×
+              </Button>
+            </div>
+            <div className="p-4 overflow-auto max-h-[calc(90vh-120px)]">
+              <EnhancedVideoSelector
+                skills={videoSelectorSkills}
+                onPlanGenerated={handleCustomPlanGenerated}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </div>
   );
