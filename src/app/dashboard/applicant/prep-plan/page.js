@@ -34,6 +34,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import LearningPathPreview from "@/components/learning-path/LearningPathPreview";
 import PayoutCalculator from "@/components/gamification/PayoutCalculator";
+import SkillFilterDebug from "@/components/debug/SkillFilterDebug";
+import { skillFilter } from "@/lib/skillFilter";
 
 export default function PrepPlanPage() {
   const router = useRouter();
@@ -252,15 +254,31 @@ export default function PrepPlanPage() {
   const convertDetailedPlanToStudyStructure = (job, detailedPlan, durationInWeeks) => {
     console.log('🔄 Converting AI detailed plan to study structure');
     
+    // Filter skills to remove non-learnable items
+    const rawMissingSkills = detailedPlan.gapAnalysis?.missingSkills || [];
+    const rawSkillsToAdvance = detailedPlan.gapAnalysis?.skillsToAdvance || [];
+    
+    console.log('🔍 Filtering skills before creating study structure...');
+    const filteredMissing = skillFilter.filterAndNormalizeSkills(rawMissingSkills);
+    const filteredAdvance = skillFilter.filterAndNormalizeSkills(rawSkillsToAdvance);
+    
+    // Log what was filtered out
+    if (filteredMissing.filtered.length > 0) {
+      console.log('❌ Filtered out non-learnable missing skills:', filteredMissing.filtered.map(f => f.original));
+    }
+    if (filteredAdvance.filtered.length > 0) {
+      console.log('❌ Filtered out non-learnable skills to advance:', filteredAdvance.filtered.map(f => f.original));
+    }
+    
     const phases = [];
     let topicId = 1;
     
     // Phase 1: Gap Analysis & Critical Skills
-    if (detailedPlan.gapAnalysis?.missingSkills?.length > 0 || detailedPlan.gapAnalysis?.skillsToAdvance?.length > 0) {
+    if (filteredMissing.learnable.length > 0 || filteredAdvance.learnable.length > 0) {
       const gapTopics = [];
       
-      // Missing skills topics
-      detailedPlan.gapAnalysis.missingSkills?.forEach((skill) => {
+      // Missing skills topics (using filtered skills)
+      filteredMissing.learnable.forEach((skill) => {
         const relatedTopic = detailedPlan.personalizedTopics?.find(topic => 
           topic.topicName?.toLowerCase().includes(skill.toLowerCase())
         );
@@ -283,8 +301,8 @@ export default function PrepPlanPage() {
         });
       });
       
-      // Skills to advance topics
-      detailedPlan.gapAnalysis.skillsToAdvance?.forEach((skill) => {
+      // Skills to advance topics (using filtered skills)
+      filteredAdvance.learnable.forEach((skill) => {
         const relatedTopic = detailedPlan.personalizedTopics?.find(topic => 
           topic.topicName?.toLowerCase().includes(skill.toLowerCase())
         );
@@ -383,7 +401,16 @@ export default function PrepPlanPage() {
         totalTopics: totalTopics,
         completedTopics: 0,
         aiGenerated: true,
-        gapAnalysis: detailedPlan.gapAnalysis,
+        gapAnalysis: {
+          ...detailedPlan.gapAnalysis,
+          missingSkills: filteredMissing.learnable,
+          skillsToAdvance: filteredAdvance.learnable,
+          filteredOut: {
+            missing: filteredMissing.filtered,
+            advance: filteredAdvance.filtered,
+            mapped: [...filteredMissing.mapped, ...filteredAdvance.mapped]
+          }
+        },
         learningPath: detailedPlan.candidateSpecificResources?.learningPath
       },
       phases: phases,
@@ -1056,7 +1083,14 @@ export default function PrepPlanPage() {
               )}
             </div>
           </CardContent>
-        </Card>{/* Parsed Skills Section */}
+        </Card>
+
+        {/* Skill Filtering Debug */}
+        {prepPlan?.overview?.gapAnalysis && (
+          <SkillFilterDebug gapAnalysis={prepPlan.overview.gapAnalysis} />
+        )}
+
+        {/* Parsed Skills Section */}
         {parsedSkills && (
           <Card className="mb-6">
             <CardHeader>

@@ -2,6 +2,7 @@ import { authMiddleware } from '../../../lib/middleware';
 import { getDatabase } from '../../../lib/mongodb';
 import { ObjectId } from 'mongodb';
 import { youtubeContentCurator } from '../../../lib/youtubeContentCurator';
+import { skillFilter } from '../../../lib/skillFilter';
 
 // Generate a detailed AI-powered prep plan using OpenRouter with dynamic duration adaptation
 async function generateDetailedPrepPlan(jobData, userProfile, duration = 3, resumeAnalysis = null) {
@@ -401,12 +402,27 @@ Return this exact JSON structure with ${durationWeeks}-week timeline adaptation:
   if (resumeAnalysis) {
     // Use resume-specific gap analysis (more accurate)
     console.log('📄 Using resume analysis for fallback plan');
-    missingSkills = resumeAnalysis.missingSkills || resumeAnalysis.structuredAnalysis?.missing_skills || [];
-    skillsToAdvance = resumeAnalysis.skillsToImprove || resumeAnalysis.structuredAnalysis?.skills_to_improve || [];
+    const rawMissingSkills = resumeAnalysis.missingSkills || resumeAnalysis.structuredAnalysis?.missing_skills || [];
+    const rawSkillsToAdvance = resumeAnalysis.skillsToImprove || resumeAnalysis.structuredAnalysis?.skills_to_improve || [];
 
-    // Ensure arrays
-    if (!Array.isArray(missingSkills)) missingSkills = [];
-    if (!Array.isArray(skillsToAdvance)) skillsToAdvance = [];
+    // Filter and normalize skills using the skill filter
+    console.log('🔍 Filtering non-learnable skills...');
+    const filteredMissing = skillFilter.filterAndNormalizeSkills(rawMissingSkills);
+    const filteredAdvance = skillFilter.filterAndNormalizeSkills(rawSkillsToAdvance);
+
+    missingSkills = filteredMissing.learnable;
+    skillsToAdvance = filteredAdvance.learnable;
+
+    // Log what was filtered out for debugging
+    if (filteredMissing.filtered.length > 0) {
+      console.log('❌ Filtered out non-learnable missing skills:', filteredMissing.filtered.map(f => f.original));
+    }
+    if (filteredAdvance.filtered.length > 0) {
+      console.log('❌ Filtered out non-learnable skills to advance:', filteredAdvance.filtered.map(f => f.original));
+    }
+    if (filteredMissing.mapped.length > 0) {
+      console.log('🔄 Mapped vague skills to specific ones:', filteredMissing.mapped);
+    }
   } else {
     // Fallback to keyword-based analysis
     console.log('🔍 Using keyword-based gap analysis for fallback');
