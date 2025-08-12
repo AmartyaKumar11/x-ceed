@@ -22,7 +22,8 @@ import {
   Youtube,
   Search,
   Filter,
-  SortAsc
+  SortAsc,
+  TrendingUp
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,8 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import LearningPathPreview from "@/components/learning-path/LearningPathPreview";
+import PayoutCalculator from "@/components/gamification/PayoutCalculator";
 
 export default function PrepPlanPage() {
   const router = useRouter();
@@ -54,7 +57,15 @@ export default function PrepPlanPage() {
   const [videoDurationFilter, setVideoDurationFilter] = useState('any');
   const [videoUploadFilter, setVideoUploadFilter] = useState('any');
   const [videoSortBy, setVideoSortBy] = useState('relevance');
-  const [originalSkillVideos, setOriginalSkillVideos] = useState([]);useEffect(() => {
+  const [originalSkillVideos, setOriginalSkillVideos] = useState([]);
+
+  // Learning path customization states
+  const [showCustomizationView, setShowCustomizationView] = useState(false);
+  const [pathCustomizations, setPathCustomizations] = useState({});
+
+  // Gamification states
+  const [showPayoutCalculator, setShowPayoutCalculator] = useState(false);
+  const [currentPayout, setCurrentPayout] = useState(null);useEffect(() => {
     const initializePage = async () => {
       // Get job data from URL params
       const jobParam = searchParams.get('job');
@@ -750,6 +761,14 @@ export default function PrepPlanPage() {
     setLearningDuration(newDuration);
     // The useEffect will automatically regenerate the plan when duration changes
   };
+
+  const handlePathUpdate = (customizations) => {
+    setPathCustomizations(customizations);
+  };
+
+  const handlePayoutCalculated = (payoutData) => {
+    setCurrentPayout(payoutData);
+  };
   const calculateProgress = () => {
     if (!prepPlan) return 0;
     const totalTopics = prepPlan.phases.reduce((total, phase) => total + phase.topics.length, 0);
@@ -945,11 +964,39 @@ export default function PrepPlanPage() {
             </p>
           </div>
           
-          {/* Duration Selector */}
+          {/* Controls */}
           <div className="flex items-center gap-4">
+            {/* View Toggles */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant={showCustomizationView ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowCustomizationView(!showCustomizationView);
+                  setShowPayoutCalculator(false);
+                }}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                {showCustomizationView ? "Standard View" : "Customize Path"}
+              </Button>
+              
+              <Button
+                variant={showPayoutCalculator ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setShowPayoutCalculator(!showPayoutCalculator);
+                  setShowCustomizationView(false);
+                }}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                {showPayoutCalculator ? "Hide Calculator" : "Demo Betting"}
+              </Button>
+            </div>
+            
+            {/* Duration Selector */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              <span className="text-sm font-medium">Learning Duration:</span>
+              <span className="text-sm font-medium">Duration:</span>
             </div>
             <Select value={learningDuration} onValueChange={handleDurationChange}>
               <SelectTrigger className="w-[150px]">
@@ -1001,6 +1048,12 @@ export default function PrepPlanPage() {
                 <Progress value={calculateProgress()} className="w-full" />
                 <div className="text-sm text-muted-foreground mt-1">{Math.round(calculateProgress())}% Progress</div>
               </div>
+              {currentPayout && (
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{currentPayout.finalMultiplier}x</div>
+                  <div className="text-sm text-muted-foreground">Demo Payout</div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>{/* Parsed Skills Section */}
@@ -1317,9 +1370,33 @@ export default function PrepPlanPage() {
           </Card>
         )}
 
-        {/* Study Phases */}
-        <div className="space-y-6">
-          {prepPlan?.phases.map((phase) => (
+        {/* Learning Path Customization View */}
+        {showCustomizationView && prepPlan && (
+          <div className="mb-6">
+            <LearningPathPreview
+              prepPlan={prepPlan}
+              prepPlanId={prepPlanId}
+              onPathUpdate={handlePathUpdate}
+              isCustomizable={true}
+            />
+          </div>
+        )}
+
+        {/* Payout Calculator View */}
+        {showPayoutCalculator && prepPlan && (
+          <div className="mb-6">
+            <PayoutCalculator
+              prepPlan={prepPlan}
+              prepPlanId={prepPlanId}
+              onPayoutCalculated={handlePayoutCalculated}
+            />
+          </div>
+        )}
+
+        {/* Study Phases - Standard View */}
+        {!showCustomizationView && (
+          <div className="space-y-6">
+            {prepPlan?.phases.map((phase) => (
             <Card key={phase.id}>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -1412,7 +1489,10 @@ export default function PrepPlanPage() {
               </CardContent>
             </Card>
           ))}
-        </div>        {/* AI Enhancement Notice */}
+          </div>
+        )}
+
+        {/* AI Enhancement Notice */}
         <Card className="mt-6 border-dashed">
           <CardContent className="text-center py-6">
             <Brain className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
