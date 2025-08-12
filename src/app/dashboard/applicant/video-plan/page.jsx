@@ -13,12 +13,16 @@ import {
   Book,
   Trash2,
   ExternalLink,
-  Download
+  Download,
+  Brain,
+  Shield,
+  AlertTriangle
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import SmartVideoTracker from "@/components/video/SmartVideoTracker";
 
 export default function VideoPlanPage() {
   const router = useRouter();
@@ -27,6 +31,8 @@ export default function VideoPlanPage() {
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [planId, setPlanId] = useState(null);
+  const [videoProgress, setVideoProgress] = useState({});
+  const [completionData, setCompletionData] = useState({});
 
   useEffect(() => {
     const loadVideoPlan = async () => {
@@ -102,13 +108,133 @@ export default function VideoPlanPage() {
     loadVideoPlan();
   }, [router]);
 
+  const handleVideoProgress = (videoUrl, progressData) => {
+    setVideoProgress(prev => ({
+      ...prev,
+      [videoUrl]: progressData
+    }));
+  };
+
+  const handleVideoCompleted = async (videoUrl, completionData) => {
+    // Only mark as completed if genuinely eligible
+    if (completionData.isEligibleForCompletion) {
+      const newWatchedVideos = new Set(watchedVideos);
+      newWatchedVideos.add(videoUrl);
+      setWatchedVideos(newWatchedVideos);
+      
+      // Store completion data for payout calculation
+      setCompletionData(prev => ({
+        ...prev,
+        [videoUrl]: {
+          ...completionData,
+          qualityBonus: calculateQualityBonus(completionData),
+          completionTime: new Date().toISOString()
+        }
+      }));
+
+      // Save to localStorage as backup
+      localStorage.setItem('watchedVideos', JSON.stringify([...newWatchedVideos]));
+      
+      // Save to backend if planId exists
+      if (planId) {
+        try {
+          await fetch('/api/video-plans/custom', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              planId,
+              watchedVideos: [...newWatchedVideos],
+              completionData: {
+                ...completionData,
+                [videoUrl]: completionData
+              }
+            })
+          });
+          console.log('✅ Completion synced to backend');
+        } catch (error) {
+          console.error('⚠️ Failed to sync completion to backend:', error);
+        }
+      }
+    } else if (completionData.forceCompleted) {
+      // Handle force completion (reduced payout)
+      const newWatchedVideos = new Set(watchedVideos);
+      newWatchedVideos.add(videoUrl);
+      setWatchedVideos(newWatchedVideos);
+      
+      setCompletionData(prev => ({
+        ...prev,
+        [videoUrl]: {
+          ...completionData,
+          qualityBonus: 0, // No bonus for forced completion
+          payoutPenalty: 0.5, // 50% payout reduction
+          completionTime: new Date().toISOString()
+        }
+      }));
+    }
+  };
+
+  const calculateQualityBonus = (completionData) => {
+    // Calculate bonus based on quality metrics
+    let bonus = 0;
+    
+    if (completionData.qualityScore >= 90) {
+      bonus = 0.5; // 50% bonus for excellent quality
+    } else if (completionData.qualityScore >= 75) {
+      bonus = 0.25; // 25% bonus for good quality
+    } else if (completionData.qualityScore >= 60) {
+      bonus = 0; // No bonus but eligible
+    }
+    
+    return bonus;
+  };
   const toggleVideoWatched = async (videoUrl) => {
+    // Check if user has watched enough of the video
+    const progressData = videoProgress[videoUrl];
+    
+    if (!watchedVideos.has(videoUrl)) {
+      // Trying to mark as complete
+      if (!progressData || progressData.actualProgress < 75) {
+        // Show warning - not enough progress
+        alert(`⚠️ You must watch at least 75% of the video to mark it as completed.\n\nCurrent progress: ${Math.round(progressData?.actualProgress || 0)}%\n\nPlease continue watching the video.`);
+        return;
+      }
+      
+      if (progressData.qualityScore < 60) {
+        // Show warning - quality too low
+        alert(`⚠️ Video completion quality is too low (${Math.round(progressData.qualityScore)}/100).\n\nMinimum required: 60/100\n\nPlease watch the video more carefully:\n• Don't skip content\n• Keep playback speed reasonable\n• Stay focused on the video`);
+        return;
+      }
+    }
+    
+    // Legacy method - for admin override or unmarking
     const newWatchedVideos = new Set(watchedVideos);
     if (newWatchedVideos.has(videoUrl)) {
       newWatchedVideos.delete(videoUrl);
+      // Also remove completion data when unmarking
+      setCompletionData(prev => {
+        const newData = { ...prev };
+        delete newData[videoUrl];
+        return newData;
+      });
     } else {
       newWatchedVideos.add(videoUrl);
+      
+      // If manually marking complete with sufficient progress, store completion data
+      if (progressData && progressData.actualProgress >= 75) {
+        setCompletionData(prev => ({
+          ...prev,
+          [videoUrl]: {
+            ...progressData,
+            manualCompletion: true,
+            qualityBonus: calculateQualityBonus(progressData),
+            completionTime: new Date().toISOString()
+          }
+        }));
+      }
     }
+    
     setWatchedVideos(newWatchedVideos);
     
     // Save to localStorage as backup
@@ -220,6 +346,33 @@ export default function VideoPlanPage() {
     return (watchedCount / videoPlan.videos.length) * 100;
   };
 
+  const calculateEarnings = () => {
+    if (!videoPlan || videoPlan.videos.length === 0) return { base: 0, bonus: 0, total: 0 };
+    
+    const basePayoutPerVideo = 10; // Base $10 per video
+    const completedVideos = videoPlan.videos.filter(v => watchedVideos.has(v.url));
+    
+    let baseEarnings = completedVideos.length * basePayoutPerVideo;
+    let bonusEarnings = 0;
+    
+    completedVideos.forEach(video => {
+      const completion = completionData[video.url];
+      if (completion && completion.qualityBonus) {
+        bonusEarnings += basePayoutPerVideo * completion.qualityBonus;
+      }
+      if (completion && completion.payoutPenalty) {
+        baseEarnings -= basePayoutPerVideo * completion.payoutPenalty;
+      }
+    });
+    
+    return {
+      base: baseEarnings,
+      bonus: bonusEarnings,
+      total: baseEarnings + bonusEarnings,
+      completedCount: completedVideos.length,
+      totalCount: videoPlan.videos.length
+    };
+  };
   const getRemainingDuration = () => {
     if (!videoPlan) return 0;
     const unwatchedVideos = videoPlan.videos.filter(v => !watchedVideos.has(v.url));
@@ -294,7 +447,7 @@ export default function VideoPlanPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <div className="text-center">
                 <div className="text-2xl font-bold text-primary">{videoPlan.videos.length}</div>
                 <div className="text-sm text-muted-foreground">Total Videos</div>
@@ -311,6 +464,15 @@ export default function VideoPlanPage() {
                 <div className="text-2xl font-bold text-blue-600">{formatDuration(getRemainingDuration())}</div>
                 <div className="text-sm text-muted-foreground">Remaining</div>
               </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">${calculateEarnings().total.toFixed(2)}</div>
+                <div className="text-sm text-muted-foreground">
+                  Earnings 
+                  {calculateEarnings().bonus > 0 && (
+                    <div className="text-xs text-green-600">+${calculateEarnings().bonus.toFixed(2)} quality bonus</div>
+                  )}
+                </div>
+              </div>
             </div>
             
             <div className="mt-4">
@@ -323,68 +485,82 @@ export default function VideoPlanPage() {
           </CardContent>
         </Card>
 
-        {/* Video Player Section */}
+        {/* Smart Video Player Section */}
         {selectedVideo && (
           <Card className="mb-6">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <Play className="h-5 w-5" />
-                  Now Playing
+                  <Brain className="h-5 w-5" />
+                  Smart Learning Player - {selectedVideo.title}
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedVideo(null)}
-                >
-                  Close Player
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedVideo(null)}
+                  >
+                    Close Player
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="aspect-video w-full">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`https://www.youtube.com/embed/${getYouTubeVideoId(selectedVideo.url)}?autoplay=1`}
-                    title={selectedVideo.title}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                    className="rounded-lg"
-                  ></iframe>
+              <SmartVideoTracker
+                videoId={getYouTubeVideoId(selectedVideo.url)}
+                videoTitle={selectedVideo.title}
+                videoDuration={parseDuration(selectedVideo.duration) * 60} // Convert to seconds
+                onProgressUpdate={(progressData) => handleVideoProgress(selectedVideo.url, progressData)}
+                onVideoCompleted={(completionData) => handleVideoCompleted(selectedVideo.url, completionData)}
+                minimumWatchPercentage={75}
+                allowedSpeedRange={{ min: 0.75, max: 2.0 }}
+                enableAntiCheat={true}
+              />
+              
+              {/* Additional Controls */}
+              <div className="mt-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => {
+                      const aiAssistantUrl = `/video-ai-assistant?videoId=${getYouTubeVideoId(selectedVideo.url)}&title=${encodeURIComponent(selectedVideo.title)}&channel=${encodeURIComponent(selectedVideo.channel)}`;
+                      window.open(aiAssistantUrl, '_blank');
+                    }}
+                  >
+                    Open with AI Assistant
+                  </Button>
+                  
+                  {videoProgress[selectedVideo.url] && (
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      Quality: {Math.round(videoProgress[selectedVideo.url].qualityScore || 0)}/100
+                    </Badge>
+                  )}
                 </div>
                 
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-medium">{selectedVideo.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedVideo.channel} • {selectedVideo.views} views • {selectedVideo.duration}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="secondary" 
-                      size="sm"
-                      onClick={() => {
-                        const aiAssistantUrl = `/video-ai-assistant?videoId=${getYouTubeVideoId(selectedVideo.url)}&title=${encodeURIComponent(selectedVideo.title)}&channel=${encodeURIComponent(selectedVideo.channel)}`;
-                        window.open(aiAssistantUrl, '_blank');
-                      }}
-                    >
-                      Open with AI Assistant
-                    </Button>
-                    <Button
-                      variant={watchedVideos.has(selectedVideo.url) ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleVideoWatched(selectedVideo.url)}
-                      className={watchedVideos.has(selectedVideo.url) ? "bg-green-600 hover:bg-green-700" : ""}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      {watchedVideos.has(selectedVideo.url) ? "Completed" : "Mark Complete"}
-                    </Button>
-                  </div>
-                </div>
+                {/* Legacy manual completion (for admin override) */}
+                <Button
+                  variant={watchedVideos.has(selectedVideo.url) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleVideoWatched(selectedVideo.url)}
+                  className={`${
+                    watchedVideos.has(selectedVideo.url) 
+                      ? "bg-green-600 hover:bg-green-700" 
+                      : videoProgress[selectedVideo.url]?.actualProgress >= 75
+                        ? "border-green-500 text-green-600"
+                        : "border-red-500 text-red-600 opacity-60"
+                  } text-xs`}
+                  disabled={!watchedVideos.has(selectedVideo.url) && (!videoProgress[selectedVideo.url] || videoProgress[selectedVideo.url].actualProgress < 75)}
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  {watchedVideos.has(selectedVideo.url) 
+                    ? "Completed" 
+                    : videoProgress[selectedVideo.url]?.actualProgress >= 75
+                      ? "Manual Complete"
+                      : `Need ${75 - Math.round(videoProgress[selectedVideo.url]?.actualProgress || 0)}% more`
+                  }
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -425,8 +601,18 @@ export default function VideoPlanPage() {
                         {video.duration}
                       </div>
                       {watchedVideos.has(video.url) && (
-                        <div className="absolute top-1 left-1 bg-green-600 text-white rounded-full p-1">
-                          <CheckCircle className="h-3 w-3" />
+                        <div className="absolute top-1 left-1 flex gap-1">
+                          <div className="bg-green-600 text-white rounded-full p-1">
+                            <CheckCircle className="h-3 w-3" />
+                          </div>
+                          {completionData[video.url] && (
+                            <div className={`text-white rounded px-1 text-xs ${
+                              completionData[video.url].qualityScore >= 75 ? 'bg-green-600' : 
+                              completionData[video.url].qualityScore >= 60 ? 'bg-yellow-600' : 'bg-red-600'
+                            }`}>
+                              Q: {Math.round(completionData[video.url].qualityScore || 0)}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -458,10 +644,22 @@ export default function VideoPlanPage() {
                         size="sm"
                         variant={watchedVideos.has(video.url) ? "default" : "outline"}
                         onClick={() => toggleVideoWatched(video.url)}
-                        className={watchedVideos.has(video.url) ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                        className={`${
+                          watchedVideos.has(video.url) 
+                            ? "bg-green-600 hover:bg-green-700 text-white" 
+                            : videoProgress[video.url]?.actualProgress >= 75
+                              ? "border-green-500 text-green-600 hover:bg-green-50"
+                              : "border-gray-300 text-gray-500 cursor-not-allowed opacity-60"
+                        }`}
+                        disabled={!watchedVideos.has(video.url) && (!videoProgress[video.url] || videoProgress[video.url].actualProgress < 75)}
                       >
                         <CheckCircle className="h-3 w-3 mr-1" />
-                        {watchedVideos.has(video.url) ? "Done" : "Mark Done"}
+                        {watchedVideos.has(video.url) 
+                          ? "Completed" 
+                          : videoProgress[video.url]?.actualProgress >= 75
+                            ? "Mark Complete"
+                            : `Watch ${75 - Math.round(videoProgress[video.url]?.actualProgress || 0)}% more`
+                        }
                       </Button>
                       
                       <Button
