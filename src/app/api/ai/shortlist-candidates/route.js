@@ -3,6 +3,7 @@ import { verifyToken } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { PDFTextExtractor } from '@/lib/pdfExtractor';
 import path from 'path';
+import fs from 'fs';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -89,8 +90,21 @@ export async function POST(request) {
 
     // Step 0: Extract resume text from PDF files
     console.log('📄 Step 0: Extracting resume text from PDF files...');
+    console.log('📋 Input candidates:', candidates.map(c => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      resumePath: c.resumePath
+    })));
+    
     const candidatesWithResumeText = await extractResumeTexts(candidates);
     console.log(`📋 Resume extraction: ${candidatesWithResumeText.filter(c => c.resumeText && c.resumeText.length > 100).length}/${candidates.length} candidates have resume text`);
+    console.log('📋 Candidates with resume text:', candidatesWithResumeText.map(c => ({
+      id: c.id,
+      name: c.name,
+      resumeTextLength: c.resumeText?.length || 0,
+      resumePreview: c.resumeText?.substring(0, 100) + '...'
+    })));
 
     // Step 1: Fast pre-filtering (JavaScript)
     console.log('⚡ Step 1: Fast pre-filtering candidates...');
@@ -124,7 +138,23 @@ export async function POST(request) {
 
     // Step 3: Final ranking and formatting
     console.log('📊 Step 3: Final ranking and formatting...');
+    console.log('🎯 Ranked candidates before formatting:', rankedCandidates.map(c => ({
+      name: c.name,
+      email: c.email,
+      aiScore: c.aiScore,
+      hasResumeText: !!c.resumeText,
+      resumeTextLength: c.resumeText?.length
+    })));
+    
     const finalResults = formatResults(rankedCandidates, candidatesWithResumeText.length);
+    
+    console.log('✅ Final formatted results:', finalResults.map(r => ({
+      rank: r.rank,
+      name: r.name,
+      email: r.email,
+      score: r.score,
+      candidateId: r.candidateId
+    })));
 
     return NextResponse.json({
       success: true,
@@ -315,7 +345,7 @@ async function analyzeWithGemini(candidates, jobTitle, jobDescription, jobRequir
 
 // Analyze batch of candidates with Gemini
 async function analyzeBatch(model, candidates, jobTitle, jobDescription, jobRequirements) {
-  const prompt = `You are an expert HR recruiter and technical interviewer. Analyze these ${candidates.length} candidates for the ${jobTitle} position and provide detailed scoring and recommendations.
+  const prompt = `You are an expert HR recruiter and technical interviewer with 10+ years of experience. Analyze these ${candidates.length} candidates for the ${jobTitle} position and provide DETAILED, SPECIFIC scoring and recommendations based on their actual resume content.
 
 JOB DETAILS:
 Title: ${jobTitle}
@@ -324,16 +354,24 @@ Requirements: ${(jobRequirements || []).join(', ') || 'No specific requirements 
 
 CANDIDATES TO ANALYZE:
 ${candidates.map((candidate, index) => `
-CANDIDATE ${index + 1}:
+=== CANDIDATE ${index + 1} ===
 Name: ${candidate.name || 'Anonymous'}
 Email: ${candidate.email || 'No email provided'}
-Resume: ${candidate.resumeText?.substring(0, 1000) || `No detailed resume available. Candidate applied for ${jobTitle} position.`}
-Skills: ${(candidate.skills || []).join(', ') || 'No skills listed'}
-Quick Score: ${candidate.quickScore?.total || 0}%
 Applied: ${candidate.appliedAt || 'Unknown date'}
+
+FULL RESUME CONTENT:
+${candidate.resumeText?.substring(0, 2000) || `No detailed resume available. Candidate applied for ${jobTitle} position.`}
+
+DECLARED SKILLS: ${(candidate.skills || []).join(', ') || 'No skills listed'}
+RESUME PATH: ${candidate.resumePath || 'Not provided'}
 `).join('\n')}
 
-IMPORTANT: Even if resume content is limited, provide meaningful analysis based on available information (name, email, job application, skills if any).
+ANALYSIS REQUIREMENTS:
+1. Extract SPECIFIC details from resume content (projects, technologies, companies, achievements)
+2. Match exact skills mentioned in resume to job requirements
+3. Identify quantifiable achievements (numbers, percentages, results)
+4. Assess education relevance and recent projects
+5. Provide CONCRETE examples from their resume in your analysis
 
 For each candidate, provide a JSON response with this exact structure:
 
@@ -341,33 +379,52 @@ For each candidate, provide a JSON response with this exact structure:
   "candidates": [
     {
       "candidateIndex": 1,
-      "overallScore": 65,
-      "skillsMatch": 40,
-      "experienceMatch": 50,
-      "projectsScore": 30,
-      "strengths": ["Applied for relevant position", "Has contact information"],
-      "weaknesses": ["Limited resume information", "Skills not detailed"],
-      "recommendation": "MAYBE",
-      "reasoning": "Candidate shows interest but needs interview to assess qualifications",
-      "keySkillsFound": [],
-      "missingCriticalSkills": ["Detailed resume", "Skill documentation"]
+      "overallScore": 75,
+      "skillsMatch": 80,
+      "experienceMatch": 70,
+      "projectsScore": 75,
+      "strengths": [
+        "5+ years experience in React and Node.js (mentioned in ABC Corp project)",
+        "Led team of 8 developers on microservices migration (Company XYZ 2022-2024)",
+        "Increased performance by 40% using Redis caching (Project Alpha)"
+      ],
+      "weaknesses": [
+        "No Docker/Kubernetes experience mentioned in resume",
+        "Missing cloud platform certifications (AWS/Azure)",
+        "No recent machine learning projects (last ML work in 2021)"
+      ],
+      "recommendation": "HIRE",
+      "reasoning": "Strong technical background with React, Node.js, and PostgreSQL matching job requirements. Resume shows progression from Junior to Senior roles at reputable companies. Quantifiable achievements include 40% performance improvements and successful team leadership. However, lacks modern DevOps skills.",
+      "keySkillsFound": ["React", "Node.js", "PostgreSQL", "Team Leadership", "Performance Optimization"],
+      "missingCriticalSkills": ["Docker", "AWS", "Machine Learning"],
+      "specificProjects": [
+        "E-commerce platform handling 10K+ daily transactions",
+        "Microservices migration for 50+ services",
+        "Real-time analytics dashboard with 99.9% uptime"
+      ],
+      "educationMatch": "Computer Science degree from recognized university",
+      "experienceProgression": "Junior (2019) → Mid-level (2021) → Senior (2023)",
+      "quantifiableAchievements": [
+        "40% performance improvement",
+        "Led team of 8 developers",
+        "Managed $2M+ project budget"
+      ]
     }
   ]
 }
 
-SCORING GUIDELINES:
-- When resume is limited: Base score on application intent, contact info, and any available skills
-- Skills Match (40%): Award partial credit for basic application completion
-- Experience Match (35%): Infer from application and any available data
-- Projects Quality (25%): If no projects mentioned, use application quality
+SCORING GUIDELINES (be specific and reference actual resume content):
+- Skills Match (40%): Count exact technology matches, frameworks, programming languages
+- Experience Match (35%): Years, company types, role progression, domain experience  
+- Projects Quality (25%): Complexity, scale, business impact, technical challenges
 
 RECOMMENDATIONS:
-- STRONG_HIRE: 85-100% - Exceptional candidate with complete information
-- HIRE: 70-84% - Good candidate, worth interviewing
-- MAYBE: 50-69% - Potential candidate, limited info but worth consideration
-- REJECT: <50% - Insufficient information or clear mismatch
+- STRONG_HIRE: 85-100% - Exceptional candidate with strong relevant experience and skills
+- HIRE: 70-84% - Good candidate with solid background, worth interviewing
+- MAYBE: 50-69% - Some relevant experience but gaps, needs assessment
+- REJECT: <50% - Insufficient relevant experience or major skill gaps
 
-For candidates with limited resume data, default to MAYBE recommendation unless clearly unsuitable.
+CRITICAL: Base ALL analysis on ACTUAL CONTENT from the resume. Quote specific projects, companies, technologies, and achievements. If resume content is limited, be honest about what's missing but extract what you can.
 
 Respond ONLY with valid JSON.`;
 
@@ -391,30 +448,42 @@ Respond ONLY with valid JSON.`;
       const analysis = JSON.parse(cleanText);
       console.log(`✅ Successfully parsed Gemini response`);
       
-      // Map AI results back to candidates
-      return candidates.map((candidate, index) => {
-        const aiResult = analysis.candidates?.find(c => c.candidateIndex === index + 1) || {
-          overallScore: candidate.quickScore?.total || 0,
-          recommendation: 'REVIEW_MANUALLY',
-          reasoning: 'AI analysis parsing failed'
-        };
-        
-        return {
-          ...candidate,
-          aiScore: aiResult.overallScore,
-          skillsMatch: aiResult.skillsMatch || 0,
-          experienceMatch: aiResult.experienceMatch || 0,
-          projectsScore: aiResult.projectsScore || 0,
-          strengths: aiResult.strengths || [],
-          weaknesses: aiResult.weaknesses || [],
-          recommendation: aiResult.recommendation || 'REVIEW_MANUALLY',
-          reasoning: aiResult.reasoning || 'No detailed analysis available',
-          keySkillsFound: aiResult.keySkillsFound || [],
-          missingCriticalSkills: aiResult.missingCriticalSkills || []
-        };
-      });
-      
-    } catch (parseError) {
+        // Map AI results back to candidates
+        return candidates.map((candidate, index) => {
+          const aiResult = analysis.candidates?.find(c => c.candidateIndex === index + 1) || {
+            overallScore: candidate.quickScore?.total || 0,
+            recommendation: 'REVIEW_MANUALLY',
+            reasoning: 'AI analysis parsing failed'
+          };
+          
+          console.log(`🎯 Mapping candidate ${index + 1}:`, {
+            originalId: candidate.id,
+            originalName: candidate.name,
+            aiResult: {
+              candidateIndex: aiResult.candidateIndex,
+              overallScore: aiResult.overallScore,
+              recommendation: aiResult.recommendation
+            }
+          });
+          
+          return {
+            ...candidate, // Preserve all original candidate data
+            aiScore: aiResult.overallScore,
+            skillsMatch: aiResult.skillsMatch || 0,
+            experienceMatch: aiResult.experienceMatch || 0,
+            projectsScore: aiResult.projectsScore || 0,
+            strengths: aiResult.strengths || [],
+            weaknesses: aiResult.weaknesses || [],
+            recommendation: aiResult.recommendation || 'REVIEW_MANUALLY',
+            reasoning: aiResult.reasoning || 'No detailed analysis available',
+            keySkillsFound: aiResult.keySkillsFound || [],
+            missingCriticalSkills: aiResult.missingCriticalSkills || [],
+            specificProjects: aiResult.specificProjects || [],
+            educationMatch: aiResult.educationMatch || '',
+            experienceProgression: aiResult.experienceProgression || '',
+            quantifiableAchievements: aiResult.quantifiableAchievements || []
+          };
+        });    } catch (parseError) {
       console.error('❌ Failed to parse Gemini response:', {
         error: parseError.message,
         responseLength: text.length,
@@ -441,13 +510,20 @@ Respond ONLY with valid JSON.`;
 
 // Step 3: Format final results
 function formatResults(rankedCandidates, totalCandidates) {
+  console.log('🏁 Formatting results for candidates:', rankedCandidates.map(c => ({
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    aiScore: c.aiScore
+  })));
+  
   return rankedCandidates
     .sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0))
     .map((candidate, index) => ({
       rank: index + 1,
       candidateId: candidate.id || candidate._id,
-      name: candidate.name || 'Anonymous',
-      email: candidate.email,
+      name: candidate.name || 'Unknown Candidate', // Use the actual candidate name
+      email: candidate.email || 'No email provided', // Use the actual candidate email
       score: candidate.aiScore || candidate.quickScore?.total || 0,
       recommendation: candidate.recommendation || 'REVIEW_MANUALLY',
       
@@ -464,6 +540,10 @@ function formatResults(rankedCandidates, totalCandidates) {
       weaknesses: candidate.weaknesses || [],
       keySkillsFound: candidate.keySkillsFound || [],
       missingCriticalSkills: candidate.missingCriticalSkills || [],
+      specificProjects: candidate.specificProjects || [],
+      educationMatch: candidate.educationMatch || '',
+      experienceProgression: candidate.experienceProgression || '',
+      quantifiableAchievements: candidate.quantifiableAchievements || [],
       
       // Analysis
       reasoning: candidate.reasoning || 'Quick analysis completed',
@@ -471,7 +551,16 @@ function formatResults(rankedCandidates, totalCandidates) {
       // Metadata
       processedWith: candidate.aiScore ? 'AI' : 'QuickScore',
       appliedAt: candidate.appliedAt || candidate.createdAt,
-      resumePath: candidate.resumePath
+      resumePath: candidate.resumePath,
+      
+      // Debug info to track data flow
+      debug: {
+        originalId: candidate.id,
+        originalName: candidate.name,
+        originalEmail: candidate.email,
+        hasAiScore: !!candidate.aiScore,
+        resumeTextLength: candidate.resumeText?.length || 0
+      }
     }));
 }
 
@@ -481,6 +570,10 @@ async function extractResumeTexts(candidates) {
   
   for (const candidate of candidates) {
     let resumeText = candidate.resumeText || '';
+    
+    console.log(`🔍 Processing candidate: ${candidate.name}`);
+    console.log(`📄 Resume path: ${candidate.resumePath}`);
+    console.log(`📝 Initial resume text length: ${resumeText.length}`);
     
     // If we have a resume path and no substantial resume text, try to extract it
     if (candidate.resumePath && (!resumeText || resumeText.length < 100)) {
@@ -492,16 +585,24 @@ async function extractResumeTexts(candidates) {
         
         console.log(`📄 Extracting text from: ${candidate.resumePath} -> ${resumePath}`);
         
+        // Check if file exists
+        if (!fs.existsSync(resumePath)) {
+          throw new Error(`Resume file not found at: ${resumePath}`);
+        }
+        
         const extractedText = await PDFTextExtractor.extractFromFile(resumePath);
         resumeText = extractedText;
         
         console.log(`✅ Extracted ${extractedText.length} characters for ${candidate.name}`);
+        console.log(`📝 First 200 characters: ${extractedText.substring(0, 200)}...`);
         
       } catch (error) {
-        console.warn(`⚠️ Failed to extract resume for ${candidate.name}:`, error.message);
+        console.error(`❌ Failed to extract resume for ${candidate.name}:`, error.message);
         // Fallback to basic info
         resumeText = `${candidate.name} - Applied for position. Email: ${candidate.email || 'N/A'}. Skills: ${(candidate.skills || []).join(', ')}`;
       }
+    } else {
+      console.log(`ℹ️ Using existing resume text or no path available for ${candidate.name}`);
     }
     
     candidatesWithText.push({
