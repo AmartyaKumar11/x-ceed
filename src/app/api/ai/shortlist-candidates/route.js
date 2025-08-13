@@ -9,6 +9,15 @@ export async function POST(request) {
   console.log('🎯 AI Candidate Shortlisting API called');
   
   try {
+    // Check if Gemini API key is available
+    if (!process.env.GEMINI_API_KEY) {
+      console.error('❌ GEMINI_API_KEY not found in environment variables');
+      return NextResponse.json({ 
+        success: false, 
+        message: 'AI service not configured. Please check environment variables.' 
+      }, { status: 500 });
+    }
+    
     // Verify authentication - temporarily bypassed for testing like other APIs
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
     console.log('🔍 AI Shortlist API - Token check:', token ? 'Token received' : 'No token');
@@ -40,15 +49,34 @@ export async function POST(request) {
     }
     */
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      console.error('❌ Failed to parse request body:', parseError);
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Invalid request body. Please check your JSON format.' 
+      }, { status: 400 });
+    }
+
     const { jobId, jobTitle, jobDescription, jobRequirements, candidates } = body;
 
     console.log('📊 Shortlisting request:', {
       jobId,
       jobTitle,
       candidateCount: candidates?.length || 0,
-      requirements: jobRequirements?.length || 0
+      requirements: jobRequirements?.length || 0,
+      bodyKeys: Object.keys(body || {})
     });
+
+    // Validate required fields
+    if (!jobId || !jobTitle) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Missing required fields: jobId and jobTitle are required' 
+      }, { status: 400 });
+    }
 
     if (!candidates || candidates.length === 0) {
       return NextResponse.json({ 
@@ -92,11 +120,21 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('❌ Shortlisting error:', error);
+    console.error('❌ Shortlisting error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
+    
     return NextResponse.json({ 
       success: false, 
-      message: 'Candidate analysis failed', 
-      error: error.message 
+      message: `Candidate analysis failed: ${error.message}`, 
+      error: {
+        type: error.name || 'UnknownError',
+        message: error.message || 'An unknown error occurred',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      }
     }, { status: 500 });
   }
 }
@@ -201,34 +239,44 @@ function calculateKeywordScore(resumeText, jobTitle, jobRequirements) {
 
 // Step 2: AI analysis with Gemini
 async function analyzeWithGemini(candidates, jobTitle, jobDescription, jobRequirements) {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-  
-  const results = [];
-  
-  // Process candidates in batches of 5 for efficiency
-  for (let i = 0; i < candidates.length; i += 5) {
-    const batch = candidates.slice(i, i + 5);
+  try {
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
-    try {
-      const batchResults = await analyzeBatch(model, batch, jobTitle, jobDescription, jobRequirements);
-      results.push(...batchResults);
-    } catch (error) {
-      console.error(`❌ Batch ${i/5 + 1} failed:`, error.message);
-      // Add candidates with fallback scores
-      batch.forEach(candidate => {
-        results.push({
-          ...candidate,
-          aiScore: candidate.quickScore.total,
-          aiAnalysis: 'AI analysis failed, using quick score',
-          strengths: ['Quick analysis completed'],
-          weaknesses: ['Detailed analysis unavailable'],
-          recommendation: 'REVIEW_MANUALLY'
+    const results = [];
+    
+    // Process candidates in batches of 5 for efficiency
+    for (let i = 0; i < candidates.length; i += 5) {
+      const batch = candidates.slice(i, i + 5);
+      
+      try {
+        console.log(`🔄 Processing batch ${i/5 + 1}/${Math.ceil(candidates.length/5)}`);
+        const batchResults = await analyzeBatch(model, batch, jobTitle, jobDescription, jobRequirements);
+        results.push(...batchResults);
+      } catch (error) {
+        console.error(`❌ Batch ${i/5 + 1} failed:`, {
+          error: error.message,
+          batchSize: batch.length,
+          candidateNames: batch.map(c => c.name || 'Anonymous')
         });
-      });
+        // Add candidates with fallback scores
+        batch.forEach(candidate => {
+          results.push({
+            ...candidate,
+            aiScore: candidate.quickScore?.total || 0,
+            aiAnalysis: `AI analysis failed: ${error.message}`,
+            strengths: ['Quick analysis completed'],
+            weaknesses: ['Detailed AI analysis unavailable'],
+            recommendation: 'REVIEW_MANUALLY'
+          });
+        });
+      }
     }
+    
+    return results;
+  } catch (initError) {
+    console.error('❌ Failed to initialize Gemini model:', initError);
+    throw new Error(`AI service initialization failed: ${initError.message}`);
   }
-  
-  return results;
 }
 
 // Analyze batch of candidates with Gemini
@@ -282,46 +330,71 @@ RECOMMENDATIONS:
 
 Respond ONLY with valid JSON.`;
 
-  const result = await model.generateContent(prompt);
-  const response = await result.response;
-  const text = response.text();
-  
   try {
-    const analysis = JSON.parse(text);
+    console.log(`📤 Sending prompt to Gemini for ${candidates.length} candidates`);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
     
-    // Map AI results back to candidates
-    return candidates.map((candidate, index) => {
-      const aiResult = analysis.candidates?.find(c => c.candidateIndex === index + 1) || {
-        overallScore: candidate.quickScore?.total || 0,
-        recommendation: 'REVIEW_MANUALLY',
-        reasoning: 'AI analysis parsing failed'
-      };
+    console.log(`📥 Received response from Gemini: ${text.substring(0, 200)}...`);
+    
+    // Clean the response text (remove markdown code blocks if present)
+    let cleanText = text.trim();
+    if (cleanText.startsWith('```json')) {
+      cleanText = cleanText.replace(/```json\s*/, '').replace(/\s*```$/, '');
+    } else if (cleanText.startsWith('```')) {
+      cleanText = cleanText.replace(/```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    try {
+      const analysis = JSON.parse(cleanText);
+      console.log(`✅ Successfully parsed Gemini response`);
       
-      return {
+      // Map AI results back to candidates
+      return candidates.map((candidate, index) => {
+        const aiResult = analysis.candidates?.find(c => c.candidateIndex === index + 1) || {
+          overallScore: candidate.quickScore?.total || 0,
+          recommendation: 'REVIEW_MANUALLY',
+          reasoning: 'AI analysis parsing failed'
+        };
+        
+        return {
+          ...candidate,
+          aiScore: aiResult.overallScore,
+          skillsMatch: aiResult.skillsMatch || 0,
+          experienceMatch: aiResult.experienceMatch || 0,
+          projectsScore: aiResult.projectsScore || 0,
+          strengths: aiResult.strengths || [],
+          weaknesses: aiResult.weaknesses || [],
+          recommendation: aiResult.recommendation || 'REVIEW_MANUALLY',
+          reasoning: aiResult.reasoning || 'No detailed analysis available',
+          keySkillsFound: aiResult.keySkillsFound || [],
+          missingCriticalSkills: aiResult.missingCriticalSkills || []
+        };
+      });
+      
+    } catch (parseError) {
+      console.error('❌ Failed to parse Gemini response:', {
+        error: parseError.message,
+        responseLength: text.length,
+        responsePreview: text.substring(0, 500)
+      });
+      
+      // Fallback to quick scores
+      return candidates.map(candidate => ({
         ...candidate,
-        aiScore: aiResult.overallScore,
-        skillsMatch: aiResult.skillsMatch || 0,
-        experienceMatch: aiResult.experienceMatch || 0,
-        projectsScore: aiResult.projectsScore || 0,
-        strengths: aiResult.strengths || [],
-        weaknesses: aiResult.weaknesses || [],
-        recommendation: aiResult.recommendation || 'REVIEW_MANUALLY',
-        reasoning: aiResult.reasoning || 'No detailed analysis available',
-        keySkillsFound: aiResult.keySkillsFound || [],
-        missingCriticalSkills: aiResult.missingCriticalSkills || []
-      };
+        aiScore: candidate.quickScore?.total || 0,
+        recommendation: candidate.quickScore?.total >= 70 ? 'HIRE' : 'MAYBE',
+        reasoning: `AI parsing failed: ${parseError.message}. Using quick score analysis.`
+      }));
+    }
+  } catch (apiError) {
+    console.error('❌ Gemini API call failed:', {
+      error: apiError.message,
+      code: apiError.code,
+      status: apiError.status
     });
-    
-  } catch (parseError) {
-    console.error('❌ Failed to parse Gemini response:', parseError);
-    
-    // Fallback to quick scores
-    return candidates.map(candidate => ({
-      ...candidate,
-      aiScore: candidate.quickScore?.total || 0,
-      recommendation: candidate.quickScore?.total >= 70 ? 'HIRE' : 'MAYBE',
-      reasoning: 'AI parsing failed, using quick score analysis'
-    }));
+    throw new Error(`Gemini API failed: ${apiError.message}`);
   }
 }
 

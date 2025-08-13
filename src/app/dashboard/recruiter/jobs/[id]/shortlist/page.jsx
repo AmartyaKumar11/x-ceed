@@ -147,44 +147,117 @@ export default function AIShortlistPage() {
       }
       
       // Prepare candidates data for AI analysis
-      const candidatesForAI = candidatesList.map(candidate => ({
-        id: candidate._id,
-        name: getApplicantFullName(candidate),
-        email: getApplicantEmail(candidate),
-        skills: getApplicantSkills(candidate).map(s => s.name || s),
-        resumeText: candidate.resumeText || `${getApplicantFullName(candidate)} - Applied for ${jobData.title}`,
-        appliedAt: candidate.appliedAt || candidate.createdAt,
-        resumePath: candidate.resumeUsed || candidate.resumePath
-      }));
+      const candidatesForAI = candidatesList.map(candidate => {
+        const candidateData = {
+          id: candidate._id || candidate.id || 'unknown-id',
+          name: getApplicantFullName(candidate) || 'Unknown Candidate',
+          email: getApplicantEmail(candidate) || 'no-email@example.com',
+          skills: (getApplicantSkills(candidate) || []).map(s => s?.name || s).filter(Boolean),
+          resumeText: candidate.resumeText || `${getApplicantFullName(candidate)} - Applied for ${jobData.title}`,
+          appliedAt: candidate.appliedAt || candidate.createdAt || new Date().toISOString(),
+          resumePath: candidate.resumeUsed || candidate.resumePath || null
+        };
+        
+        // Log any potential data issues
+        if (!candidateData.id || candidateData.id === 'unknown-id') {
+          console.warn('⚠️ Candidate missing ID:', candidate);
+        }
+        if (!candidateData.name || candidateData.name === 'Unknown Candidate') {
+          console.warn('⚠️ Candidate missing name:', candidate);
+        }
+        if (candidateData.skills.length === 0) {
+          console.warn('⚠️ Candidate has no skills:', candidate);
+        }
+        
+        return candidateData;
+      }).filter(candidate => candidate.id && candidate.name); // Filter out candidates with missing essential data
 
       console.log('📤 Sending AI analysis request:', {
         jobId: jobData._id || jobData.id,
         jobTitle: jobData.title,
         candidateCount: candidatesForAI.length,
-        candidatesData: candidatesForAI
+        candidatesData: candidatesForAI.map(c => ({ id: c.id, name: c.name, skills: c.skills?.length })),
+        url: '/api/ai/shortlist-candidates',
+        jobDescription: jobData.description ? 'Present' : 'Missing',
+        jobRequirements: (jobData.requirements || []).length
       });
 
-      const response = await fetch('/api/shortlist-candidates', {
+      // Validate essential data before making API call
+      if (!jobData._id && !jobData.id) {
+        throw new Error('Job ID is missing');
+      }
+      if (!jobData.title) {
+        throw new Error('Job title is missing');
+      }
+      if (candidatesForAI.length === 0) {
+        throw new Error('No valid candidates found for analysis');
+      }
+
+      const requestBody = {
+        jobId: jobData._id || jobData.id,
+        jobTitle: jobData.title,
+        jobDescription: jobData.description || `Job posting for ${jobData.title}`,
+        jobRequirements: jobData.requirements || [],
+        candidates: candidatesForAI
+      };
+
+      console.log('📋 Request body validation:', {
+        hasJobId: !!requestBody.jobId,
+        hasJobTitle: !!requestBody.jobTitle,
+        hasJobDescription: !!requestBody.jobDescription,
+        requirementsCount: requestBody.jobRequirements.length,
+        candidatesCount: requestBody.candidates.length
+      });
+
+      const response = await fetch('/api/ai/shortlist-candidates', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          jobId: jobData._id || jobData.id,
-          jobTitle: jobData.title,
-          jobDescription: jobData.description,
-          jobRequirements: jobData.requirements || [],
-          candidates: candidatesForAI
-        })
+        body: JSON.stringify(requestBody)
       });
 
-      console.log('📊 AI API Response status:', response.status);
+      console.log('📊 AI API Response details:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        url: response.url,
+        headers: Object.fromEntries(response.headers.entries())
+      });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ AI API Error:', errorData);
-        throw new Error(errorData.message || `API request failed with status ${response.status}`);
+        let errorData = {};
+        let errorText = '';
+        
+        try {
+          const responseText = await response.text();
+          errorText = responseText;
+          console.log('📋 Raw error response:', responseText);
+          
+          // Try to parse as JSON
+          if (responseText.trim().startsWith('{')) {
+            errorData = JSON.parse(responseText);
+          }
+        } catch (parseError) {
+          console.error('❌ Failed to parse error response:', parseError);
+          errorData = { message: errorText || 'Unknown error occurred' };
+        }
+        
+        console.error('❌ AI API Error Details:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          url: response.url,
+          rawResponse: errorText
+        });
+        
+        const errorMessage = errorData.message || 
+                           errorData.error?.message || 
+                           errorText ||
+                           `API request failed with status ${response.status}: ${response.statusText}`;
+        
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -192,8 +265,14 @@ export default function AIShortlistPage() {
       setAiResults(data.data);
 
     } catch (error) {
-      console.error('❌ AI Analysis Error:', error);
-      setError(error.message);
+      console.error('❌ AI Analysis Error Details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack,
+        cause: error.cause,
+        fullError: error
+      });
+      setError(`AI Analysis failed: ${error.message}`);
     } finally {
       setAnalyzing(false);
     }
