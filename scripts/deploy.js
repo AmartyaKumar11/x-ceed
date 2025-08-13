@@ -3,11 +3,37 @@ const hre = require("hardhat");
 async function main() {
   console.log("🎓 Deploying X-CEED Learning Bets Contract to EduChain Testnet...");
 
-  // Get the contract factory
-  const XCeedLearningBets = await hre.ethers.getContractFactory("XCeedLearningBets");
+  // Get signer
+  let deployer;
+  try {
+    [deployer] = await hre.ethers.getSigners();
+    
+    if (!deployer) {
+      throw new Error("No deployer found");
+    }
+    
+    console.log("🔑 Deploying with account:", deployer.address);
+    
+    const balance = await deployer.provider.getBalance(deployer.address);
+    console.log("💰 Account balance:", hre.ethers.formatEther(balance), "EDU");
 
-  // Deploy the contract
+  } catch (error) {
+    console.error("❌ Failed to get signer:", error.message);
+    console.log("💡 Make sure your PRIVATE_KEY is set in .env file");
+    console.log("💡 For educhain network, you need EDU tokens in your wallet");
+    process.exit(1);
+  }
+
+  // Get the contract factory - use the enhanced version with partial payouts
+  const XCeedLearningBets = await hre.ethers.getContractFactory("contracts/XCeedLearningBets.sol:XCeedLearningBets", deployer);
+
+  // Deploy the contract with network gas settings
   console.log("📦 Deploying contract...");
+  
+  // Get current gas price from network
+  const gasPrice = await hre.ethers.provider.getFeeData();
+  console.log("Using gas price:", hre.ethers.formatUnits(gasPrice.gasPrice, "gwei"), "gwei");
+  
   const learningBets = await XCeedLearningBets.deploy();
 
   await learningBets.waitForDeployment();

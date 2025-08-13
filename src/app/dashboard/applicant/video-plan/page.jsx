@@ -27,6 +27,7 @@ import { Progress } from "@/components/ui/progress";
 import SmartVideoTracker from "@/components/video/SmartVideoTracker";
 import LearningBetInterface from '@/components/betting/LearningBetInterface';
 import PayoutCalculator from '@/components/betting/PayoutCalculator';
+import BettingTestingPanelSimple from '@/components/betting/BettingTestingPanelSimple';
 
 export default function VideoPlanPage() {
   const router = useRouter();
@@ -220,6 +221,27 @@ export default function VideoPlanPage() {
   const handleBetPlaced = (betData) => {
     setActiveBet(betData);
     setShowBetting(false);
+  };
+
+  // Handle test completion from testing panel
+  const handleTestComplete = (testCompletions, testPayout) => {
+    if (testCompletions && Object.keys(testCompletions).length > 0) {
+      // Mark all videos as watched
+      const videoUrls = videoPlan.videos.map(video => video.url);
+      setWatchedVideos(new Set(videoUrls));
+      
+      // Set completion data for all videos
+      setCompletionData(testCompletions);
+      
+      console.log('🧪 Test scenario completed:', {
+        completedVideos: Object.keys(testCompletions).length,
+        expectedPayout: testPayout
+      });
+    } else {
+      // Clear test data
+      setWatchedVideos(new Set());
+      setCompletionData({});
+    }
   };
 
   // Calculate overall quality score from all video completion data
@@ -538,15 +560,61 @@ export default function VideoPlanPage() {
           </div>
         )}
 
+        {/* Simple Testing Button for Development */}
+        {videoPlan && estimatedCompletionTime && activeBet && process.env.NODE_ENV === 'development' && (
+          <div className="mb-6 p-4 border-2 border-dashed border-orange-300 bg-orange-50 rounded-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-5 h-5 bg-orange-500 rounded"></div>
+              <h3 className="font-bold text-orange-800">Development Testing</h3>
+            </div>
+            <p className="text-sm text-orange-600 mb-3">
+              Current Bet: {activeBet.amount || activeBet.stakeAmount} EDU | Click to instantly complete all videos and get your bet money back (break-even test)
+            </p>
+            <button
+              onClick={() => {
+                // Create test completion data
+                const testCompletions = {};
+                videoPlan.videos.forEach((video, index) => {
+                  const videoKey = video.url || `video-${index}`;
+                  testCompletions[videoKey] = {
+                    totalWatchTime: activeBet.challengeTime * 60, // Use actual challenge time
+                    actualProgress: 100,
+                    qualityScore: 70, // Break-even quality score
+                    forceCompleted: true,
+                    devModeBreakEven: true,
+                    isEligibleForCompletion: true,
+                    completedAt: new Date().toISOString()
+                  };
+                });
+                
+                console.log('🧪 Test data created:', testCompletions);
+                console.log('💰 Expected payout:', activeBet.amount || activeBet.stakeAmount, 'EDU (break-even)');
+                
+                handleTestComplete(testCompletions, null);
+                
+                // Show success message
+                alert(`✅ Test Complete!\n\nAll ${videoPlan.videos.length} videos marked as completed.\nExpected payout: ${activeBet.amount || activeBet.stakeAmount} EDU (break-even)\n\nCheck the Payout Calculator below for details.`);
+              }}
+              className="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium"
+            >
+              🧪 Break Even Test - Complete All Videos Instantly
+            </button>
+            <div className="mt-2 text-xs text-orange-600">
+              Videos to complete: {videoPlan.videos.length} | Bet: {activeBet.amount || activeBet.stakeAmount} EDU | Timeline: {Math.round(activeBet.challengeTime / 60)}min
+            </div>
+          </div>
+        )}
+
         {/* Payout Calculator for Active Bet */}
         {activeBet && (
           <div className="mb-6">
             <PayoutCalculator
-              stakeAmount={activeBet.stakeAmount}
+              stakeAmount={activeBet.amount || activeBet.stakeAmount}
               aiEstimatedTime={estimatedCompletionTime}
               userChallengeTime={activeBet.challengeTime}
               currentQualityScore={calculateOverallQualityScore()}
               actualTime={calculateActualCompletionTime()}
+              completionData={Object.values(completionData)[0] || null}
             />
           </div>
         )}

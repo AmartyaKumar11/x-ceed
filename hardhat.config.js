@@ -1,5 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
-require("dotenv").config();
+require("dotenv").config({ path: '.env.local' });
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -20,7 +20,7 @@ module.exports = {
       url: "https://rpc.open-campus-codex.gelato.digital",
       chainId: 656476,
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      gasPrice: 1000000000, // 1 gwei (very low for EduChain)
+      gasPrice: 500000000, // 0.5 gwei (reduced from 1 gwei)
     }
   },
   etherscan: {
