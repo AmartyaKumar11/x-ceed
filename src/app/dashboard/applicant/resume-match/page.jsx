@@ -849,6 +849,8 @@ The prep plan is ready and waiting for you! 🚀`,
     setExtractedSkills(skills);
     setShowVideoSelector(true);
   };
+
+  const viewPrepPlan = () => {
     if (!job) return;
     
     const jobParam = encodeURIComponent(JSON.stringify(job));

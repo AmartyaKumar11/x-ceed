@@ -73,12 +73,17 @@ export default function PrepPlanPage() {
   const [selectedVideosForPlan, setSelectedVideosForPlan] = useState([]);
   const [totalVideoPlanDuration, setTotalVideoPlanDuration] = useState(0);
 
+  // Helper function to generate consistent jobId
+  const getJobId = (jobData) => {
+    return jobData?.id || `${jobData?.title || 'unknown'}-${jobData?.companyName || 'company'}`.replace(/\s+/g, '-').toLowerCase();
+  };
+
   // Load existing video plan on component mount
   useEffect(() => {
     const loadExistingVideoPlan = async () => {
       try {
         const userId = localStorage.getItem('userId') || 'temp-user-id';
-        const jobId = jobData?.id || 'temp-job-id';
+        const jobId = getJobId(jobData);
         
         // Try to load from backend first
         const response = await fetch(`/api/video-plans/custom?userId=${userId}&jobId=${jobId}`);
@@ -127,7 +132,7 @@ export default function PrepPlanPage() {
           setJobData(decodedJob);
           
           // Check if we have cached parsed skills for this job
-          const jobId = decodedJob.id || `${decodedJob.title}-${decodedJob.companyName}`.replace(/\s+/g, '-').toLowerCase();
+          const jobId = getJobId(decodedJob);
           const cachedSkills = getCachedParsedSkills(jobId);
           
           if (cachedSkills) {
@@ -144,8 +149,9 @@ export default function PrepPlanPage() {
           setLoading(false);
         }
       } else {
-        setError('No job data provided');
-        setLoading(false);
+        console.log('🔄 No job data provided, redirecting to saved jobs');
+        router.push('/dashboard/applicant/saved-jobs');
+        return;
       }
     };
 
@@ -1062,9 +1068,11 @@ export default function PrepPlanPage() {
       // Get user ID (you'll need to implement getUserId based on your auth system)
       const userId = localStorage.getItem('userId') || 'temp-user-id'; // Replace with actual user ID
       
+      const jobId = getJobId(jobData);
+      
       console.log('🚀 Saving video plan to backend...', {
         userId,
-        jobId: jobData?.id || 'temp-job-id',
+        jobId,
         videosCount: selectedVideosForPlan.length,
         totalDuration: totalVideoPlanDuration
       });
@@ -1077,11 +1085,12 @@ export default function PrepPlanPage() {
         },
         body: JSON.stringify({
           userId,
-          jobId: jobData?.id || 'temp-job-id',
+          jobId,
           videos: selectedVideosForPlan,
           totalDuration: totalVideoPlanDuration,
           jobTitle: jobData?.title,
-          companyName: jobData?.companyName
+          companyName: jobData?.companyName,
+          jobData: jobData // Include complete job data for navigation back
         })
       });
 
@@ -1102,6 +1111,7 @@ export default function PrepPlanPage() {
         totalDuration: totalVideoPlanDuration,
         jobTitle: jobData?.title,
         companyName: jobData?.companyName,
+        jobId: jobId, // Include jobId for proper isolation
         planId: result.planId,
         createdAt: new Date().toISOString()
       }));
@@ -1118,6 +1128,7 @@ export default function PrepPlanPage() {
         totalDuration: totalVideoPlanDuration,
         jobTitle: jobData?.title,
         companyName: jobData?.companyName,
+        jobId: jobId, // Include jobId for proper isolation
         createdAt: new Date().toISOString()
       }));
       

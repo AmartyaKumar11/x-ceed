@@ -8,7 +8,7 @@ import { skillFilter } from '../../../lib/skillFilter';
 async function generateDetailedPrepPlan(jobData, userProfile, duration = 3, resumeAnalysis = null) {
   const OPENROUTER_API_KEY = process.env.OPENROUTER_PREP_PLAN_API_KEY;
 
-  console.log('🔑 OpenRouter API Key check:', OPENROUTER_API_KEY ? 'Available' : 'Missing');
+  console.log('🔑 OpenRouter API Key check:', OPENROUTER_API_KEY ? `Available (${OPENROUTER_API_KEY.substring(0, 15)}...)` : 'Missing');
   console.log('📊 Generation parameters:', {
     jobTitle: jobData.jobTitle,
     duration,
@@ -300,7 +300,11 @@ Return this exact JSON structure with ${durationWeeks}-week timeline adaptation:
             break;
           } else {
             const errorText = await response.text();
-            console.warn(`⚠️ ${model} failed:`, errorText);
+            console.warn(`⚠️ ${model} failed with status ${response.status}:`, errorText);
+            if (response.status === 401) {
+              console.error('🚨 AUTHENTICATION ERROR: OpenRouter API key is invalid or user not found');
+              console.error('💡 Please check your OPENROUTER_PREP_PLAN_API_KEY in .env.local');
+            }
             lastError = `${model}: ${response.status} - ${errorText}`;
             response = null;
           }
@@ -427,12 +431,36 @@ Return this exact JSON structure with ${durationWeeks}-week timeline adaptation:
     // Fallback to keyword-based analysis
     console.log('🔍 Using keyword-based gap analysis for fallback');
 
-    // Extract skills mentioned in job description
+    // Extract skills mentioned in job description - comprehensive list
     const jobSkillKeywords = [
-      'python', 'javascript', 'react', 'node', 'sql', 'mongodb', 'aws', 'docker',
-      'kubernetes', 'machine learning', 'data science', 'tensorflow', 'pytorch',
-      'pandas', 'numpy', 'scikit-learn', 'api', 'rest', 'graphql', 'microservices',
-      'redis', 'postgresql', 'mysql', 'git', 'ci/cd', 'jenkins', 'terraform'
+      // Frontend Technologies
+      'react', 'vue', 'angular', 'javascript', 'typescript', 'html', 'css', 'sass', 'scss',
+      'bootstrap', 'tailwind', 'jquery', 'webpack', 'vite', 'next.js', 'nuxt.js',
+      
+      // Backend Technologies  
+      'node.js', 'node', 'express', 'python', 'django', 'flask', 'java', 'spring',
+      'php', 'laravel', 'ruby', 'rails', 'c#', '.net', 'go', 'rust',
+      
+      // Databases
+      'mongodb', 'mysql', 'postgresql', 'sql', 'redis', 'elasticsearch', 'sqlite',
+      'oracle', 'cassandra', 'dynamodb', 'firebase',
+      
+      // Cloud & DevOps
+      'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'jenkins', 'ci/cd', 'terraform',
+      'ansible', 'nginx', 'apache', 'linux', 'ubuntu',
+      
+      // APIs & Architecture
+      'rest', 'restful', 'api', 'graphql', 'microservices', 'websockets', 'grpc',
+      
+      // Data & AI
+      'machine learning', 'data science', 'tensorflow', 'pytorch', 'pandas', 'numpy',
+      'scikit-learn', 'jupyter', 'r', 'matlab', 'spark', 'hadoop',
+      
+      // Mobile
+      'react native', 'flutter', 'ios', 'android', 'swift', 'kotlin',
+      
+      // Tools & Others
+      'git', 'github', 'gitlab', 'jira', 'agile', 'scrum', 'testing', 'jest', 'cypress'
     ];
 
     const candidateSkillsLower = candidateSkills.map(skill => skill.toLowerCase());
@@ -452,6 +480,36 @@ Return this exact JSON structure with ${durationWeeks}-week timeline adaptation:
       const reqLower = req.toLowerCase();
       if (!candidateSkillsLower.some(skill => skill.toLowerCase().includes(reqLower))) {
         missingSkills.push(req);
+      }
+    });
+
+    // Also extract skills from job title and description using more advanced parsing
+    const jobText = `${jobData.jobTitle} ${jobData.jobDescriptionText || ''}`.toLowerCase();
+    
+    // Look for common skill patterns in job descriptions
+    const skillPatterns = [
+      /experience with ([a-zA-Z\.\s]+)/gi,
+      /knowledge of ([a-zA-Z\.\s]+)/gi,
+      /proficient in ([a-zA-Z\.\s]+)/gi,
+      /familiar with ([a-zA-Z\.\s]+)/gi,
+      /using ([a-zA-Z\.\s]+)/gi,
+      /working with ([a-zA-Z\.\s]+)/gi
+    ];
+
+    skillPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(jobText)) !== null) {
+        const extractedSkills = match[1].split(/[,&and]+/).map(s => s.trim());
+        extractedSkills.forEach(skill => {
+          if (skill.length > 2 && skill.length < 30) { // Reasonable skill name length
+            const skillLower = skill.toLowerCase();
+            if (!candidateSkillsLower.some(candidateSkill => candidateSkill.includes(skillLower))) {
+              if (!missingSkills.some(ms => ms.toLowerCase() === skillLower)) {
+                missingSkills.push(skill);
+              }
+            }
+          }
+        });
       }
     });
   }

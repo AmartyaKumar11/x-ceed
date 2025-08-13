@@ -32,6 +32,11 @@ import BettingTestingPanelSimple from '@/components/betting/BettingTestingPanelS
 export default function VideoPlanPage() {
   const router = useRouter();
   const [videoPlan, setVideoPlan] = useState(null);
+
+  // Helper function to generate consistent jobId (same as prep-plan page)
+  const getJobId = (plan) => {
+    return plan?.jobId || `${plan?.jobTitle || 'unknown'}-${plan?.companyName || 'company'}`.replace(/\s+/g, '-').toLowerCase();
+  };
   const [watchedVideos, setWatchedVideos] = useState(new Set());
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +64,7 @@ export default function VideoPlanPage() {
 
         // Then try to load from backend
         const userId = localStorage.getItem('userId') || 'temp-user-id'; // Replace with actual user ID
-        const jobId = plan?.jobId || 'temp-job-id'; // Get from plan or URL params
+        const jobId = getJobId(plan);
         
         try {
           const response = await fetch(`/api/video-plans/custom?userId=${userId}&jobId=${jobId}`);
