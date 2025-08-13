@@ -113,6 +113,12 @@ export default function AIShortlistPage() {
         const candidatesList = candidatesData.applications || candidatesData.data || [];
         setCandidates(candidatesList);
         console.log('✅ Candidates fetched:', candidatesList.length);
+        console.log('🔍 Sample candidate data:', JSON.stringify({
+          firstCandidate: candidatesList[0],
+          candidateStructure: candidatesList[0] ? Object.keys(candidatesList[0]) : [],
+          applicantData: candidatesList[0]?.applicant,
+          applicantStructure: candidatesList[0]?.applicant ? Object.keys(candidatesList[0]?.applicant) : []
+        }, null, 2));
 
         // Start AI analysis if we have candidates
         if (candidatesList.length > 0) {
@@ -261,7 +267,16 @@ export default function AIShortlistPage() {
       }
 
       const data = await response.json();
-      console.log('✅ AI Analysis completed:', data);
+      console.log('✅ AI Analysis completed:', JSON.stringify(data, null, 2));
+      console.log('🔍 AI Results structure:', JSON.stringify({
+        hasData: !!data.data,
+        hasTopCandidates: !!data.data?.topCandidates,
+        hasAllRanked: !!data.data?.allRanked,
+        topCandidatesCount: data.data?.topCandidates?.length || 0,
+        allRankedCount: data.data?.allRanked?.length || 0,
+        sampleTopCandidate: data.data?.topCandidates?.[0],
+        sampleAllRanked: data.data?.allRanked?.[0]
+      }, null, 2));
       setAiResults(data.data);
 
     } catch (error) {
@@ -455,17 +470,44 @@ export default function AIShortlistPage() {
 
   // Merge AI results with candidate data
   const enrichedCandidates = candidates.map(candidate => {
-    const aiResult = aiResults?.topCandidates?.find(ai => ai.candidateId === candidate._id);
+    // Look for AI result in both topCandidates and allRanked arrays
+    const aiResult = aiResults?.allRanked?.find(ai => 
+      ai.candidateId === candidate._id || 
+      ai.candidateId === candidate.id ||
+      ai.id === candidate._id ||
+      ai.id === candidate.id
+    ) || aiResults?.topCandidates?.find(ai => 
+      ai.candidateId === candidate._id || 
+      ai.candidateId === candidate.id ||
+      ai.id === candidate._id ||
+      ai.id === candidate.id
+    );
+
+    // Debug logging for first candidate
+    if (candidate === candidates[0]) {
+      console.log('🔍 Enriching first candidate:', JSON.stringify({
+        candidateId: candidate._id || candidate.id,
+        candidateName: candidate?.applicant?.firstName || candidate?.name,
+        candidateFullData: candidate,
+        hasAiResults: !!aiResults,
+        aiResultsKeys: aiResults ? Object.keys(aiResults) : [],
+        aiResultsData: aiResults,
+        foundAiResult: !!aiResult,
+        aiResultData: aiResult
+      }, null, 2));
+    }
+
     return {
       ...candidate,
       aiScore: aiResult?.score || 0,
-      aiRecommendation: aiResult?.recommendation || 'REVIEW_MANUALLY',
+      aiRecommendation: aiResult?.recommendation || 'PENDING',
       aiStrengths: aiResult?.strengths || [],
       aiWeaknesses: aiResult?.weaknesses || [],
-      aiReasoning: aiResult?.reasoning || 'No AI analysis available',
-      aiBreakdown: aiResult?.breakdown || { skills: 0, experience: 0, projects: 0 }
+      aiReasoning: aiResult?.reasoning || 'AI analysis in progress...',
+      aiBreakdown: aiResult?.breakdown || { skills: 0, experience: 0, projects: 0, overall: 0 },
+      aiRank: aiResult?.rank || 999
     };
-  });
+  }).sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0)); // Sort by AI score descending
 
   const filteredCandidates = enrichedCandidates.filter(candidate => {
     if (filter === 'all') return true;

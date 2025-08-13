@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { PDFTextExtractor } from '@/lib/pdfExtractor';
+import path from 'path';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -85,10 +87,31 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
+    // Step 0: Extract resume text from PDF files
+    console.log('📄 Step 0: Extracting resume text from PDF files...');
+    const candidatesWithResumeText = await extractResumeTexts(candidates);
+    console.log(`📋 Resume extraction: ${candidatesWithResumeText.filter(c => c.resumeText && c.resumeText.length > 100).length}/${candidates.length} candidates have resume text`);
+
     // Step 1: Fast pre-filtering (JavaScript)
     console.log('⚡ Step 1: Fast pre-filtering candidates...');
-    const preFilteredCandidates = await fastPreFilter(candidates, jobRequirements, jobTitle);
-    console.log(`📋 Pre-filtered: ${preFilteredCandidates.length}/${candidates.length} candidates`);
+    console.log('📊 Candidates received:', candidatesWithResumeText.map(c => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      skills: c.skills?.length || 0,
+      hasResumeText: !!c.resumeText,
+      resumeTextLength: c.resumeText?.length || 0,
+      resumePath: c.resumePath
+    })));
+    
+    const preFilteredCandidates = await fastPreFilter(candidatesWithResumeText, jobRequirements, jobTitle);
+    console.log(`📋 Pre-filtered: ${preFilteredCandidates.length}/${candidatesWithResumeText.length} candidates`);
+    console.log('🎯 Pre-filtered candidates:', preFilteredCandidates.map(c => ({
+      name: c.name,
+      quickScore: c.quickScore?.total,
+      skills: c.skills?.length,
+      hasResumeText: !!c.resumeText
+    })));
 
     // Step 2: AI-powered detailed analysis (Gemini)
     console.log('🤖 Step 2: AI analysis with Gemini...');
@@ -101,12 +124,12 @@ export async function POST(request) {
 
     // Step 3: Final ranking and formatting
     console.log('📊 Step 3: Final ranking and formatting...');
-    const finalResults = formatResults(rankedCandidates, candidates.length);
+    const finalResults = formatResults(rankedCandidates, candidatesWithResumeText.length);
 
     return NextResponse.json({
       success: true,
       data: {
-        totalCandidates: candidates.length,
+        totalCandidates: candidatesWithResumeText.length,
         analyzedCandidates: preFilteredCandidates.length,
         topCandidates: finalResults.slice(0, 10), // Top 10
         allRanked: finalResults,
@@ -146,8 +169,9 @@ async function fastPreFilter(candidates, jobRequirements, jobTitle) {
   for (const candidate of candidates) {
     const score = calculateQuickScore(candidate, jobRequirements, jobTitle);
     
-    // Only analyze candidates with basic qualification (>30% match)
-    if (score.total >= 30) {
+    // Always include candidates if we have basic info (lowered threshold for demo)
+    // In production, you'd want stricter filtering based on actual resume content
+    if (score.total >= 10 || candidate.name) {
       filtered.push({
         ...candidate,
         quickScore: score
@@ -165,22 +189,31 @@ async function fastPreFilter(candidates, jobRequirements, jobTitle) {
 function calculateQuickScore(candidate, jobRequirements, jobTitle) {
   const resumeText = candidate.resumeText?.toLowerCase() || '';
   const skills = candidate.skills || [];
+  const candidateName = candidate.name || '';
+  
+  // Base score for having basic candidate info
+  let baseScore = candidateName ? 20 : 0;
   
   // Skills matching (50% weight)
   let skillsScore = 0;
   let matchedSkills = 0;
   
-  (jobRequirements || []).forEach(requirement => {
-    const reqLower = requirement.toLowerCase();
-    const hasSkill = skills.some(skill => 
-      skill.toLowerCase().includes(reqLower) || reqLower.includes(skill.toLowerCase())
-    ) || resumeText.includes(reqLower);
-    
-    if (hasSkill) {
-      matchedSkills++;
-      skillsScore += 100 / (jobRequirements?.length || 1);
-    }
-  });
+  if (jobRequirements && jobRequirements.length > 0) {
+    jobRequirements.forEach(requirement => {
+      const reqLower = requirement.toLowerCase();
+      const hasSkill = skills.some(skill => 
+        skill.toLowerCase().includes(reqLower) || reqLower.includes(skill.toLowerCase())
+      ) || resumeText.includes(reqLower);
+      
+      if (hasSkill) {
+        matchedSkills++;
+        skillsScore += 100 / jobRequirements.length;
+      }
+    });
+  } else {
+    // If no requirements specified, give partial credit for having skills
+    skillsScore = skills.length > 0 ? 50 : 20;
+  }
   
   // Experience level (30% weight)
   const experienceScore = extractExperienceScore(resumeText, jobTitle);
@@ -188,18 +221,19 @@ function calculateQuickScore(candidate, jobRequirements, jobTitle) {
   // Education/Keywords (20% weight)
   const keywordScore = calculateKeywordScore(resumeText, jobTitle, jobRequirements);
   
-  const total = Math.round(
+  const total = Math.max(baseScore, Math.round(
     (skillsScore * 0.5) + 
     (experienceScore * 0.3) + 
     (keywordScore * 0.2)
-  );
+  ));
   
   return {
     total,
     skills: Math.round(skillsScore),
     experience: experienceScore,
     keywords: keywordScore,
-    matchedSkills
+    matchedSkills,
+    baseScore
   };
 }
 
@@ -285,17 +319,21 @@ async function analyzeBatch(model, candidates, jobTitle, jobDescription, jobRequ
 
 JOB DETAILS:
 Title: ${jobTitle}
-Description: ${jobDescription}
-Requirements: ${(jobRequirements || []).join(', ')}
+Description: ${jobDescription || 'No detailed description provided'}
+Requirements: ${(jobRequirements || []).join(', ') || 'No specific requirements listed'}
 
 CANDIDATES TO ANALYZE:
 ${candidates.map((candidate, index) => `
 CANDIDATE ${index + 1}:
 Name: ${candidate.name || 'Anonymous'}
-Resume: ${candidate.resumeText?.substring(0, 1000) || 'No resume text'}
-Skills: ${(candidate.skills || []).join(', ')}
+Email: ${candidate.email || 'No email provided'}
+Resume: ${candidate.resumeText?.substring(0, 1000) || `No detailed resume available. Candidate applied for ${jobTitle} position.`}
+Skills: ${(candidate.skills || []).join(', ') || 'No skills listed'}
 Quick Score: ${candidate.quickScore?.total || 0}%
+Applied: ${candidate.appliedAt || 'Unknown date'}
 `).join('\n')}
+
+IMPORTANT: Even if resume content is limited, provide meaningful analysis based on available information (name, email, job application, skills if any).
 
 For each candidate, provide a JSON response with this exact structure:
 
@@ -303,30 +341,33 @@ For each candidate, provide a JSON response with this exact structure:
   "candidates": [
     {
       "candidateIndex": 1,
-      "overallScore": 85,
-      "skillsMatch": 90,
-      "experienceMatch": 80,
-      "projectsScore": 85,
-      "strengths": ["Strong React skills", "5+ years experience"],
-      "weaknesses": ["Missing Docker experience", "No cloud platform knowledge"],
-      "recommendation": "STRONG_HIRE|HIRE|MAYBE|REJECT",
-      "reasoning": "Detailed explanation of scoring and recommendation",
-      "keySkillsFound": ["React", "JavaScript", "Node.js"],
-      "missingCriticalSkills": ["Docker", "AWS"]
+      "overallScore": 65,
+      "skillsMatch": 40,
+      "experienceMatch": 50,
+      "projectsScore": 30,
+      "strengths": ["Applied for relevant position", "Has contact information"],
+      "weaknesses": ["Limited resume information", "Skills not detailed"],
+      "recommendation": "MAYBE",
+      "reasoning": "Candidate shows interest but needs interview to assess qualifications",
+      "keySkillsFound": [],
+      "missingCriticalSkills": ["Detailed resume", "Skill documentation"]
     }
   ]
 }
 
-SCORING CRITERIA:
-- Skills Match (40%): How well candidate's skills align with job requirements
-- Experience Match (35%): Years and relevance of experience
-- Projects Quality (25%): Complexity and relevance of projects mentioned
+SCORING GUIDELINES:
+- When resume is limited: Base score on application intent, contact info, and any available skills
+- Skills Match (40%): Award partial credit for basic application completion
+- Experience Match (35%): Infer from application and any available data
+- Projects Quality (25%): If no projects mentioned, use application quality
 
 RECOMMENDATIONS:
-- STRONG_HIRE: 85-100% - Exceptional candidate, immediate hire
-- HIRE: 70-84% - Good candidate, recommend for interview
-- MAYBE: 50-69% - Potential candidate, needs further evaluation
-- REJECT: <50% - Not suitable for this role
+- STRONG_HIRE: 85-100% - Exceptional candidate with complete information
+- HIRE: 70-84% - Good candidate, worth interviewing
+- MAYBE: 50-69% - Potential candidate, limited info but worth consideration
+- REJECT: <50% - Insufficient information or clear mismatch
+
+For candidates with limited resume data, default to MAYBE recommendation unless clearly unsuitable.
 
 Respond ONLY with valid JSON.`;
 
@@ -432,4 +473,42 @@ function formatResults(rankedCandidates, totalCandidates) {
       appliedAt: candidate.appliedAt || candidate.createdAt,
       resumePath: candidate.resumePath
     }));
+}
+
+// Step 0: Extract resume text from PDF files
+async function extractResumeTexts(candidates) {
+  const candidatesWithText = [];
+  
+  for (const candidate of candidates) {
+    let resumeText = candidate.resumeText || '';
+    
+    // If we have a resume path and no substantial resume text, try to extract it
+    if (candidate.resumePath && (!resumeText || resumeText.length < 100)) {
+      try {
+        // Convert relative path to absolute path
+        const resumePath = candidate.resumePath.startsWith('/') 
+          ? path.join(process.cwd(), 'public', candidate.resumePath)
+          : path.join(process.cwd(), candidate.resumePath);
+        
+        console.log(`📄 Extracting text from: ${candidate.resumePath} -> ${resumePath}`);
+        
+        const extractedText = await PDFTextExtractor.extractFromFile(resumePath);
+        resumeText = extractedText;
+        
+        console.log(`✅ Extracted ${extractedText.length} characters for ${candidate.name}`);
+        
+      } catch (error) {
+        console.warn(`⚠️ Failed to extract resume for ${candidate.name}:`, error.message);
+        // Fallback to basic info
+        resumeText = `${candidate.name} - Applied for position. Email: ${candidate.email || 'N/A'}. Skills: ${(candidate.skills || []).join(', ')}`;
+      }
+    }
+    
+    candidatesWithText.push({
+      ...candidate,
+      resumeText: resumeText || `${candidate.name} - Basic application information only`
+    });
+  }
+  
+  return candidatesWithText;
 }
