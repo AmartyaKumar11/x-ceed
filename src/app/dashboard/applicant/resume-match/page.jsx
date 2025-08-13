@@ -979,46 +979,94 @@ The prep plan is ready and waiting for you! 🚀`,
                       </CardContent>
                     </Card>
 
-                    {/* Key Strengths */}
-                    <Card className="border border-border rounded-lg shadow-md bg-card">
-                      <CardHeader className="pb-4">
-                        <CardTitle className="text-xl flex items-center gap-3">
-                          <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                            <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          Key Strengths
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="pt-0">                        <div className="space-y-3">
-                          {ragAnalysis.structuredAnalysis.keyStrengths?.map((strength, index) => (
-                            <div key={index} className="flex items-start gap-3 p-3 rounded-lg border bg-muted/30 border-border">
-                              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <div className="text-sm font-medium text-foreground">
-                                  {typeof strength === 'object' ? (strength.title || strength.strength) : strength}
-                                </div>
-                                {typeof strength === 'object' && (strength.description || strength.evidence) && (
-                                  <div className="text-xs text-muted-foreground mt-1">
-                                    {strength.description || strength.evidence}
-                                  </div>
-                                )}
-                                {typeof strength === 'object' && strength.relevance && (
-                                  <div className="text-xs mt-1">
-                                    <span className={`px-2 py-1 rounded-full text-xs ${
-                                      strength.relevance === 'High' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                                      strength.relevance === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
-                                      'bg-gray-100 text-gray-700 dark:bg-gray-900 dark:text-gray-300'
-                                    }`}>
-                                      {strength.relevance} Relevance
-                                    </span>
-                                  </div>
+                    {/* Quick Gap Summary - Only show if there are missing skills */}
+                    {ragAnalysis.structuredAnalysis.missingSkills?.length > 0 && (
+                      <Card className="border-l-4 border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/30 shadow-md">
+                        <CardContent className="pt-6">
+                          <div className="flex items-start gap-3">
+                            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                              <AlertCircle className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-orange-800 dark:text-orange-200 mb-2">
+                                🎯 Focus Areas to Improve Your Match
+                              </h3>
+                              <p className="text-orange-700 dark:text-orange-300 text-sm mb-3">
+                                You're missing <strong>{ragAnalysis.structuredAnalysis.missingSkills.length} key skills</strong> that this employer is looking for. 
+                                Developing these skills could significantly boost your chances!
+                              </p>
+                              <div className="flex flex-wrap gap-2">
+                                {ragAnalysis.structuredAnalysis.missingSkills.slice(0, 4).map((skill, index) => (
+                                  <Badge key={index} variant="outline" className="border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/50">
+                                    {skill}
+                                  </Badge>
+                                ))}
+                                {ragAnalysis.structuredAnalysis.missingSkills.length > 4 && (
+                                  <Badge variant="outline" className="border-orange-300 text-orange-700 dark:border-orange-700 dark:text-orange-300 bg-orange-100 dark:bg-orange-900/50">
+                                    +{ragAnalysis.structuredAnalysis.missingSkills.length - 4} more
+                                  </Badge>
                                 )}
                               </div>
                             </div>
-                          )) || <p className="text-muted-foreground">No strengths identified</p>}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+
+
+                    {/* Missing Skills - Prominent Section */}
+                    {ragAnalysis.structuredAnalysis.missingSkills?.length > 0 && (
+                      <Card className="border-2 border-red-200 dark:border-red-800 rounded-lg shadow-lg bg-red-50/50 dark:bg-red-950/30">
+                        <CardHeader className="pb-4">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-xl flex items-center gap-3">
+                              <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+                                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                              </div>
+                              Skills You Need to Develop
+                            </CardTitle>
+                            <Badge variant="destructive" className="bg-red-600 text-white">
+                              {ragAnalysis.structuredAnalysis.missingSkills.length} Skills Missing
+                            </Badge>
+                          </div>
+                          <CardDescription className="text-red-700 dark:text-red-300 font-medium">
+                            These skills are required for the job but missing from your resume. Focus on these to improve your chances!
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="space-y-3">
+                            {ragAnalysis.structuredAnalysis.missingSkills.map((skill, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 rounded-lg border-2 border-red-200 dark:border-red-800 bg-white dark:bg-red-950/50">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center">
+                                    <span className="text-red-600 dark:text-red-400 font-bold text-sm">{index + 1}</span>
+                                  </div>
+                                  <div>
+                                    <div className="font-semibold text-red-800 dark:text-red-200">{skill}</div>
+                                    <div className="text-xs text-red-600 dark:text-red-400">Required by employer</div>
+                                  </div>
+                                </div>
+                                <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/30">
+                                  Priority
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 p-4 bg-red-100 dark:bg-red-900/50 rounded-lg border border-red-200 dark:border-red-800">
+                            <div className="flex items-start gap-2">
+                              <Lightbulb className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                              <div>
+                                <div className="font-semibold text-red-800 dark:text-red-200 text-sm">💡 Action Needed</div>
+                                <div className="text-red-700 dark:text-red-300 text-sm mt-1">
+                                  Consider learning these skills through online courses, projects, or certifications to strengthen your application.
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
 
                     {/* Skills Analysis Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1029,15 +1077,18 @@ The prep plan is ready and waiting for you! 🚀`,
                             <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
                               <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                             </div>
-                            Matching Skills
+                            Your Matching Skills
                           </CardTitle>
+                          <CardDescription>
+                            Skills you have that match the job requirements
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="space-y-2">
                             {ragAnalysis.structuredAnalysis.matchingSkills?.length > 0 ? (
                               ragAnalysis.structuredAnalysis.matchingSkills.map((skill, index) => (
                                 <Badge key={index} variant="secondary" className="bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 mr-2 mb-2">
-                                  {skill}
+                                  ✓ {skill}
                                 </Badge>
                               ))
                             ) : (
@@ -1047,27 +1098,35 @@ The prep plan is ready and waiting for you! 🚀`,
                         </CardContent>
                       </Card>
 
-                      {/* Missing Skills */}
+                      {/* Skills to Improve */}
                       <Card className="border border-border rounded-lg shadow-md bg-card">
                         <CardHeader className="pb-4">
                           <CardTitle className="text-lg flex items-center gap-3">
-                            <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                              <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            <div className="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
+                              <GraduationCap className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
                             </div>
-                            Missing Skills
+                            Skills to Advance
                           </CardTitle>
+                          <CardDescription>
+                            Skills you have but could strengthen for this role
+                          </CardDescription>
                         </CardHeader>
                         <CardContent className="pt-0">
                           <div className="space-y-2">
-                            {ragAnalysis.structuredAnalysis.missingSkills?.length > 0 ? 
-                              ragAnalysis.structuredAnalysis.missingSkills.map((skill, index) => (
-                                <Badge key={index} variant="outline" className="border-red-200 text-red-700 dark:border-red-800 dark:text-red-300 mr-2 mb-2">
-                                  {skill}
-                                </Badge>                              )) :                              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/20 border-border">
+                            {ragAnalysis.structuredAnalysis.skillsToImprove?.length > 0 ? (
+                              ragAnalysis.structuredAnalysis.skillsToImprove.map((skill, index) => (
+                                <Badge key={index} variant="outline" className="border-yellow-200 text-yellow-700 dark:border-yellow-800 dark:text-yellow-300 mr-2 mb-2">
+                                  📈 {skill}
+                                </Badge>
+                              ))
+                            ) : ragAnalysis.structuredAnalysis.missingSkills?.length === 0 ? (
+                              <div className="flex items-center gap-2 p-3 rounded-lg border bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
                                 <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                <span className="text-sm text-foreground">All required skills are present!</span>
+                                <span className="text-sm text-green-700 dark:text-green-300">Great! All skills are well-matched.</span>
                               </div>
-                            }
+                            ) : (
+                              <p className="text-muted-foreground text-sm">Focus on missing skills first</p>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
