@@ -1,237 +1,362 @@
 import { NextResponse } from 'next/server';
 import { verifyToken } from '@/lib/auth';
-import { MongoClient, ObjectId } from 'mongodb';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PDFTextExtractor } from '@/lib/pdfExtractor';
-import fs from 'fs';
-import path from 'path';
 
 // Initialize Gemini AI
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function POST(request) {
-  console.log('🤖 AI Candidate Shortlisting API called');
-    try {
-    // Verify authentication - temporarily bypassed for testing
+  console.log('🎯 AI Candidate Shortlisting API called');
+  
+  try {
+    // Verify authentication - temporarily bypassed for testing like other APIs
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    console.log('🔍 AI Shortlist API - Token check:', token ? 'Token received' : 'No token');
     
-    // For testing, create a fake decoded user
+    // For testing, create a fake decoded user (same as resume-rag-python API)
     const decoded = { userId: 'test-user-id' };
     
     /* Original auth code - temporarily disabled for testing
     if (!token) {
+      console.error('❌ No token provided');
       return NextResponse.json({ success: false, message: 'Authentication required' }, { status: 401 });
     }
 
-    const decoded = verifyToken(token);
+    let decoded;
+    try {
+      decoded = verifyToken(token);
+      console.log('✅ Token verified successfully');
+    } catch (tokenError) {
+      console.error('❌ Token verification failed:', tokenError.message);
+      return NextResponse.json({ 
+        success: false, 
+        message: `Token verification failed: ${tokenError.message}` 
+      }, { status: 401 });
+    }
+
     if (!decoded || !decoded.userId) {
-      return NextResponse.json({ success: false, message: 'Invalid token' }, { status: 401 });
+      console.error('❌ Invalid token payload:', decoded);
+      return NextResponse.json({ success: false, message: 'Invalid token payload' }, { status: 401 });
     }
     */
 
     const body = await request.json();
-    const { jobId } = body;
+    const { jobId, jobTitle, jobDescription, jobRequirements, candidates } = body;
 
-    if (!jobId) {
-      return NextResponse.json({ success: false, message: 'Job ID is required' }, { status: 400 });
+    console.log('📊 Shortlisting request:', {
+      jobId,
+      jobTitle,
+      candidateCount: candidates?.length || 0,
+      requirements: jobRequirements?.length || 0
+    });
+
+    if (!candidates || candidates.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'No candidates provided for analysis' 
+      }, { status: 400 });
     }
 
-    // Connect to MongoDB
-    const client = new MongoClient(process.env.MONGODB_URI);
-    await client.connect();
-    const db = client.db('x-ceed-db');
+    // Step 1: Fast pre-filtering (JavaScript)
+    console.log('⚡ Step 1: Fast pre-filtering candidates...');
+    const preFilteredCandidates = await fastPreFilter(candidates, jobRequirements, jobTitle);
+    console.log(`📋 Pre-filtered: ${preFilteredCandidates.length}/${candidates.length} candidates`);
 
-    try {      // Get job details
-      const job = await db.collection('jobs').findOne({ _id: new ObjectId(jobId) });
-      if (!job) {
-        return NextResponse.json({ success: false, message: 'Job not found' }, { status: 404 });
-      }
+    // Step 2: AI-powered detailed analysis (Gemini)
+    console.log('🤖 Step 2: AI analysis with Gemini...');
+    const rankedCandidates = await analyzeWithGemini(
+      preFilteredCandidates, 
+      jobTitle, 
+      jobDescription, 
+      jobRequirements
+    );
 
-      // Get all applications for this job
-      const applications = await db.collection('applications').find({ 
-        jobId: jobId,
-        status: { $in: ['pending', 'under_review', 'shortlisted'] }
-      }).toArray();
+    // Step 3: Final ranking and formatting
+    console.log('📊 Step 3: Final ranking and formatting...');
+    const finalResults = formatResults(rankedCandidates, candidates.length);
 
-      if (applications.length === 0) {
-        return NextResponse.json({
-          success: true,
-          data: {
-            shortlist: [],
-            totalCandidates: 0,
-            criteria: ['No applications found'],
-            summary: 'No candidates have applied for this position yet.'
-          }
-        });
-      }
-
-      console.log(`📊 Analyzing ${applications.length} candidates for job: ${job.title}`);
-
-      // Analyze each candidate
-      const candidateAnalyses = await Promise.all(
-        applications.map(async (application) => {
-          try {
-            // Extract resume text
-            let resumeText = '';
-            if (application.resumeFilename) {
-              const resumePath = path.join(process.cwd(), 'public', 'uploads', 'temp-resumes', application.resumeFilename);
-              if (fs.existsSync(resumePath)) {
-                resumeText = await PDFTextExtractor.extractFromFile(resumePath);
-              }
-            }
-
-            // If no resume text, use fallback
-            if (!resumeText) {
-              resumeText = `Candidate: ${application.name}
-Email: ${application.email}
-Phone: ${application.phone || 'Not provided'}
-Cover Letter: ${application.coverLetter || 'Not provided'}`;
-            }
-
-            // Analyze candidate using Gemini
-            const analysis = await analyzeCandidate(resumeText, job, application);
-            
-            return {
-              ...analysis,
-              candidate_id: application._id,
-              applicant_name: application.name,
-              applicant_email: application.email,
-              application_date: application.appliedAt,
-              resume_filename: application.resumeFilename
-            };
-          } catch (error) {
-            console.error(`Error analyzing candidate ${application.name}:`, error);
-            return {
-              candidate_id: application._id,
-              applicant_name: application.name,
-              applicant_email: application.email,
-              overall_score: 0,
-              skills_score: 0,
-              experience_score: 0,
-              projects_score: 0,
-              strengths: ['Analysis failed'],
-              weaknesses: ['Could not analyze resume'],
-              recommendation: 'ANALYSIS_FAILED: Please review manually',
-              detailed_analysis: 'Failed to analyze this candidate automatically.'
-            };
-          }
-        })
-      );
-
-      // Sort candidates by overall score (highest first)
-      const rankedCandidates = candidateAnalyses.sort((a, b) => b.overall_score - a.overall_score);
-
-      // Generate analysis criteria
-      const criteria = [
-        'Technical Skills Match',
-        'Relevant Experience',
-        'Project Quality',
-        'Education Background',
-        'Communication Skills',
-        'Career Progression'
-      ];
-
-      // Generate summary
-      const topCandidates = rankedCandidates.slice(0, 3);
-      const summary = `Analyzed ${applications.length} candidates. Top 3 scores: ${topCandidates.map(c => `${c.applicant_name} (${c.overall_score}%)`).join(', ')}`;
-
-      await client.close();
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          shortlist: rankedCandidates,
-          totalCandidates: applications.length,
-          criteria: criteria,
-          summary: summary,
-          analyzed_at: new Date().toISOString()
+    return NextResponse.json({
+      success: true,
+      data: {
+        totalCandidates: candidates.length,
+        analyzedCandidates: preFilteredCandidates.length,
+        topCandidates: finalResults.slice(0, 10), // Top 10
+        allRanked: finalResults,
+        processingTime: new Date().toISOString(),
+        jobInfo: {
+          jobId,
+          jobTitle,
+          requirements: jobRequirements
         }
-      });
-
-    } finally {
-      await client.close();
-    }
+      }
+    });
 
   } catch (error) {
-    console.error('❌ AI Shortlisting Error:', error);
+    console.error('❌ Shortlisting error:', error);
     return NextResponse.json({ 
       success: false, 
-      message: 'Failed to analyze candidates', 
+      message: 'Candidate analysis failed', 
       error: error.message 
     }, { status: 500 });
   }
 }
 
-async function analyzeCandidate(resumeText, job, application) {
-  try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const prompt = `
-You are an expert HR recruiter and technical interviewer. Analyze this candidate's resume against the job requirements and provide a detailed scoring and recommendation.
-
-JOB DETAILS:
-Title: ${job.title}
-Description: ${job.description}
-Requirements: ${job.requirements ? job.requirements.join(', ') : 'Not specified'}
-
-CANDIDATE RESUME:
-${resumeText}
-
-CANDIDATE DETAILS:
-Name: ${application.name}
-Email: ${application.email}
-Cover Letter: ${application.coverLetter || 'Not provided'}
-
-Please provide a comprehensive analysis in the following JSON format:
-{
-  "overall_score": [0-100 percentage score],
-  "skills_score": [0-100 percentage for technical skills match],
-  "experience_score": [0-100 percentage for relevant experience],
-  "projects_score": [0-100 percentage for project quality and relevance],
-  "strengths": ["list of 3-5 key strengths"],
-  "weaknesses": ["list of 3-5 areas for improvement"],
-  "recommendation": "HIGHLY_RECOMMENDED | RECOMMENDED | CONSIDER | NOT_RECOMMENDED with brief reason",
-  "detailed_analysis": "Detailed paragraph explaining the scoring and recommendation"
+// Step 1: Fast JavaScript pre-filtering
+async function fastPreFilter(candidates, jobRequirements, jobTitle) {
+  const filtered = [];
+  
+  for (const candidate of candidates) {
+    const score = calculateQuickScore(candidate, jobRequirements, jobTitle);
+    
+    // Only analyze candidates with basic qualification (>30% match)
+    if (score.total >= 30) {
+      filtered.push({
+        ...candidate,
+        quickScore: score
+      });
+    }
+  }
+  
+  // Sort by quick score and take top candidates for AI analysis
+  return filtered
+    .sort((a, b) => b.quickScore.total - a.quickScore.total)
+    .slice(0, 20); // Limit to top 20 for AI analysis
 }
 
-Be thorough but concise. Focus on job-relevant skills, experience, and potential.
-`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    // Extract JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const analysis = JSON.parse(jsonMatch[0]);
-      
-      // Ensure all required fields are present with defaults
-      return {
-        overall_score: analysis.overall_score || 0,
-        skills_score: analysis.skills_score || 0,
-        experience_score: analysis.experience_score || 0,
-        projects_score: analysis.projects_score || 0,
-        strengths: analysis.strengths || ['Analysis incomplete'],
-        weaknesses: analysis.weaknesses || ['Analysis incomplete'],
-        recommendation: analysis.recommendation || 'MANUAL_REVIEW_REQUIRED',
-        detailed_analysis: analysis.detailed_analysis || 'Analysis could not be completed automatically.'
-      };
-    } else {
-      throw new Error('Could not parse AI response');
+// Quick scoring algorithm
+function calculateQuickScore(candidate, jobRequirements, jobTitle) {
+  const resumeText = candidate.resumeText?.toLowerCase() || '';
+  const skills = candidate.skills || [];
+  
+  // Skills matching (50% weight)
+  let skillsScore = 0;
+  let matchedSkills = 0;
+  
+  (jobRequirements || []).forEach(requirement => {
+    const reqLower = requirement.toLowerCase();
+    const hasSkill = skills.some(skill => 
+      skill.toLowerCase().includes(reqLower) || reqLower.includes(skill.toLowerCase())
+    ) || resumeText.includes(reqLower);
+    
+    if (hasSkill) {
+      matchedSkills++;
+      skillsScore += 100 / (jobRequirements?.length || 1);
     }
+  });
+  
+  // Experience level (30% weight)
+  const experienceScore = extractExperienceScore(resumeText, jobTitle);
+  
+  // Education/Keywords (20% weight)
+  const keywordScore = calculateKeywordScore(resumeText, jobTitle, jobRequirements);
+  
+  const total = Math.round(
+    (skillsScore * 0.5) + 
+    (experienceScore * 0.3) + 
+    (keywordScore * 0.2)
+  );
+  
+  return {
+    total,
+    skills: Math.round(skillsScore),
+    experience: experienceScore,
+    keywords: keywordScore,
+    matchedSkills
+  };
+}
 
-  } catch (error) {
-    console.error('Error in candidate analysis:', error);
-    return {
-      overall_score: 0,
-      skills_score: 0,
-      experience_score: 0,
-      projects_score: 0,
-      strengths: ['Analysis failed'],
-      weaknesses: ['Could not analyze'],
-      recommendation: 'ANALYSIS_FAILED',
-      detailed_analysis: 'Failed to analyze candidate automatically.'
-    };
+// Extract experience score from resume text
+function extractExperienceScore(resumeText, jobTitle) {
+  const yearMatches = resumeText.match(/(\d+)[\s-]*(?:years?|yrs?)/gi) || [];
+  const maxYears = Math.max(...yearMatches.map(match => parseInt(match.match(/\d+/)[0])), 0);
+  
+  // Role-specific experience expectations
+  let expectedYears = 3; // Default
+  if (jobTitle.toLowerCase().includes('senior')) expectedYears = 5;
+  if (jobTitle.toLowerCase().includes('lead') || jobTitle.toLowerCase().includes('principal')) expectedYears = 7;
+  if (jobTitle.toLowerCase().includes('junior') || jobTitle.toLowerCase().includes('entry')) expectedYears = 1;
+  
+  // Score based on experience match
+  if (maxYears >= expectedYears) return 100;
+  if (maxYears >= expectedYears * 0.7) return 80;
+  if (maxYears >= expectedYears * 0.5) return 60;
+  if (maxYears > 0) return 40;
+  return 20;
+}
+
+// Calculate keyword relevance score
+function calculateKeywordScore(resumeText, jobTitle, jobRequirements) {
+  const keywords = [
+    ...jobTitle.toLowerCase().split(' '),
+    ...(jobRequirements || []).map(req => req.toLowerCase())
+  ];
+  
+  let found = 0;
+  keywords.forEach(keyword => {
+    if (resumeText.includes(keyword)) found++;
+  });
+  
+  return Math.min(100, (found / keywords.length) * 100);
+}
+
+// Step 2: AI analysis with Gemini
+async function analyzeWithGemini(candidates, jobTitle, jobDescription, jobRequirements) {
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  
+  const results = [];
+  
+  // Process candidates in batches of 5 for efficiency
+  for (let i = 0; i < candidates.length; i += 5) {
+    const batch = candidates.slice(i, i + 5);
+    
+    try {
+      const batchResults = await analyzeBatch(model, batch, jobTitle, jobDescription, jobRequirements);
+      results.push(...batchResults);
+    } catch (error) {
+      console.error(`❌ Batch ${i/5 + 1} failed:`, error.message);
+      // Add candidates with fallback scores
+      batch.forEach(candidate => {
+        results.push({
+          ...candidate,
+          aiScore: candidate.quickScore.total,
+          aiAnalysis: 'AI analysis failed, using quick score',
+          strengths: ['Quick analysis completed'],
+          weaknesses: ['Detailed analysis unavailable'],
+          recommendation: 'REVIEW_MANUALLY'
+        });
+      });
+    }
   }
+  
+  return results;
+}
+
+// Analyze batch of candidates with Gemini
+async function analyzeBatch(model, candidates, jobTitle, jobDescription, jobRequirements) {
+  const prompt = `You are an expert HR recruiter and technical interviewer. Analyze these ${candidates.length} candidates for the ${jobTitle} position and provide detailed scoring and recommendations.
+
+JOB DETAILS:
+Title: ${jobTitle}
+Description: ${jobDescription}
+Requirements: ${(jobRequirements || []).join(', ')}
+
+CANDIDATES TO ANALYZE:
+${candidates.map((candidate, index) => `
+CANDIDATE ${index + 1}:
+Name: ${candidate.name || 'Anonymous'}
+Resume: ${candidate.resumeText?.substring(0, 1000) || 'No resume text'}
+Skills: ${(candidate.skills || []).join(', ')}
+Quick Score: ${candidate.quickScore?.total || 0}%
+`).join('\n')}
+
+For each candidate, provide a JSON response with this exact structure:
+
+{
+  "candidates": [
+    {
+      "candidateIndex": 1,
+      "overallScore": 85,
+      "skillsMatch": 90,
+      "experienceMatch": 80,
+      "projectsScore": 85,
+      "strengths": ["Strong React skills", "5+ years experience"],
+      "weaknesses": ["Missing Docker experience", "No cloud platform knowledge"],
+      "recommendation": "STRONG_HIRE|HIRE|MAYBE|REJECT",
+      "reasoning": "Detailed explanation of scoring and recommendation",
+      "keySkillsFound": ["React", "JavaScript", "Node.js"],
+      "missingCriticalSkills": ["Docker", "AWS"]
+    }
+  ]
+}
+
+SCORING CRITERIA:
+- Skills Match (40%): How well candidate's skills align with job requirements
+- Experience Match (35%): Years and relevance of experience
+- Projects Quality (25%): Complexity and relevance of projects mentioned
+
+RECOMMENDATIONS:
+- STRONG_HIRE: 85-100% - Exceptional candidate, immediate hire
+- HIRE: 70-84% - Good candidate, recommend for interview
+- MAYBE: 50-69% - Potential candidate, needs further evaluation
+- REJECT: <50% - Not suitable for this role
+
+Respond ONLY with valid JSON.`;
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  const text = response.text();
+  
+  try {
+    const analysis = JSON.parse(text);
+    
+    // Map AI results back to candidates
+    return candidates.map((candidate, index) => {
+      const aiResult = analysis.candidates?.find(c => c.candidateIndex === index + 1) || {
+        overallScore: candidate.quickScore?.total || 0,
+        recommendation: 'REVIEW_MANUALLY',
+        reasoning: 'AI analysis parsing failed'
+      };
+      
+      return {
+        ...candidate,
+        aiScore: aiResult.overallScore,
+        skillsMatch: aiResult.skillsMatch || 0,
+        experienceMatch: aiResult.experienceMatch || 0,
+        projectsScore: aiResult.projectsScore || 0,
+        strengths: aiResult.strengths || [],
+        weaknesses: aiResult.weaknesses || [],
+        recommendation: aiResult.recommendation || 'REVIEW_MANUALLY',
+        reasoning: aiResult.reasoning || 'No detailed analysis available',
+        keySkillsFound: aiResult.keySkillsFound || [],
+        missingCriticalSkills: aiResult.missingCriticalSkills || []
+      };
+    });
+    
+  } catch (parseError) {
+    console.error('❌ Failed to parse Gemini response:', parseError);
+    
+    // Fallback to quick scores
+    return candidates.map(candidate => ({
+      ...candidate,
+      aiScore: candidate.quickScore?.total || 0,
+      recommendation: candidate.quickScore?.total >= 70 ? 'HIRE' : 'MAYBE',
+      reasoning: 'AI parsing failed, using quick score analysis'
+    }));
+  }
+}
+
+// Step 3: Format final results
+function formatResults(rankedCandidates, totalCandidates) {
+  return rankedCandidates
+    .sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0))
+    .map((candidate, index) => ({
+      rank: index + 1,
+      candidateId: candidate.id || candidate._id,
+      name: candidate.name || 'Anonymous',
+      email: candidate.email,
+      score: candidate.aiScore || candidate.quickScore?.total || 0,
+      recommendation: candidate.recommendation || 'REVIEW_MANUALLY',
+      
+      // Detailed scores
+      breakdown: {
+        skills: candidate.skillsMatch || candidate.quickScore?.skills || 0,
+        experience: candidate.experienceMatch || candidate.quickScore?.experience || 0,
+        projects: candidate.projectsScore || 0,
+        overall: candidate.aiScore || candidate.quickScore?.total || 0
+      },
+      
+      // Key insights
+      strengths: candidate.strengths || [],
+      weaknesses: candidate.weaknesses || [],
+      keySkillsFound: candidate.keySkillsFound || [],
+      missingCriticalSkills: candidate.missingCriticalSkills || [],
+      
+      // Analysis
+      reasoning: candidate.reasoning || 'Quick analysis completed',
+      
+      // Metadata
+      processedWith: candidate.aiScore ? 'AI' : 'QuickScore',
+      appliedAt: candidate.appliedAt || candidate.createdAt,
+      resumePath: candidate.resumePath
+    }));
 }

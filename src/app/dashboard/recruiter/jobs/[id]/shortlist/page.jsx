@@ -18,7 +18,11 @@ import {
   ArrowLeft,
   RefreshCw,
   Download,
-  Filter
+  Filter,
+  Eye,
+  Star,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import {
@@ -37,18 +41,31 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import InterviewSchedulingDialog from "@/components/InterviewSchedulingDialog";
 
 export default function AIShortlistPage() {
   const params = useParams();
   const router = useRouter();
   const [job, setJob] = useState(null);
-  const [shortlistResults, setShortlistResults] = useState(null);
+  const [candidates, setCandidates] = useState([]);
+  const [aiResults, setAiResults] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState(null);
-  const [updatingStatus, setUpdatingStatus] = useState({});  const [filter, setFilter] = useState('all');
+  const [updatingStatus, setUpdatingStatus] = useState({});
+  const [filter, setFilter] = useState('all');
+  
+  // Interview scheduling
+  const [interviewDialogOpen, setInterviewDialogOpen] = useState(false);
+  const [candidateForInterview, setCandidateForInterview] = useState(null);
+  
+  // Resume viewer
+  const [resumeViewerOpen, setResumeViewerOpen] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [loadingResume, setLoadingResume] = useState(false);
 
   useEffect(() => {
+    console.log('🚀 Shortlist page mounted with jobId:', params.id);
     if (params.id) {
       fetchJobAndAnalyze();
     }
@@ -59,70 +76,176 @@ export default function AIShortlistPage() {
       setLoading(true);
       setError(null);
 
-      // Fetch job details
-      const jobResponse = await fetch(`/api/jobs/${params.id}`);
-      if (!jobResponse.ok) {
-        throw new Error('Job not found');
+      const token = localStorage.getItem('token');
+      console.log('🔍 Frontend token check:', token ? 'Token exists' : 'No token found');
+      
+      if (!token) {
+        setError('Authentication required. Please log in again.');
+        return;
       }
+
+      // Fetch job details
+      console.log('📤 Fetching job details...');
+      const jobResponse = await fetch(`/api/jobs/${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!jobResponse.ok) {
+        if (jobResponse.status === 401) {
+          setError('Authentication expired. Please log in again.');
+          return;
+        }
+        throw new Error(`Job not found (${jobResponse.status})`);
+      }
+      
       const jobData = await jobResponse.json();
       setJob(jobData.job || jobData);
+      console.log('✅ Job details fetched:', jobData.job?.title || jobData.title);
 
-      // Start AI analysis
-      await performAIAnalysis(params.id);
+      // Fetch candidates/applications
+      console.log('📤 Fetching candidates...');
+      const candidatesResponse = await fetch(`/api/applications?jobId=${params.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (candidatesResponse.ok) {
+        const candidatesData = await candidatesResponse.json();
+        const candidatesList = candidatesData.applications || candidatesData.data || [];
+        setCandidates(candidatesList);
+        console.log('✅ Candidates fetched:', candidatesList.length);
+
+        // Start AI analysis if we have candidates
+        if (candidatesList.length > 0) {
+          await performAIAnalysis(jobData.job || jobData, candidatesList);
+        } else {
+          console.log('ℹ️ No candidates found for this job');
+        }
+      } else {
+        console.warn('⚠️ Failed to fetch candidates:', candidatesResponse.status);
+        // Continue without candidates - maybe use mock data for testing
+        setCandidates([]);
+      }
 
     } catch (error) {
-      console.error('Error fetching job:', error);
+      console.error('❌ Error fetching data:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const performAIAnalysis = async (jobId) => {
+  const performAIAnalysis = async (jobData, candidatesList) => {
     try {
       setAnalyzing(true);
       
       const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      console.log('🔍 Token check:', token ? `Token exists (${token.substring(0, 20)}...)` : 'No token found');
+      console.log('🔍 Full token for debugging:', token);
+      
+      if (!token) {
+        throw new Error('No authentication token found. Please log in again.');
       }
+      
+      // Prepare candidates data for AI analysis
+      const candidatesForAI = candidatesList.map(candidate => ({
+        id: candidate._id,
+        name: getApplicantFullName(candidate),
+        email: getApplicantEmail(candidate),
+        skills: getApplicantSkills(candidate).map(s => s.name || s),
+        resumeText: candidate.resumeText || `${getApplicantFullName(candidate)} - Applied for ${jobData.title}`,
+        appliedAt: candidate.appliedAt || candidate.createdAt,
+        resumePath: candidate.resumeUsed || candidate.resumePath
+      }));
 
-      const response = await fetch('/api/ai/shortlist-candidates', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ jobId })
+      console.log('📤 Sending AI analysis request:', {
+        jobId: jobData._id || jobData.id,
+        jobTitle: jobData.title,
+        candidateCount: candidatesForAI.length,
+        candidatesData: candidatesForAI
       });
+
+      const response = await fetch('/api/shortlist-candidates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          jobId: jobData._id || jobData.id,
+          jobTitle: jobData.title,
+          jobDescription: jobData.description,
+          jobRequirements: jobData.requirements || [],
+          candidates: candidatesForAI
+        })
+      });
+
+      console.log('📊 AI API Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to analyze candidates');
+        console.error('❌ AI API Error:', errorData);
+        throw new Error(errorData.message || `API request failed with status ${response.status}`);
       }
 
       const data = await response.json();
-      setShortlistResults(data);
+      console.log('✅ AI Analysis completed:', data);
+      setAiResults(data.data);
 
     } catch (error) {
-      console.error('AI Analysis Error:', error);
+      console.error('❌ AI Analysis Error:', error);
       setError(error.message);
     } finally {
       setAnalyzing(false);
     }
   };
 
+
+
+  // Helper functions to get applicant data consistently
+  const getApplicantData = (candidate) => {
+    return candidate?.applicant || candidate?.applicantDetails;
+  };
+
+  const getApplicantFullName = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    if (applicantData?.firstName && applicantData?.lastName) {
+      return `${applicantData.firstName} ${applicantData.lastName}`;
+    }
+    return applicantData?.personal?.name || 'Candidate';
+  };
+
+  const getApplicantEmail = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    return applicantData?.email || applicantData?.personal?.email || 'N/A';
+  };
+
+  const getApplicantSkills = (candidate) => {
+    const applicantData = getApplicantData(candidate);
+    return applicantData?.skills || applicantData?.professional?.skills || [];
+  };
+
   const updateApplicationStatus = async (candidateId, newStatus) => {
+    // If status is interview, open the interview scheduling dialog
+    if (newStatus === 'interview') {
+      const candidate = candidates.find(c => c._id === candidateId);
+      if (candidate) {
+        setCandidateForInterview(candidate);
+        setInterviewDialogOpen(true);
+      }
+      return;
+    }
+
     setUpdatingStatus(prev => ({ ...prev, [candidateId]: true }));
     
     try {
       const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const response = await fetch(`/api/applications/${candidateId}/status`, {
+      
+      const response = await fetch(`/api/applications/${candidateId}`, {
         method: 'PATCH',
-        headers: headers,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ status: newStatus })
       });
 
@@ -131,17 +254,11 @@ export default function AIShortlistPage() {
       }
 
       // Update local state
-      setShortlistResults(prev => ({
-        ...prev,
-        data: {
-          ...prev.data,
-          shortlist: prev.data.shortlist.map(candidate => 
-            candidate.candidate_id === candidateId 
-              ? { ...candidate, application_status: newStatus }
-              : candidate
-          )
-        }
-      }));
+      setCandidates(prev => 
+        prev.map(candidate => 
+          candidate._id === candidateId ? { ...candidate, status: newStatus } : candidate
+        )
+      );
 
     } catch (error) {
       console.error('Error updating status:', error);
@@ -151,11 +268,93 @@ export default function AIShortlistPage() {
     }
   };
 
+  const handleScheduleInterview = async (interviewData) => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('/api/applications/schedule-interview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(interviewData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to schedule interview');
+      }
+
+      // Update local state
+      setCandidates(prev => 
+        prev.map(candidate => 
+          candidate._id === interviewData.applicationId 
+            ? { ...candidate, status: 'interview' } 
+            : candidate
+        )
+      );
+
+      alert('Interview scheduled successfully!');
+      return await response.json();
+    } catch (error) {
+      console.error('Error scheduling interview:', error);
+      throw error;
+    }
+  };
+
+  const handleViewResume = async (candidate) => {
+    setLoadingResume(true);
+    try {
+      const resumePath = candidate.resumeUsed || candidate.resumePath || candidate.resumeUrl;
+      
+      if (!resumePath) {
+        alert('No resume found for this candidate.');
+        return;
+      }
+
+      const filename = resumePath.split('/').pop();
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`/api/download/resume/${filename}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setResumeUrl(url);
+        setResumeViewerOpen(true);
+      } else {
+        alert('Failed to load resume. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error loading resume:', error);
+      alert('An error occurred while loading the resume.');
+    } finally {
+      setLoadingResume(false);
+    }
+  };
+
   const getRecommendationColor = (recommendation) => {
-    if (recommendation?.includes('HIGHLY_RECOMMENDED')) return 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800';
-    if (recommendation?.includes('RECOMMENDED')) return 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800';
-    if (recommendation?.includes('CONSIDER')) return 'text-yellow-600 bg-yellow-50 border-yellow-200 dark:text-yellow-400 dark:bg-yellow-900/20 dark:border-yellow-800';
-    return 'text-red-600 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-900/20 dark:border-red-800';
+    switch (recommendation) {
+      case 'STRONG_HIRE': return 'bg-green-500 text-white';
+      case 'HIRE': return 'bg-blue-500 text-white';
+      case 'MAYBE': return 'bg-yellow-500 text-white';
+      case 'REJECT': return 'bg-red-500 text-white';
+      default: return 'bg-gray-500 text-white';
+    }
+  };
+
+  const getRecommendationIcon = (recommendation) => {
+    switch (recommendation) {
+      case 'STRONG_HIRE': return <Star className="w-4 h-4" />;
+      case 'HIRE': return <CheckCircle className="w-4 h-4" />;
+      case 'MAYBE': return <AlertCircle className="w-4 h-4" />;
+      case 'REJECT': return <XCircle className="w-4 h-4" />;
+      default: return <Eye className="w-4 h-4" />;
+    }
   };
 
   const getScoreColor = (score) => {
@@ -167,21 +366,35 @@ export default function AIShortlistPage() {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'shortlisted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'under_review': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'interviewed': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'accepted': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'interview': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
+      case 'reviewing': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'rejected': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
-  const filteredCandidates = shortlistResults?.data?.shortlist?.filter(candidate => {
+  // Merge AI results with candidate data
+  const enrichedCandidates = candidates.map(candidate => {
+    const aiResult = aiResults?.topCandidates?.find(ai => ai.candidateId === candidate._id);
+    return {
+      ...candidate,
+      aiScore: aiResult?.score || 0,
+      aiRecommendation: aiResult?.recommendation || 'REVIEW_MANUALLY',
+      aiStrengths: aiResult?.strengths || [],
+      aiWeaknesses: aiResult?.weaknesses || [],
+      aiReasoning: aiResult?.reasoning || 'No AI analysis available',
+      aiBreakdown: aiResult?.breakdown || { skills: 0, experience: 0, projects: 0 }
+    };
+  });
+
+  const filteredCandidates = enrichedCandidates.filter(candidate => {
     if (filter === 'all') return true;
-    if (filter === 'high') return candidate.overall_score >= 70;
-    if (filter === 'medium') return candidate.overall_score >= 50 && candidate.overall_score < 70;
-    if (filter === 'low') return candidate.overall_score < 50;
+    if (filter === 'high') return candidate.aiScore >= 70;
+    if (filter === 'medium') return candidate.aiScore >= 50 && candidate.aiScore < 70;
+    if (filter === 'low') return candidate.aiScore < 50;
     return true;
-  }) || [];
+  }).sort((a, b) => b.aiScore - a.aiScore); // Sort by AI score descending
 
   if (loading) {
     return (
@@ -264,6 +477,16 @@ export default function AIShortlistPage() {
                 <RefreshCw className={`h-4 w-4 mr-2 ${analyzing ? 'animate-spin' : ''}`} />
                 {analyzing ? 'Analyzing...' : 'Refresh Analysis'}
               </Button>
+              {candidates.length > 0 && !aiResults && !analyzing && (
+                <Button 
+                  onClick={() => performAIAnalysis(job, candidates)} 
+                  variant="default"
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Brain className="h-4 w-4 mr-2" />
+                  Start AI Analysis
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -285,41 +508,41 @@ export default function AIShortlistPage() {
           </Card>
         )}
 
-        {shortlistResults?.data && (
+        {candidates.length > 0 ? (
           <>
             {/* Analysis Overview */}
             <Card className="mb-6 border-border">
               <CardHeader>
-                <CardTitle className="text-xl text-foreground">Analysis Overview</CardTitle>
+                <CardTitle className="text-xl text-foreground">AI Analysis Overview</CardTitle>
                 <CardDescription>
-                  {shortlistResults.data.summary}
+                  Intelligent candidate ranking and insights for {job?.title}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {shortlistResults.data.totalCandidates}
+                      {candidates.length}
                     </div>
                     <div className="text-sm text-muted-foreground">Total Candidates</div>
                   </div>
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {shortlistResults.data.shortlist?.filter(c => c.overall_score >= 70).length || 0}
+                      {enrichedCandidates.filter(c => c.aiRecommendation === 'STRONG_HIRE').length}
                     </div>
-                    <div className="text-sm text-muted-foreground">Strong Matches</div>
+                    <div className="text-sm text-muted-foreground">Strong Hire</div>
+                  </div>
+                  <div className="text-center p-4 bg-muted/50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {enrichedCandidates.filter(c => c.aiRecommendation === 'HIRE').length}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Hire</div>
                   </div>
                   <div className="text-center p-4 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                      {shortlistResults.data.shortlist?.filter(c => c.overall_score >= 50 && c.overall_score < 70).length || 0}
+                      {enrichedCandidates.filter(c => c.aiRecommendation === 'MAYBE').length}
                     </div>
-                    <div className="text-sm text-muted-foreground">Potential Matches</div>
-                  </div>
-                  <div className="text-center p-4 bg-muted/50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                      {new Date().toLocaleDateString()}
-                    </div>
-                    <div className="text-sm text-muted-foreground">Analysis Date</div>
+                    <div className="text-sm text-muted-foreground">Maybe</div>
                   </div>
                 </div>
               </CardContent>
@@ -356,26 +579,26 @@ export default function AIShortlistPage() {
             {filteredCandidates.length > 0 ? (
               <div className="space-y-6">
                 {filteredCandidates.map((candidate, index) => (
-                  <Card key={candidate.candidate_id} className="border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-200 border-border">
+                  <Card key={candidate._id} className="border-l-4 border-l-blue-500 hover:shadow-lg transition-all duration-200 border-border">
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <CardTitle className="text-lg flex items-center gap-3 text-foreground">
                             <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-sm">
-                              #{shortlistResults.data.shortlist.findIndex(c => c.candidate_id === candidate.candidate_id) + 1}
+                              #{index + 1}
                             </div>
-                            {candidate.applicant_name}
+                            {getApplicantFullName(candidate)}
                           </CardTitle>
                           <CardDescription className="flex items-center gap-4 mt-2 text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Mail className="h-4 w-4" />
-                              {candidate.applicant_email}
+                              {getApplicantEmail(candidate)}
                             </span>
                             <span className="flex items-center gap-1">
                               <Calendar className="h-4 w-4" />
-                              {new Date(candidate.application_date).toLocaleDateString()}
+                              {new Date(candidate.appliedAt || candidate.createdAt).toLocaleDateString()}
                             </span>
-                            {candidate.resume_filename && (
+                            {(candidate.resumeUsed || candidate.resumePath) && (
                               <span className="flex items-center gap-1">
                                 <FileText className="h-4 w-4" />
                                 Resume Available
@@ -386,62 +609,18 @@ export default function AIShortlistPage() {
                         
                         <div className="flex items-center gap-3">
                           <div className="text-right mr-4">
-                            <div className={`text-3xl font-bold ${getScoreColor(candidate.overall_score)}`}>
-                              {candidate.overall_score}%
+                            <div className={`text-3xl font-bold ${getScoreColor(candidate.aiScore)}`}>
+                              {candidate.aiScore}%
                             </div>
-                            <div className="text-sm text-muted-foreground">Overall Match</div>
+                            <div className="text-sm text-muted-foreground">AI Score</div>
                           </div>
                           
                           <Badge 
-                            variant="outline" 
-                            className={getRecommendationColor(candidate.recommendation)}
+                            className={`${getRecommendationColor(candidate.aiRecommendation)} flex items-center gap-1`}
                           >
-                            {candidate.recommendation?.split('_')[0] || 'REVIEW'}
+                            {getRecommendationIcon(candidate.aiRecommendation)}
+                            {candidate.aiRecommendation.replace('_', ' ')}
                           </Badge>
-
-                          {/* Status Update Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                disabled={updatingStatus[candidate.candidate_id]}
-                                className={getStatusColor(candidate.application_status || 'pending')}
-                              >
-                                {updatingStatus[candidate.candidate_id] ? (
-                                  <Clock className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <>
-                                    {candidate.application_status || 'pending'}
-                                    <ChevronDown className="h-4 w-4 ml-1" />
-                                  </>
-                                )}
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                              <DropdownMenuItem 
-                                onClick={() => updateApplicationStatus(candidate.candidate_id, 'under_review')}
-                              >
-                                Under Review
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => updateApplicationStatus(candidate.candidate_id, 'shortlisted')}
-                              >
-                                Shortlisted
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => updateApplicationStatus(candidate.candidate_id, 'interviewed')}
-                              >
-                                Interviewed
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => updateApplicationStatus(candidate.candidate_id, 'rejected')}
-                                className="text-red-600 dark:text-red-400"
-                              >
-                                Rejected
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         </div>
                       </div>
                     </CardHeader>
@@ -450,37 +629,37 @@ export default function AIShortlistPage() {
                       {/* Score Breakdown */}
                       <div className="grid grid-cols-3 gap-4 mb-6">
                         <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{candidate.skills_score || 0}%</div>
+                          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{candidate.aiBreakdown.skills}%</div>
                           <div className="text-sm text-muted-foreground">Skills Match</div>
-                          <Progress value={candidate.skills_score || 0} className="mt-2 h-2" />
+                          <Progress value={candidate.aiBreakdown.skills} className="mt-2 h-2" />
                         </div>
                         <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{candidate.experience_score || 0}%</div>
+                          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{candidate.aiBreakdown.experience}%</div>
                           <div className="text-sm text-muted-foreground">Experience</div>
-                          <Progress value={candidate.experience_score || 0} className="mt-2 h-2" />
+                          <Progress value={candidate.aiBreakdown.experience} className="mt-2 h-2" />
                         </div>
                         <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{candidate.projects_score || 0}%</div>
+                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{candidate.aiBreakdown.projects}%</div>
                           <div className="text-sm text-muted-foreground">Projects</div>
-                          <Progress value={candidate.projects_score || 0} className="mt-2 h-2" />
+                          <Progress value={candidate.aiBreakdown.projects} className="mt-2 h-2" />
                         </div>
                       </div>
 
                       {/* Strengths and Weaknesses */}
-                      <div className="grid md:grid-cols-2 gap-6 mb-4">
+                      <div className="grid md:grid-cols-2 gap-6 mb-6">
                         <div>
                           <h4 className="font-semibold text-green-600 dark:text-green-400 mb-3 flex items-center gap-2">
                             <Award className="h-4 w-4" />
                             Key Strengths
                           </h4>
                           <ul className="space-y-2">
-                            {candidate.strengths?.length > 0 ? candidate.strengths.map((strength, idx) => (
+                            {candidate.aiStrengths?.length > 0 ? candidate.aiStrengths.map((strength, idx) => (
                               <li key={idx} className="text-sm flex items-start gap-2">
                                 <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
                                 <span className="text-foreground">{strength}</span>
                               </li>
                             )) : (
-                              <li className="text-sm text-muted-foreground">No strengths listed</li>
+                              <li className="text-sm text-muted-foreground">Analysis in progress...</li>
                             )}
                           </ul>
                         </div>
@@ -490,25 +669,107 @@ export default function AIShortlistPage() {
                             Areas for Growth
                           </h4>
                           <ul className="space-y-2">
-                            {candidate.weaknesses?.length > 0 ? candidate.weaknesses.map((weakness, idx) => (
+                            {candidate.aiWeaknesses?.length > 0 ? candidate.aiWeaknesses.map((weakness, idx) => (
                               <li key={idx} className="text-sm flex items-start gap-2">
                                 <XCircle className="h-4 w-4 text-orange-500 mt-0.5 flex-shrink-0" />
                                 <span className="text-foreground">{weakness}</span>
                               </li>
                             )) : (
-                              <li className="text-sm text-muted-foreground">No growth areas listed</li>
+                              <li className="text-sm text-muted-foreground">Analysis in progress...</li>
                             )}
                           </ul>
                         </div>
                       </div>
 
                       {/* AI Recommendation */}
-                      <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800 mb-6">
                         <h4 className="font-semibold mb-2 flex items-center gap-2 text-foreground">
                           <Brain className="h-4 w-4 text-blue-500" />
                           AI Recommendation
                         </h4>
-                        <p className="text-sm text-foreground">{candidate.detailed_analysis || candidate.recommendation}</p>
+                        <p className="text-sm text-foreground">{candidate.aiReasoning}</p>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => handleViewResume(candidate)}
+                            disabled={loadingResume}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            {loadingResume ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                            View Resume
+                          </Button>
+                          
+                          <Button
+                            onClick={() => {
+                              const filename = (candidate.resumeUsed || candidate.resumePath || '').split('/').pop();
+                              if (filename) {
+                                const link = document.createElement('a');
+                                link.href = `/api/download/resume/${filename}`;
+                                link.download = filename;
+                                link.click();
+                              }
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2"
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </Button>
+                        </div>
+
+                        {/* Status Update Dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              disabled={updatingStatus[candidate._id]}
+                              className={getStatusColor(candidate.status || 'pending')}
+                            >
+                              {updatingStatus[candidate._id] ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <>
+                                  {candidate.status || 'pending'}
+                                  <ChevronDown className="h-4 w-4 ml-1" />
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent>
+                            <DropdownMenuItem 
+                              onClick={() => updateApplicationStatus(candidate._id, 'reviewing')}
+                            >
+                              Under Review
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => updateApplicationStatus(candidate._id, 'interview')}
+                            >
+                              Schedule Interview
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => updateApplicationStatus(candidate._id, 'accepted')}
+                            >
+                              Accept
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => updateApplicationStatus(candidate._id, 'rejected')}
+                              className="text-red-600 dark:text-red-400"
+                            >
+                              Reject
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardContent>
                   </Card>
@@ -538,6 +799,68 @@ export default function AIShortlistPage() {
               </Card>
             )}
           </>
+        ) : (
+          !loading && (
+            <Card className="border-border">
+              <CardContent className="text-center py-12">
+                <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">No Applications Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  No candidates have applied for this job position yet.
+                </p>
+                <Button 
+                  onClick={() => router.back()} 
+                  variant="outline"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Jobs
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        )}
+
+        {/* Interview Scheduling Dialog */}
+        {candidateForInterview && (
+          <InterviewSchedulingDialog
+            isOpen={interviewDialogOpen}
+            onClose={() => {
+              setInterviewDialogOpen(false);
+              setCandidateForInterview(null);
+            }}
+            candidate={candidateForInterview}
+            job={job}
+            onSchedule={handleScheduleInterview}
+          />
+        )}
+
+        {/* Resume Viewer Dialog */}
+        {resumeViewerOpen && (
+          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl max-h-[90vh] w-full overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b">
+                <h3 className="text-lg font-semibold">Resume Viewer</h3>
+                <Button
+                  onClick={() => {
+                    setResumeViewerOpen(false);
+                    URL.revokeObjectURL(resumeUrl);
+                    setResumeUrl('');
+                  }}
+                  variant="outline"
+                  size="sm"
+                >
+                  Close
+                </Button>
+              </div>
+              <div className="p-4 h-[80vh]">
+                <iframe
+                  src={resumeUrl}
+                  className="w-full h-full border rounded"
+                  title="Resume Viewer"
+                />
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
