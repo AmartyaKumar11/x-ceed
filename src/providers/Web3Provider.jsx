@@ -39,19 +39,21 @@ function RainbowKitWrapper({ children }) {
   // Determine the current theme
   const currentTheme = theme === 'system' ? systemTheme : theme;
   
-  // Custom theme configuration to match your website
+  // Custom theme configuration to match your website's claymorphism theme
   const customLightTheme = lightTheme({
-    accentColor: '#3b82f6', // Blue accent to match your site
-    accentColorForeground: 'white',
-    borderRadius: 'medium',
+    accentColor: 'oklch(0.5854 0.2041 277.1173)', // Your primary color
+    accentColorForeground: 'oklch(1.0000 0 0)', // White
+    borderRadius: 'large', // Match your border radius
     fontStack: 'system',
+    overlayBlur: 'small',
   });
 
   const customDarkTheme = darkTheme({
-    accentColor: '#3b82f6', // Blue accent to match your site
-    accentColorForeground: 'white',
-    borderRadius: 'medium',
+    accentColor: 'oklch(0.6801 0.1583 276.9349)', // Your dark mode primary
+    accentColorForeground: 'oklch(0.2244 0.0074 67.4370)', // Your dark background
+    borderRadius: 'large', // Match your border radius
     fontStack: 'system',
+    overlayBlur: 'small',
   });
 
   return (

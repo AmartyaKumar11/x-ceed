@@ -80,10 +80,10 @@ export default function PayoutCalculator({
   const getRiskColor = () => {
     const risk = getRiskLevel();
     switch (risk) {
-      case 'LOW': return 'bg-green-100 text-green-800';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
-      case 'HIGH': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'LOW': return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700';
+      case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700';
+      case 'HIGH': return 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700';
+      default: return 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700';
     }
   };
 
@@ -126,15 +126,15 @@ export default function PayoutCalculator({
 
         {/* Time Comparison */}
         <div className="grid grid-cols-2 gap-4">
-          <div className="text-center p-3 bg-blue-50 rounded-lg">
-            <Clock className="h-6 w-6 mx-auto mb-1 text-blue-600" />
-            <p className="text-sm text-blue-600">AI Estimate</p>
-            <p className="font-bold">{formatTime(aiEstimatedTime)}</p>
+          <div className="text-center p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <Clock className="h-6 w-6 mx-auto mb-1 text-blue-600 dark:text-blue-400" />
+            <p className="text-sm text-blue-600 dark:text-blue-300">AI Estimate</p>
+            <p className="font-bold text-blue-900 dark:text-blue-100">{formatTime(aiEstimatedTime)}</p>
           </div>
-          <div className="text-center p-3 bg-purple-50 rounded-lg">
-            <Target className="h-6 w-6 mx-auto mb-1 text-purple-600" />
-            <p className="text-sm text-purple-600">Your Challenge</p>
-            <p className="font-bold">{formatTime(userChallengeTime)}</p>
+          <div className="text-center p-3 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
+            <Target className="h-6 w-6 mx-auto mb-1 text-purple-600 dark:text-purple-400" />
+            <p className="text-sm text-purple-600 dark:text-purple-300">Your Challenge</p>
+            <p className="font-bold text-purple-900 dark:text-purple-100">{formatTime(userChallengeTime)}</p>
           </div>
         </div>
 
@@ -201,23 +201,23 @@ export default function PayoutCalculator({
 
         {/* Completion Status */}
         {actualTime !== null && (
-          <div className={`p-3 rounded-lg ${canComplete ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+          <div className={`p-3 rounded-lg border ${canComplete ? 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800'}`}>
             <div className="flex items-center gap-2">
-              <Award className={`h-5 w-5 ${canComplete ? 'text-green-600' : 'text-red-600'}`} />
-              <span className={`font-semibold ${canComplete ? 'text-green-600' : 'text-red-600'}`}>
+              <Award className={`h-5 w-5 ${canComplete ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+              <span className={`font-semibold ${canComplete ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {canComplete ? 'Eligible for Payout!' : 'Requirements Not Met'}
               </span>
             </div>
             <div className="mt-2 text-sm">
               <div className="flex justify-between">
-                <span>Time Challenge:</span>
-                <span className={actualTime <= userChallengeTime ? 'text-green-600' : 'text-red-600'}>
+                <span className="text-gray-700 dark:text-gray-300">Time Challenge:</span>
+                <span className={actualTime <= userChallengeTime ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                   {actualTime <= userChallengeTime ? '✓ PASS' : '✗ FAIL'}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Quality Requirement:</span>
-                <span className={currentQualityScore >= 60 ? 'text-green-600' : 'text-red-600'}>
+                <span className="text-gray-700 dark:text-gray-300">Quality Requirement:</span>
+                <span className={currentQualityScore >= 60 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
                   {currentQualityScore >= 60 ? '✓ PASS' : '✗ FAIL'}
                 </span>
               </div>
@@ -226,10 +226,10 @@ export default function PayoutCalculator({
         )}
 
         {/* ROI Indicator */}
-        <div className="text-center p-3 bg-gray-50 rounded-lg">
-          <TrendingUp className="h-6 w-6 mx-auto mb-1 text-gray-600" />
-          <p className="text-sm text-gray-600">Return on Investment</p>
-          <p className="font-bold text-lg">
+        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+          <TrendingUp className="h-6 w-6 mx-auto mb-1 text-gray-600 dark:text-gray-400" />
+          <p className="text-sm text-gray-600 dark:text-gray-300">Return on Investment</p>
+          <p className="font-bold text-lg text-gray-900 dark:text-gray-100">
             {((parseFloat(payout.profit) / parseFloat(stakeAmount)) * 100).toFixed(1)}%
           </p>
         </div>

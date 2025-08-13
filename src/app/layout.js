@@ -7,6 +7,7 @@ import "./cursor.css";
 import "./sidebar.css";
 import "./animations.css";
 import "./jobs.css";
+import "./rainbowkit-custom.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Web3Provider } from "@/providers/Web3Provider";

@@ -24,11 +24,14 @@ contract XCeedLearningBets {
     // Platform settings
     uint256 public constant PLATFORM_FEE = 5; // 5% platform fee
     uint256 public constant MIN_QUALITY_SCORE = 60;
+    uint256 public constant MAX_PARTIAL_PAYOUT_PERCENT = 45; // Max 45% of stake for partial completion
+    uint256 public constant MIN_PARTIAL_PAYOUT_PERCENT = 5;  // Min 5% of stake for any completion
     address public owner;
     
     event BetPlaced(uint256 indexed betId, address indexed user, uint256 stake, uint256 multiplier);
     event BetCompleted(uint256 indexed betId, address indexed user, uint256 payout);
     event BetFailed(uint256 indexed betId, address indexed user, string reason);
+    event PartialPayout(uint256 indexed betId, address indexed user, uint256 payout, string reason);
     
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
@@ -94,6 +97,10 @@ contract XCeedLearningBets {
         bet.isCompleted = true;
         bet.isActive = false;
         
+        // Check completion status
+        bool metTimeChallenge = actualTime <= bet.userChallengeTime;
+        bool metQualityRequirement = qualityScore >= bet.qualityThreshold;
+        
         uint256 payout = calculatePayout(betId);
         
         if (payout > 0) {
@@ -101,9 +108,24 @@ contract XCeedLearningBets {
             (bool success, ) = payable(msg.sender).call{value: payout}("");
             require(success, "Payout transfer failed");
             
-            emit BetCompleted(betId, msg.sender, payout);
+            // Emit appropriate event based on completion status
+            if (metTimeChallenge && metQualityRequirement) {
+                emit BetCompleted(betId, msg.sender, payout);
+            } else {
+                // Partial completion - determine reason
+                string memory reason;
+                if (metQualityRequirement && !metTimeChallenge) {
+                    reason = "Quality met, time exceeded";
+                } else if (metTimeChallenge && !metQualityRequirement) {
+                    reason = "Time met, quality insufficient";
+                } else {
+                    reason = "Both time and quality failed";
+                }
+                emit PartialPayout(betId, msg.sender, payout, reason);
+            }
         } else {
-            emit BetFailed(betId, msg.sender, "Conditions not met");
+            // This should rarely happen with partial payout system
+            emit BetFailed(betId, msg.sender, "No payout calculated");
         }
     }
     
@@ -132,25 +154,87 @@ contract XCeedLearningBets {
         bool metTimeChallenge = bet.actualCompletionTime <= bet.userChallengeTime;
         bool metQualityRequirement = bet.qualityScore >= bet.qualityThreshold;
         
-        if (!metTimeChallenge || !metQualityRequirement) {
-            // Failed to meet conditions - lose stake
-            return 0;
+        // FULL SUCCESS: Both conditions met
+        if (metTimeChallenge && metQualityRequirement) {
+            // Calculate full payout with multiplier
+            uint256 basePayout = (bet.stakeAmount * bet.multiplier) / 100;
+            
+            // Quality bonus: extra 10% if quality score >= 80
+            if (bet.qualityScore >= 80) {
+                basePayout = (basePayout * 110) / 100;
+            }
+            
+            // Platform fee
+            uint256 platformFee = (basePayout * PLATFORM_FEE) / 100;
+            uint256 finalPayout = basePayout - platformFee;
+            
+            // Ensure contract has enough balance
+            return finalPayout > address(this).balance ? address(this).balance : finalPayout;
         }
         
-        // Calculate base payout
-        uint256 basePayout = (bet.stakeAmount * bet.multiplier) / 100;
+        // PARTIAL SUCCESS: Calculate partial payout (always less than original stake)
+        return calculatePartialPayout(betId, metTimeChallenge, metQualityRequirement);
+    }
+    
+    function calculatePartialPayout(uint256 betId, bool metTimeChallenge, bool metQualityRequirement) 
+        internal view returns (uint256) {
+        LearningBet storage bet = bets[betId];
+        uint256 partialPayout = 0;
         
-        // Quality bonus: extra 10% if quality score >= 80
-        if (bet.qualityScore >= 80) {
-            basePayout = (basePayout * 110) / 100;
+        // Base partial percentage of original stake
+        uint256 basePartialPercent = 20; // Start with 20% of stake
+        
+        // CASE 1: Met quality but failed time challenge
+        if (metQualityRequirement && !metTimeChallenge) {
+            // Reward quality completion but penalize time failure
+            basePartialPercent = 35; // 35% of original stake
+            
+            // Bonus for high quality even without time success
+            if (bet.qualityScore >= 80) {
+                basePartialPercent = 45; // 45% of original stake
+            } else if (bet.qualityScore >= 70) {
+                basePartialPercent = 40; // 40% of original stake
+            }
         }
         
-        // Platform fee
-        uint256 platformFee = (basePayout * PLATFORM_FEE) / 100;
-        uint256 finalPayout = basePayout - platformFee;
+        // CASE 2: Met time challenge but failed quality requirement
+        else if (metTimeChallenge && !metQualityRequirement) {
+            // Reward time success but penalize quality failure
+            basePartialPercent = 30; // 30% of original stake
+            
+            // Sliding scale based on quality score (minimum 25, below threshold)
+            if (bet.qualityScore >= 50) {
+                basePartialPercent = 35; // 35% of original stake
+            } else if (bet.qualityScore >= 40) {
+                basePartialPercent = 30; // 30% of original stake
+            } else {
+                basePartialPercent = 25; // 25% of original stake
+            }
+        }
         
-        // Ensure contract has enough balance
-        return finalPayout > address(this).balance ? address(this).balance : finalPayout;
+        // CASE 3: Failed both conditions but completed some content
+        else {
+            // Minimal completion reward (encourage future attempts)
+            if (bet.qualityScore >= 30) {
+                basePartialPercent = 15; // 15% of original stake
+            } else if (bet.qualityScore >= 20) {
+                basePartialPercent = 10; // 10% of original stake
+            } else {
+                basePartialPercent = 5;  // 5% of original stake (minimal effort)
+            }
+        }
+        
+        // Calculate partial payout (always less than original stake)
+        partialPayout = (bet.stakeAmount * basePartialPercent) / 100;
+        
+        // Apply platform fee to partial payout too
+        uint256 platformFee = (partialPayout * PLATFORM_FEE) / 100;
+        partialPayout = partialPayout - platformFee;
+        
+        // Ensure partial payout is always less than original stake
+        require(partialPayout < bet.stakeAmount, "Partial payout cannot exceed stake");
+        
+        return partialPayout;
     }
     
     function getUserBets(address user) external view returns (uint256[] memory) {
@@ -159,6 +243,77 @@ contract XCeedLearningBets {
     
     function getBetDetails(uint256 betId) external view returns (LearningBet memory) {
         return bets[betId];
+    }
+    
+    function previewPayout(uint256 betId, uint256 simulatedActualTime, uint256 simulatedQualityScore) 
+        external view returns (uint256 fullPayout, uint256 partialPayout, bool wouldGetFull) {
+        
+        LearningBet storage bet = bets[betId];
+        require(bet.isActive, "Bet is not active");
+        
+        // Simulate the completion conditions
+        bool metTimeChallenge = simulatedActualTime <= bet.userChallengeTime;
+        bool metQualityRequirement = simulatedQualityScore >= bet.qualityThreshold;
+        
+        // Calculate what full payout would be
+        if (metTimeChallenge && metQualityRequirement) {
+            uint256 basePayout = (bet.stakeAmount * bet.multiplier) / 100;
+            
+            if (simulatedQualityScore >= 80) {
+                basePayout = (basePayout * 110) / 100;
+            }
+            
+            uint256 platformFee = (basePayout * PLATFORM_FEE) / 100;
+            fullPayout = basePayout - platformFee;
+            wouldGetFull = true;
+        } else {
+            fullPayout = 0;
+            wouldGetFull = false;
+        }
+        
+        // Calculate partial payout (for comparison)
+        partialPayout = calculatePartialPayoutSimulation(bet, metTimeChallenge, metQualityRequirement, simulatedQualityScore);
+        
+        return (fullPayout, partialPayout, wouldGetFull);
+    }
+    
+    function calculatePartialPayoutSimulation(
+        LearningBet storage bet, 
+        bool metTimeChallenge, 
+        bool metQualityRequirement,
+        uint256 simulatedQualityScore
+    ) internal view returns (uint256) {
+        uint256 basePartialPercent = 20;
+        
+        if (metQualityRequirement && !metTimeChallenge) {
+            basePartialPercent = 35;
+            if (simulatedQualityScore >= 80) {
+                basePartialPercent = 45;
+            } else if (simulatedQualityScore >= 70) {
+                basePartialPercent = 40;
+            }
+        } else if (metTimeChallenge && !metQualityRequirement) {
+            basePartialPercent = 30;
+            if (simulatedQualityScore >= 50) {
+                basePartialPercent = 35;
+            } else if (simulatedQualityScore >= 40) {
+                basePartialPercent = 30;
+            } else {
+                basePartialPercent = 25;
+            }
+        } else {
+            if (simulatedQualityScore >= 30) {
+                basePartialPercent = 15;
+            } else if (simulatedQualityScore >= 20) {
+                basePartialPercent = 10;
+            } else {
+                basePartialPercent = 5;
+            }
+        }
+        
+        uint256 partialPayout = (bet.stakeAmount * basePartialPercent) / 100;
+        uint256 platformFee = (partialPayout * PLATFORM_FEE) / 100;
+        return partialPayout - platformFee;
     }
     
     function getActiveBets(address user) external view returns (uint256[] memory) {

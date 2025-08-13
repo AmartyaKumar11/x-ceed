@@ -551,49 +551,79 @@ export default function VideoPlanPage() {
           </div>
         )}
 
-        {/* Progress Overview */}
+        {/* Progress Overview Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          {/* Total Videos Card */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-primary mb-1">{videoPlan.videos.length}</div>
+              <div className="text-sm text-muted-foreground">Total Videos</div>
+            </CardContent>
+          </Card>
+
+          {/* Completed Videos Card */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-green-600 mb-1">{watchedVideos.size}</div>
+              <div className="text-sm text-muted-foreground">Completed</div>
+            </CardContent>
+          </Card>
+
+          {/* Total Duration Card */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-orange-600 mb-1">{formatDuration(videoPlan.totalDuration)}</div>
+              <div className="text-sm text-muted-foreground">Total Duration</div>
+            </CardContent>
+          </Card>
+
+          {/* Remaining Duration Card */}
+          <Card>
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-blue-600 mb-1">{formatDuration(getRemainingDuration())}</div>
+              <div className="text-sm text-muted-foreground">Remaining</div>
+            </CardContent>
+          </Card>
+
+          {/* Earnings Card - Clickable */}
+          <Card 
+            className="cursor-pointer hover:shadow-lg transition-all duration-200 hover:scale-105 border-purple-200 hover:border-purple-400"
+            onClick={() => router.push('/dashboard/applicant/earnings')}
+            title="Click to view earnings history"
+          >
+            <CardContent className="p-6 text-center">
+              <div className="text-2xl font-bold text-purple-600 mb-1">${calculateEarnings().total.toFixed(2)}</div>
+              <div className="text-sm text-muted-foreground">
+                Earnings 
+                {calculateEarnings().bonus > 0 && (
+                  <div className="text-xs text-green-600">+${calculateEarnings().bonus.toFixed(2)} bonus</div>
+                )}
+                <div className="text-xs text-blue-600 mt-1 flex items-center justify-center gap-1">
+                  <span>👆</span> Click for history
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Overall Progress Card */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
-              Learning Progress
+              Overall Progress
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">{videoPlan.videos.length}</div>
-                <div className="text-sm text-muted-foreground">Total Videos</div>
+            <div className="space-y-4">
+              <div className="flex justify-between text-sm">
+                <span>Completion Progress</span>
+                <span className="font-medium">{Math.round(calculateProgress())}%</span>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{watchedVideos.size}</div>
-                <div className="text-sm text-muted-foreground">Completed</div>
+              <Progress value={calculateProgress()} className="h-3" />
+              <div className="text-center text-sm text-muted-foreground">
+                {watchedVideos.size} of {videoPlan.videos.length} videos completed
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{formatDuration(videoPlan.totalDuration)}</div>
-                <div className="text-sm text-muted-foreground">Total Duration</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{formatDuration(getRemainingDuration())}</div>
-                <div className="text-sm text-muted-foreground">Remaining</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">${calculateEarnings().total.toFixed(2)}</div>
-                <div className="text-sm text-muted-foreground">
-                  Earnings 
-                  {calculateEarnings().bonus > 0 && (
-                    <div className="text-xs text-green-600">+${calculateEarnings().bonus.toFixed(2)} quality bonus</div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-4">
-              <div className="flex justify-between text-sm mb-2">
-                <span>Progress</span>
-                <span>{Math.round(calculateProgress())}%</span>
-              </div>
-              <Progress value={calculateProgress()} className="h-2" />
             </div>
           </CardContent>
         </Card>

@@ -137,10 +137,10 @@ export default function PayoutCalculator({
 
   const getRiskColor = (riskLevel) => {
     switch (riskLevel) {
-      case 'low': return 'text-green-600 bg-green-50 border-green-200';
-      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'high': return 'text-red-600 bg-red-50 border-red-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+      case 'low': return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800';
+      case 'medium': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800';
+      case 'high': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800';
+      default: return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700';
     }
   };
 
@@ -283,17 +283,17 @@ export default function PayoutCalculator({
               {payoutResult && (
                 <div className="space-y-4">
                   {/* Main Payout Display */}
-                  <Card className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+                  <Card className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-950 dark:to-blue-950 border-purple-200 dark:border-purple-800">
                     <CardContent className="pt-6">
                       <div className="text-center space-y-2">
-                        <div className="text-3xl font-bold text-purple-600">
+                        <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
                           {payoutResult.finalMultiplier}x
                         </div>
-                        <div className="text-sm text-muted-foreground">Payout Multiplier</div>
-                        <div className="text-xl font-semibold">
+                        <div className="text-sm text-purple-700 dark:text-purple-300">Payout Multiplier</div>
+                        <div className="text-xl font-semibold text-purple-900 dark:text-purple-100">
                           Win: {formatCurrency(payoutResult.potentialWinnings.expected)}
                         </div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-sm text-purple-600 dark:text-purple-400">
                           From {formatCurrency(stakeAmount)} stake
                         </div>
                       </div>

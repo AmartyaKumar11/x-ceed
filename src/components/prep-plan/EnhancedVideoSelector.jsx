@@ -313,7 +313,7 @@ export default function EnhancedVideoSelector({
                   <Card 
                     key={skill}
                     className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedSkills.includes(skill) ? 'ring-2 ring-purple-500 bg-purple-50' : ''
+                      selectedSkills.includes(skill) ? 'ring-2 ring-purple-500 dark:ring-purple-400 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800' : ''
                     }`}
                     onClick={() => handleSkillToggle(skill)}
                   >
@@ -379,7 +379,7 @@ export default function EnhancedVideoSelector({
                         <Card 
                           key={video.id}
                           className={`cursor-pointer transition-all hover:shadow-md ${
-                            isSelected ? 'ring-2 ring-purple-500 bg-purple-50' : ''
+                            isSelected ? 'ring-2 ring-purple-500 dark:ring-purple-400 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800' : ''
                           }`}
                           onClick={() => toggleVideoSelection(skill, video)}
                         >
@@ -519,10 +519,10 @@ export default function EnhancedVideoSelector({
 
                 <div className="space-y-4">
                   {planPreview && (
-                    <Card className="border-blue-200 bg-blue-50/50">
+                    <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/50">
                       <CardContent className="pt-4">
-                        <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
-                          <Calculator className="h-4 w-4" />
+                        <h4 className="font-semibold text-sm mb-3 flex items-center gap-2 text-blue-900 dark:text-blue-100">
+                          <Calculator className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           Real-time Calculation
                         </h4>
                         <div className="space-y-2 text-sm">
@@ -666,13 +666,13 @@ export default function EnhancedVideoSelector({
               </Card>
 
               {/* Generate Button */}
-              <Card className="border-green-200 bg-green-50/50">
+              <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/50">
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-2 mb-3">
-                    <Award className="h-5 w-5 text-green-600" />
-                    <h4 className="font-semibold text-green-600">Ready to Generate</h4>
+                    <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <h4 className="font-semibold text-green-600 dark:text-green-400">Ready to Generate</h4>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-sm text-green-700 dark:text-green-300 mb-4">
                     Your custom learning plan is configured. Click below to generate the final prep plan
                     with your selected videos and timing.
                   </p>
