@@ -172,3 +172,9 @@ export async function connectDB() {
     throw error;
   }
 }
+
+// Alias for connectDB (for compatibility with existing imports)
+export async function connectToDatabase() {
+  const db = await connectDB();
+  return { db };
+}

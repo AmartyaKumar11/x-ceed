@@ -9,6 +9,7 @@ import "./animations.css";
 import "./jobs.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/components/theme-provider";
+import { Web3Provider } from "@/providers/Web3Provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,8 +38,10 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster />
+          <Web3Provider>
+            {children}
+            <Toaster />
+          </Web3Provider>
         </ThemeProvider>
       </body>
     </html>

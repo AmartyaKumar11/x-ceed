@@ -16,13 +16,17 @@ import {
   Download,
   Brain,
   Shield,
-  AlertTriangle
+  AlertTriangle,
+  Trophy,
+  Coins
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import SmartVideoTracker from "@/components/video/SmartVideoTracker";
+import LearningBetInterface from '@/components/betting/LearningBetInterface';
+import PayoutCalculator from '@/components/betting/PayoutCalculator';
 
 export default function VideoPlanPage() {
   const router = useRouter();
@@ -33,6 +37,11 @@ export default function VideoPlanPage() {
   const [planId, setPlanId] = useState(null);
   const [videoProgress, setVideoProgress] = useState({});
   const [completionData, setCompletionData] = useState({});
+  
+  // Blockchain betting state
+  const [showBetting, setShowBetting] = useState(true); // Show betting by default
+  const [activeBet, setActiveBet] = useState(null);
+  const [estimatedCompletionTime, setEstimatedCompletionTime] = useState(null);
 
   useEffect(() => {
     const loadVideoPlan = async () => {
@@ -81,6 +90,14 @@ export default function VideoPlanPage() {
         } catch (backendError) {
           console.log('⚠️ Backend not available, using localStorage:', backendError);
           // Continue with localStorage data
+        }
+
+        // Calculate AI estimated completion time
+        if (plan && plan.videos) {
+          const estimatedTime = calculateAIEstimatedTime(plan.videos);
+          console.log('🤖 AI Estimated Time:', estimatedTime, 'seconds');
+          console.log('📹 Number of videos:', plan.videos.length);
+          setEstimatedCompletionTime(estimatedTime);
         }
 
         // Fallback: Load watched videos from localStorage if no backend data
@@ -173,6 +190,58 @@ export default function VideoPlanPage() {
         }
       }));
     }
+  };
+
+  // Calculate AI estimated completion time for all videos
+  const calculateAIEstimatedTime = (videos) => {
+    if (!videos || videos.length === 0) return 0;
+    
+    let totalSeconds = 0;
+    videos.forEach(video => {
+      // Extract duration from video.duration (format: "PT4M33S" or similar)
+      const duration = video.duration || '0';
+      const match = duration.match(/PT(?:(\d+)M)?(?:(\d+)S)?/);
+      
+      if (match) {
+        const minutes = parseInt(match[1] || '0', 10);
+        const seconds = parseInt(match[2] || '0', 10);
+        totalSeconds += (minutes * 60) + seconds;
+      } else {
+        // Fallback: estimate based on title/content (average 5 minutes per video)
+        totalSeconds += 300;
+      }
+    });
+    
+    // Add buffer time for learning (20% extra)
+    return Math.floor(totalSeconds * 1.2);
+  };
+
+  // Handle betting functionality
+  const handleBetPlaced = (betData) => {
+    setActiveBet(betData);
+    setShowBetting(false);
+  };
+
+  // Calculate overall quality score from all video completion data
+  const calculateOverallQualityScore = () => {
+    const completedVideos = Object.values(completionData);
+    if (completedVideos.length === 0) return 0;
+    
+    const totalScore = completedVideos.reduce((sum, data) => {
+      return sum + (data.qualityScore || 0);
+    }, 0);
+    
+    return Math.round(totalScore / completedVideos.length);
+  };
+
+  // Calculate actual completion time for all videos
+  const calculateActualCompletionTime = () => {
+    const completedVideos = Object.values(completionData);
+    if (completedVideos.length === 0) return null;
+    
+    return completedVideos.reduce((sum, data) => {
+      return sum + (data.totalWatchTime || 0);
+    }, 0);
   };
 
   const calculateQualityBonus = (completionData) => {
@@ -436,7 +505,51 @@ export default function VideoPlanPage() {
               </p>
             </div>
           </div>
+          
+          {/* Active Bet Display */}
+          <div className="flex gap-3">
+            {activeBet && (
+              <Badge variant="secondary" className="px-3 py-1">
+                <Coins className="h-4 w-4 mr-1" />
+                Active Bet: {activeBet.stakeAmount} EDU
+              </Badge>
+            )}
+          </div>
         </div>
+
+        {/* Betting Interface */}
+        {videoPlan && (
+          <div className="mb-6">
+            {estimatedCompletionTime ? (
+              <LearningBetInterface
+                courseId={planId || 'local-plan'}
+                aiEstimatedTime={estimatedCompletionTime}
+                courseDifficulty={1.2}
+                onBetPlaced={handleBetPlaced}
+              />
+            ) : (
+              <Card className="p-6 text-center">
+                <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                  <Trophy className="h-5 w-5" />
+                  <p>Calculating AI estimated completion time...</p>
+                </div>
+              </Card>
+            )}
+          </div>
+        )}
+
+        {/* Payout Calculator for Active Bet */}
+        {activeBet && (
+          <div className="mb-6">
+            <PayoutCalculator
+              stakeAmount={activeBet.stakeAmount}
+              aiEstimatedTime={estimatedCompletionTime}
+              userChallengeTime={activeBet.challengeTime}
+              currentQualityScore={calculateOverallQualityScore()}
+              actualTime={calculateActualCompletionTime()}
+            />
+          </div>
+        )}
 
         {/* Progress Overview */}
         <Card className="mb-6">
